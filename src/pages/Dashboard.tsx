@@ -1,8 +1,9 @@
 import { useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'motion/react';
-import { useDecks, useDeckSummaries, useStudyStats } from '../state/useData';
+import { useAllCards, useDecks, useDeckSummaries, useStudyStats } from '../state/useData';
 import { StudySignals } from '../components/dashboard/StudySignals';
+import { ReviewHeatmap } from '../components/dashboard/ReviewHeatmap';
 import {
   createDeck,
   createDeckWithCards,
@@ -26,6 +27,7 @@ export function Dashboard() {
   const decks = useDecks();
   const summaries = useDeckSummaries();
   const stats = useStudyStats();
+  const allCards = useAllCards();
   const navigate = useNavigate();
   const { notify } = useToast();
 
@@ -375,6 +377,13 @@ export function Dashboard() {
             </section>
           )}
         </>
+      )}
+
+      {/* Review activity heatmap, for anyone arriving from Anki */}
+      {!selectMode && allCards && allCards.some((c) => c.history.length > 0) && (
+        <div className="mt-10">
+          <ReviewHeatmap cards={allCards} />
+        </div>
       )}
     </div>
   );
