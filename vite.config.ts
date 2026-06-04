@@ -1,10 +1,15 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react-swc';
 import tailwindcss from '@tailwindcss/vite';
+import { version } from './package.json';
 
 // Lacuna is a static, serverless single-page application.
 export default defineConfig({
   plugins: [react(), tailwindcss()],
+  // Surface the package version to the app (used by the diagnostic bundle).
+  define: {
+    __APP_VERSION__: JSON.stringify(version),
+  },
   // Pre-bundle the heavy dependencies up front so the dev server never pauses to
   // re-optimise (and full-page reload) the first time a lazy route pulls one in.
   // Without this, navigating to a route that imports recharts/katex/highlight.js
