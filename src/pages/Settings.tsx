@@ -26,12 +26,17 @@ import {
 import { DownloadIcon, MoonIcon, SunIcon, UploadIcon } from '../components/ui/icons';
 import type { BackupFile } from '../db/types';
 import { formatDate, formatDateTime } from '../utils/datetime';
+import { useGradingMode } from '../state/gradingMode';
+import { useAutoOptimiseDefault } from '../state/optimiseSetting';
+import { MIN_OPTIMISE_REVIEWS } from '../fsrs/optimise';
 
 export function Settings() {
   const { theme, setTheme } = useTheme();
   const { accent, setAccent } = useAccent();
   const { scale, setScale } = useFontScale();
   const { notify } = useToast();
+  const [gradingMode, setGradingMode] = useGradingMode();
+  const [autoOptimise, setAutoOptimise] = useAutoOptimiseDefault();
   const backups = useBackups();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -200,6 +205,47 @@ export function Settings() {
               );
             })}
           </div>
+        </div>
+      </section>
+
+      {/* Study and scheduling */}
+      <section className="mb-8 rounded-2xl border border-line bg-surface p-6">
+        <h2 className="mb-1 font-display text-xl">Study &amp; scheduling</h2>
+        <p className="mb-5 text-sm text-ink-soft">
+          How grades are decided and how the FSRS schedule adapts to you.
+        </p>
+
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <div className="text-sm">Manual four-point grading</div>
+            <p className="mt-1 text-sm text-ink-soft">
+              By default Lacuna grades silently from whether you were right and how long you
+              took, so you only press Yes or No. Turn this on to grade each card yourself with
+              the four FSRS buttons (Again, Hard, Good, Easy) and their keyboard shortcuts.
+            </p>
+          </div>
+          <Toggle
+            checked={gradingMode === 'manual'}
+            onChange={(checked) => setGradingMode(checked ? 'manual' : 'silent')}
+            label="Manual grading"
+          />
+        </div>
+
+        <div className="mt-6 flex items-start justify-between gap-3 border-t border-line pt-5">
+          <div className="min-w-0">
+            <div className="text-sm">Optimise scheduling</div>
+            <p className="mt-1 text-sm text-ink-soft">
+              Fit each deck's FSRS weights to your own review history, which is where most of
+              FSRS's efficiency comes from. On by default. Optimisation only runs once a deck
+              has at least {MIN_OPTIMISE_REVIEWS} reviews, and new weights are never applied
+              without your confirmation. You can override this per deck in its settings.
+            </p>
+          </div>
+          <Toggle
+            checked={autoOptimise}
+            onChange={setAutoOptimise}
+            label="Optimise scheduling"
+          />
         </div>
       </section>
 
