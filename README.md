@@ -29,6 +29,11 @@ export** to back up or move your data as a single JSON file.
 
 ## Getting started
 
+```
+git clone https://github.com/TJ7755/Lacuna.git
+cd Lacuna
+```
+
 ```bash
 npm install
 npm run dev      # start the dev server

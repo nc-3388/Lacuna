@@ -9,22 +9,22 @@ import {
   setCardFlag,
   suspendCard,
   undoReview,
-  type ReviewUndo,
 } from '../db/repository';
+import type { ReviewUndo } from '../db/repository';
 import { emptyPerformance, gradeFromResponse, updatePerformance } from '../fsrs/grading';
 import {
   applyCooldown,
   decrementCooldowns,
-  type CooldownMap,
 } from '../fsrs/cooldown';
+import type { CooldownMap } from '../fsrs/cooldown';
 import { progressHeading, progressNoun } from '../fsrs/objective';
 import {
   makeSessionContext,
   selectNext,
   sessionComplete,
   sessionProgress,
-  type SessionContext,
 } from '../fsrs/session';
+import type { SessionContext } from '../fsrs/session';
 import { startOfDay } from '../utils/datetime';
 import { MS_PER_DAY } from '../fsrs/params';
 import { CardContent } from '../components/cards/CardContent';
@@ -168,6 +168,11 @@ export function LearnMode() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [finish]);
 
+  // Stable ref so the initial-load effect never re-runs just because serveNext's
+  // callback identity changed (which would reset phase and undo reveal/exit).
+  const serveNextRef = useRef(serveNext);
+  serveNextRef.current = serveNext;
+
   // Initial load: read a static snapshot of the deck(s) so the session is stable.
   useEffect(() => {
     let cancelled = false;
@@ -197,7 +202,11 @@ export function LearnMode() {
       const ctx = makeSessionContext(decks, cramMode ? 'cram' : 'objective');
       ctxRef.current = ctx;
       cardsRef.current = cards;
-      setSingleDeck(deckId ? decks[0] : null);
+      setSingleDeck((prev) => {
+        const next = deckId ? decks[0] : null;
+        if (prev?.id === next?.id) return prev;
+        return next;
+      });
 
       if (decks.length === 0 || cards.length === 0) {
         if (deckId) {
@@ -232,13 +241,13 @@ export function LearnMode() {
         });
         setPhase('finished');
       } else {
-        serveNext();
+        serveNextRef.current();
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [deckId, tagFilter, cramMode, navigate, serveNext]);
+  }, [deckId, tagFilter, cramMode, navigate]);
 
   const reveal = useCallback(() => {
     setPhase((p) => {
@@ -817,7 +826,7 @@ function FlipCard({ card, revealed }: { card: Card; revealed: boolean }) {
   return (
     <div
       className="flex flex-1 items-center justify-center"
-      style={{ perspective: 1600 }}
+      style={{ perspective: '1600px' }}
     >
       <div className="w-full" style={{ transformStyle: 'preserve-3d' }}>
         <AnimatePresence mode="wait" initial={false}>
