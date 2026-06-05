@@ -1,5 +1,6 @@
 import { db } from './schema';
 import type { BackupAsset, ImageAsset } from './types';
+import { compressImageBlob } from '../utils/compressImage';
 
 export const ASSET_PROTOCOL = 'lacuna-asset://';
 const DATA_IMAGE_RE = /data:(image\/[a-z0-9.+-]+);base64,([A-Za-z0-9+/=]+)/gi;
@@ -94,6 +95,25 @@ async function assetFromDataUri(uri: string, mimeType: string): Promise<ImageAss
   const base64 = uri.slice(uri.indexOf(',') + 1);
   const bytes = base64ToBytes(base64);
   const blob = bytesToBlob(bytes, mimeType);
+
+  // Compress image assets so the database never stores an uncompressed base64 payload.
+  if (mimeType.startsWith('image/')) {
+    try {
+      const compressed = await compressImageBlob(blob);
+      const hash = await sha256Blob(compressed.blob);
+      return {
+        hash,
+        blob: compressed.blob,
+        mimeType: compressed.blob.type || mimeType,
+        width: compressed.width,
+        height: compressed.height,
+        createdAt: Date.now(),
+      };
+    } catch {
+      // If compression fails, store the original uncompressed blob.
+    }
+  }
+
   const hash = await sha256Blob(blob);
   return { hash, blob, mimeType, width: 0, height: 0, createdAt: Date.now() };
 }
