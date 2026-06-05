@@ -115,12 +115,20 @@ export function App() {
 
         // Request persistent storage once on first run so the browser does not
         // silently evict IndexedDB data under storage pressure.
-        if (!localStorage.getItem('lacuna-persist-requested')) {
-          await requestPersistentStorage();
-          localStorage.setItem('lacuna-persist-requested', '1');
+        try {
+          if (!localStorage.getItem('lacuna-persist-requested')) {
+            await requestPersistentStorage();
+            localStorage.setItem('lacuna-persist-requested', '1');
+          }
+        } catch {
+          // localStorage may be unavailable in private browsing or with storage
+          // restrictions; the app should still initialise without persistence.
         }
 
         await seedIfFirstRun();
+      } catch (error) {
+        // eslint-disable-next-line no-console
+        console.error('Failed to initialise Lacuna:', error);
       } finally {
         setReady(true);
         // Take a daily restore point in the background; never blocks the UI.
