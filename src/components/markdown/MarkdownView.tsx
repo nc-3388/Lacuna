@@ -8,7 +8,8 @@ import rehypeHighlight from 'rehype-highlight';
 import rehypeRaw from 'rehype-raw';
 import { renderClozeBack, renderClozeFront } from './cloze';
 import { cn } from '../ui/cn';
-import { ASSET_PROTOCOL, resolveAssetMarkdown } from '../../db/assets';
+import { ASSET_PROTOCOL } from '../../db/assets';
+import { resolveAssetMarkdownCached } from '../../db/assetCache';
 
 type ClozeMode = 'front' | 'back' | 'none';
 
@@ -77,25 +78,19 @@ export const MarkdownView = memo(function MarkdownView({
 
   useEffect(() => {
     let cancelled = false;
-    let objectUrls: string[] = [];
 
     if (!source.includes(ASSET_PROTOCOL)) {
       setResolved(source);
       return () => {};
     }
 
-    void resolveAssetMarkdown(source).then((result) => {
-      objectUrls = result.objectUrls;
-      if (cancelled) {
-        objectUrls.forEach((url) => URL.revokeObjectURL(url));
-        return;
-      }
-      setResolved(result.markdown);
+    void resolveAssetMarkdownCached(source).then((markdown) => {
+      if (cancelled) return;
+      setResolved(markdown);
     });
 
     return () => {
       cancelled = true;
-      objectUrls.forEach((url) => URL.revokeObjectURL(url));
     };
   }, [source]);
 
