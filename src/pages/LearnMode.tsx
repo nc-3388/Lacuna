@@ -426,7 +426,8 @@ export function LearnMode() {
   }, [current]);
 
   // Keyboard shortcuts:
-  //   question - Space/Up reveals; answer - silent mode uses Yes/No, manual mode uses 1-4.
+  //   question - Space or ArrowUp reveals the answer.
+  //   answer   - silent mode uses Y/N or ArrowRight/ArrowLeft; manual mode uses 1-4.
   //   any time - E edits the current card; U undoes the last answer (when available).
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -472,12 +473,12 @@ export function LearnMode() {
       if (phase === 'question' && (e.code === 'Space' || e.code === 'ArrowUp')) {
         e.preventDefault();
         reveal();
-      } else if (phase === 'answer') {
+      } else      if (phase === 'answer') {
         if (gradingMode === 'manual') {
-          if (k === '1' || k === 'a') answer(1);
-          else if (k === '2' || k === 'h') answer(2);
-          else if (k === '3' || k === 'g') answer(3);
-          else if (k === '4' || k === 'e') answer(4);
+          if (k === '1') answer(1);
+          else if (k === '2') answer(2);
+          else if (k === '3') answer(3);
+          else if (k === '4') answer(4);
         } else if (k === 'y' || k === 'j' || e.code === 'ArrowRight') answer(true);
         else if (k === 'n' || e.code === 'ArrowLeft') answer(false);
       }
