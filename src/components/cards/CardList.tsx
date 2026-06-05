@@ -163,13 +163,26 @@ export function CardList({ cards, deck, allDecks, onNewCard, onEditCard }: CardL
     notify(`${cards.length} card${cards.length === 1 ? '' : 's'} imported.`, 'positive');
   }
 
-  async function handleResume(id: string) {
-    await unsuspendCard(id);
-    notify('Card resumed.', 'positive');
+  async function handleResume(card: Card) {
+    const snapshot = await snapshotCards([card.id]);
+    await unsuspendCard(card.id);
+    notify('Card resumed.', 'neutral', {
+      actionLabel: 'Undo',
+      onAction: () => {
+        void restoreCards(snapshot);
+      },
+    });
   }
 
   async function handleToggleFlag(card: Card) {
+    const snapshot = await snapshotCards([card.id]);
     await setCardFlag(card.id, !card.flagged);
+    notify(card.flagged ? 'Flag removed.' : 'Card flagged.', 'neutral', {
+      actionLabel: 'Undo',
+      onAction: () => {
+        void restoreCards(snapshot);
+      },
+    });
   }
 
   // One-click delete from a card's hover actions, with the same snapshot/undo flow
@@ -410,7 +423,7 @@ export function CardList({ cards, deck, allDecks, onNewCard, onEditCard }: CardL
               selected={selected.has(card.id)}
               onToggle={() => toggle(card.id)}
               onEdit={() => onEditCard(card)}
-              onResume={() => handleResume(card.id)}
+              onResume={() => handleResume(card)}
               onDelete={() => handleDeleteOne(card.id)}
               onToggleFlag={() => handleToggleFlag(card)}
             />
