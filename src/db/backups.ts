@@ -5,6 +5,7 @@
 import { db } from './schema';
 import { exportDatabase, importBackup } from './portability';
 import type { BackupFile, BackupSnapshot } from './types';
+import { scheduleAssetGc } from './assets';
 
 const MAX_RESTORE_POINTS = 10;
 const STALE_MS = 24 * 60 * 60 * 1000; // 24 hours
@@ -59,7 +60,8 @@ async function ensurePermission(handle: DirHandle): Promise<boolean> {
   return false;
 }
 
-async function mirrorToFolder(payload: BackupFile): Promise<void> {
+/** Best-effort folder mirror for a backup payload. Exported so pre-migration snapshots can reuse it. */
+export async function mirrorToFolder(payload: BackupFile): Promise<void> {
   const handle = await getFolderHandle();
   if (!handle) return;
   if (!(await ensurePermission(handle))) return;
@@ -101,6 +103,8 @@ export async function autoBackupIfStale(): Promise<void> {
   const last = await db.backups.orderBy('createdAt').last();
   if (last && Date.now() - last.createdAt < STALE_MS) return;
   await takeAutoBackup();
+  // Sweep orphaned assets once per day alongside the backup.
+  scheduleAssetGc();
 }
 
 /** Replace the whole database from a stored restore point. */

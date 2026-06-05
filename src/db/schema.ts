@@ -1,13 +1,13 @@
-import Dexie, { type Table, type Transaction } from 'dexie';
+import Dexie, { type Table } from 'dexie';
 import type {
   Deck,
   Card,
   SessionHistoryEntry,
   UserPerformance,
-  BackupSnapshot,
   BackupFile,
   AppStateEntry,
   ImageAsset,
+  BackupSnapshot,
 } from './types';
 import {
   migrateCardRecord,
@@ -15,6 +15,8 @@ import {
   type LegacyCard,
   type LegacyDeck,
 } from './migrations';
+import { savePreMigrationSnapshot } from './preMigrationSnapshots';
+import { bytesToBase64 } from './assets';
 
 /**
  * Lacuna's IndexedDB database. A single Dexie instance owns every store.
@@ -100,13 +102,6 @@ export class LacunaDatabase extends Dexie {
         assets: 'hash, createdAt',
       })
       .upgrade(async (tx) => {
-        // Migration safety: take a pre-migration restore point inside the same
-        // transaction, before any card is rewritten, so a failure rolls the whole
-        // thing back and a successful upgrade still leaves a fallback snapshot.
-        // This captures the original (base64-bearing) cards; the assets table is
-        // still empty at this point. See Task 8.
-        await snapshotBeforeUpgrade(tx, 4);
-
         const { extractMarkdownAssets } = await import('./assets');
         // Read, transform (async, extracting images into the asset store), then write
         // back explicitly. We avoid an async `.modify()` callback because mutating the
@@ -127,53 +122,127 @@ export class LacunaDatabase extends Dexie {
   }
 }
 
-/**
- * Capture a full pre-migration restore point within the upgrade transaction, before
- * any record is rewritten. Reuses the BackupSnapshot mechanism and tags the snapshot
- * so the normal daily-snapshot pruning never evicts it. Idempotent: if a
- * pre-migration snapshot for this target version already exists it does nothing.
- */
-export async function snapshotBeforeUpgrade(
-  tx: Transaction,
-  targetVersion: number,
-): Promise<void> {
-  const backups = tx.table('backups');
-  const already = await backups
-    .toCollection()
-    .filter((b: BackupSnapshot) => b.tag === 'pre-migration')
-    .first();
-  if (already) return;
-
-  const [decks, cards, sessionHistory, userPerformance] = await Promise.all([
-    tx.table('decks').toArray(),
-    tx.table('cards').toArray(),
-    tx.table('sessionHistory').toArray(),
-    tx.table('userPerformance').toArray(),
-  ]);
-
-  const payload: BackupFile = {
-    app: 'lacuna',
-    version: targetVersion,
-    exportedAt: Date.now(),
-    decks,
-    cards,
-    // Assets are introduced by this very migration, so none exist yet.
-    assets: [],
-    sessionHistory,
-    userPerformance,
-  };
-
-  const snapshot: BackupSnapshot = {
-    createdAt: Date.now(),
-    tag: 'pre-migration',
-    deckCount: decks.length,
-    cardCount: cards.length,
-    payload,
-  };
-  await backups.add(snapshot);
-}
+export const CURRENT_SCHEMA_VERSION = 4;
 
 export const db = new LacunaDatabase();
+
+async function getCurrentDbVersion(name: string): Promise<number> {
+  if ('databases' in indexedDB) {
+    try {
+      const dbs = await indexedDB.databases();
+      const db = dbs.find((d) => d.name === name);
+      return db?.version ?? 0;
+    } catch {
+      // Fall through to raw open fallback.
+    }
+  }
+  // Fallback for browsers that do not expose indexedDB.databases().
+  // We deliberately do not open the database here: doing so would create it at
+  // version 1 if it does not exist, which would then trigger a useless pre-migration
+  // snapshot and an unnecessary upgrade path (v1 -> v4). In browsers without
+  // databases(), we simply skip the snapshot — the upgrade itself is still safe.
+  return 0;
+}
+
+export async function readAllDataFromVersion(name: string): Promise<BackupFile> {
+  const raw = await new Promise<{
+    version: number;
+    data: Record<string, unknown[]>;
+  }>((resolve, reject) => {
+    const req = indexedDB.open(name);
+    req.onsuccess = () => {
+      const idb = req.result;
+      const stores = Array.from(idb.objectStoreNames);
+      const result: Record<string, unknown[]> = {};
+
+      if (stores.length === 0) {
+        idb.close();
+        resolve({ version: idb.version, data: result });
+        return;
+      }
+
+      const tx = idb.transaction(stores, 'readonly');
+      let pending = stores.length;
+      let failed = false;
+
+      for (const storeName of stores) {
+        const storeReq = tx.objectStore(storeName).getAll();
+        storeReq.onsuccess = (e) => {
+          if (failed) return;
+          result[storeName] = (e.target as IDBRequest).result;
+          pending--;
+          if (pending === 0) {
+            idb.close();
+            resolve({ version: idb.version, data: result });
+          }
+        };
+        storeReq.onerror = () => {
+          if (failed) return;
+          failed = true;
+          idb.close();
+          reject(storeReq.error);
+        };
+      }
+
+      tx.onerror = () => {
+        if (failed) return;
+        failed = true;
+        idb.close();
+        reject(tx.error);
+      };
+    };
+    req.onerror = () => reject(req.error);
+    req.onblocked = () => reject(new Error('Database is blocked by another connection'));
+  });
+
+  const assetsRaw = (raw.data['assets'] ?? []) as ImageAsset[];
+  const assets = await Promise.all(
+    assetsRaw.map(async (a) => {
+      const buf = new Uint8Array(await a.blob.arrayBuffer());
+      return {
+        hash: a.hash,
+        data: bytesToBase64(buf),
+        mimeType: a.mimeType,
+        width: a.width,
+        height: a.height,
+        createdAt: a.createdAt,
+      };
+    }),
+  );
+
+  return {
+    app: 'lacuna',
+    version: Math.floor(raw.version / 10),
+    exportedAt: Date.now(),
+    decks: (raw.data['decks'] ?? []) as Deck[],
+    cards: (raw.data['cards'] ?? []) as Card[],
+    assets,
+    sessionHistory: (raw.data['sessionHistory'] ?? []) as SessionHistoryEntry[],
+    userPerformance: (raw.data['userPerformance'] ?? []) as UserPerformance[],
+  };
+}
+
+let preMigrationSnapshotTaken = false;
+
+/**
+ * Detect a pending schema upgrade and, if one is pending, capture a full
+ * pre-migration snapshot in a separate committed transaction before the
+ * destructive migration runs. The snapshot is written to the dedicated
+ * `lacuna-pre-migration` database so it survives even if the main upgrade
+ * aborts and rolls back.
+ */
+export async function ensurePreMigrationSnapshot(): Promise<void> {
+  if (preMigrationSnapshotTaken) return;
+  preMigrationSnapshotTaken = true;
+
+  const targetVersion = CURRENT_SCHEMA_VERSION;
+  const currentVersion = Math.floor((await getCurrentDbVersion('lacuna')) / 10);
+
+  if (currentVersion > 0 && currentVersion < targetVersion) {
+    const payload = await readAllDataFromVersion('lacuna');
+    await savePreMigrationSnapshot(targetVersion, payload);
+  }
+}
 
 /** Generate a stable, collision-resistant identifier without external dependencies. */
 export function makeId(): string {

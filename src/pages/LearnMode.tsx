@@ -43,6 +43,7 @@ import {
   CloseIcon,
   EditIcon,
   FlagIcon,
+  KeyboardIcon,
   MenuIcon,
   MoreIcon,
   PauseIcon,
@@ -658,7 +659,7 @@ export function LearnMode() {
                 >
                   <MenuItem
                     icon={<EditIcon width={16} height={16} />}
-                    label="Edit card (E)"
+                    label="Edit card"
                     onClick={openEdit}
                   />
                   <MenuItem
@@ -675,6 +676,12 @@ export function LearnMode() {
                     icon={<PauseIcon width={16} height={16} />}
                     label="Suspend card"
                     onClick={suspendCurrent}
+                  />
+                  <div className="border-t border-line" />
+                  <MenuItem
+                    icon={<KeyboardIcon width={16} height={16} />}
+                    label="Keyboard shortcuts"
+                    onClick={() => { setMenuOpen(false); setHintsOpen(true); }}
                   />
                 </motion.div>
               )}
@@ -707,7 +714,6 @@ export function LearnMode() {
                 <Button variant="primary" size="lg" className="w-full max-w-sm" onClick={reveal}>
                   Show answer
                 </Button>
-                <span className="text-xs text-ink-faint">Press Space or Up</span>
               </motion.div>
             ) : (
               <motion.div
@@ -736,9 +742,7 @@ export function LearnMode() {
                         Easy
                       </Button>
                     </div>
-                    <span className="text-xs text-ink-faint">
-                      Again: 1 or A · Hard: 2 or H · Good: 3 or G · Easy: 4
-                    </span>
+
                   </>
                 ) : (
                   <>
@@ -762,9 +766,7 @@ export function LearnMode() {
                     Yes
                   </Button>
                 </div>
-                <span className="text-xs text-ink-faint">
-                  Yes: Y or Right · No: N or Left
-                </span>
+
                   </>
                 )}
               </motion.div>
@@ -781,10 +783,11 @@ export function LearnMode() {
                   exit={{ opacity: 0 }}
                   type="button"
                   onClick={undoLast}
+                  title="Undo last answer"
                   className="inline-flex items-center gap-1.5 text-xs text-ink-faint transition-colors hover:text-ink"
                 >
                   <UndoIcon width={14} height={14} />
-                  Undo last answer (U)
+                  Undo last answer
                 </motion.button>
               )}
             </AnimatePresence>

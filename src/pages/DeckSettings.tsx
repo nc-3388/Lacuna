@@ -301,7 +301,7 @@ function OptimisationPanel({ deck, cards }: { deck: Deck; cards: Card[] }) {
   const enoughData = reviews >= MIN_OPTIMISE_REVIEWS;
 
   async function applyWeights() {
-    if (!optimiser.result) return;
+    if (!optimiser.result || !optimiser.result.isOutOfSampleWin) return;
     // Restore point before touching scheduling weights (reuses the backup mechanism).
     await takeAutoBackup().catch(() => {});
     await updateDeck(deck.id, {
@@ -343,8 +343,9 @@ function OptimisationPanel({ deck, cards }: { deck: Deck; cards: Card[] }) {
       <div className="mt-4 border-t border-line pt-4">
         {!enoughData ? (
           <p className="text-sm text-ink-faint">
-            Optimisation needs at least {MIN_OPTIMISE_REVIEWS} reviews to be reliable. This
-            deck has {reviews}. Keep revising and it will become available.
+            Optimisation needs at least {MIN_OPTIMISE_REVIEWS} reviews so that a
+            held-out validation portion is large enough to judge the fit honestly.
+            This deck has {reviews}. Keep revising and it will become available.
           </p>
         ) : !enabled ? (
           <p className="text-sm text-ink-faint">
@@ -359,17 +360,30 @@ function OptimisationPanel({ deck, cards }: { deck: Deck; cards: Card[] }) {
           </div>
         ) : optimiser.status === 'done' && optimiser.result ? (
           <div>
-            <p className="mb-3 text-sm text-ink-soft">
-              Fit quality (log loss, lower is better):{' '}
+            <p className="mb-2 text-sm text-ink-soft">
+              Held-out fit quality (log loss, lower is better):{' '}
               <span className="tabular text-ink">
                 {optimiser.result.before.toFixed(4)} → {optimiser.result.after.toFixed(4)}
               </span>{' '}
               over {optimiser.result.scored} scored reviews.
             </p>
+            {optimiser.result.scored === 0 ? (
+              <p className="mb-3 text-sm text-ink-faint">
+                Not enough recent reviews to validate out of sample. The default weights
+                are recommended.
+              </p>
+            ) : !optimiser.result.isOutOfSampleWin ? (
+              <p className="mb-3 text-sm text-negative">
+                The fitted weights did not beat the defaults on unseen data. Keep the
+                default weights for now.
+              </p>
+            ) : null}
             <div className="flex flex-wrap gap-2">
-              <Button variant="primary" size="sm" onClick={applyWeights}>
-                Apply optimised weights
-              </Button>
+              {optimiser.result.isOutOfSampleWin && optimiser.result.scored > 0 && (
+                <Button variant="primary" size="sm" onClick={applyWeights}>
+                  Apply optimised weights
+                </Button>
+              )}
               <Button variant="ghost" size="sm" onClick={() => optimiser.reset()}>
                 Discard
               </Button>

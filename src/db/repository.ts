@@ -16,6 +16,7 @@ import { defaultFsrsParameters, FSRS_VERSION } from '../fsrs/params';
 import { emptyPerformance, updatePerformance } from '../fsrs/grading';
 import { averagePredictedRetrievability } from '../fsrs/progress';
 import { defaultExamDate } from '../utils/datetime';
+import { scheduleAssetGc } from './assets';
 
 // ---------------------------------------------------------------------------
 // Decks
@@ -70,6 +71,7 @@ export async function deleteDeck(id: string): Promise<void> {
       await db.decks.delete(id);
     },
   );
+  scheduleAssetGc();
 }
 
 export async function deleteDecks(ids: string[]): Promise<void> {
@@ -253,10 +255,14 @@ export async function createDeckWithCards(
 
 export async function updateCard(id: string, changes: Partial<Card>): Promise<void> {
   await db.cards.update(id, changes);
+  if ('front' in changes || 'back' in changes) {
+    scheduleAssetGc();
+  }
 }
 
 export async function deleteCards(ids: string[]): Promise<void> {
   await db.cards.bulkDelete(ids);
+  scheduleAssetGc();
 }
 
 /** Capture card rows before deletion so the action can be offered with an "Undo". */

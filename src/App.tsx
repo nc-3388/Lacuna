@@ -13,6 +13,9 @@ import { SearchPage } from './pages/SearchPage';
 import { SharePage } from './pages/SharePage';
 import { seedIfFirstRun } from './db/seed';
 import { autoBackupIfStale } from './db/backups';
+import { ensurePreMigrationSnapshot } from './db/schema';
+import { requestPersistentStorage } from './db/persistence';
+import { revokeAllCachedUrls } from './db/assetCache';
 
 // Heavier routes (Recharts, KaTeX, the markdown editor) are split into their own
 // chunks so the dashboard loads quickly. Settings is intentionally eager: it is tiny
@@ -103,11 +106,37 @@ export function App() {
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    seedIfFirstRun().finally(() => {
-      setReady(true);
-      // Take a daily restore point in the background; never blocks the UI.
-      void autoBackupIfStale();
-    });
+    (async () => {
+      try {
+        // Detect any pending schema upgrade and capture a committed snapshot before
+        // the destructive migration runs. This must happen before the first Dexie
+        // query triggers the database open.
+        await ensurePreMigrationSnapshot();
+
+        // Request persistent storage once on first run so the browser does not
+        // silently evict IndexedDB data under storage pressure.
+        if (!localStorage.getItem('lacuna-persist-requested')) {
+          await requestPersistentStorage();
+          localStorage.setItem('lacuna-persist-requested', '1');
+        }
+
+        await seedIfFirstRun();
+      } finally {
+        setReady(true);
+        // Take a daily restore point in the background; never blocks the UI.
+        void autoBackupIfStale();
+      }
+    })();
+  }, []);
+
+  useEffect(() => {
+    const handler = () => revokeAllCachedUrls();
+    window.addEventListener('beforeunload', handler);
+    window.addEventListener('pagehide', handler);
+    return () => {
+      window.removeEventListener('beforeunload', handler);
+      window.removeEventListener('pagehide', handler);
+    };
   }, []);
 
   if (!ready) {

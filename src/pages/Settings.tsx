@@ -29,6 +29,11 @@ import { formatDate, formatDateTime } from '../utils/datetime';
 import { useGradingMode } from '../state/gradingMode';
 import { useAutoOptimiseDefault } from '../state/optimiseSetting';
 import { MIN_OPTIMISE_REVIEWS } from '../fsrs/optimise';
+import {
+  requestPersistentStorage,
+  checkPersistentStorage,
+  type StoragePersistenceState,
+} from '../db/persistence';
 
 export function Settings() {
   const { theme, setTheme } = useTheme();
@@ -39,6 +44,7 @@ export function Settings() {
   const [autoOptimise, setAutoOptimise] = useAutoOptimiseDefault();
   const backups = useBackups();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [persistence, setPersistence] = useState<StoragePersistenceState | null>(null);
 
   const [pending, setPending] = useState<BackupFile | null>(null);
   const [confirmRestore, setConfirmRestore] = useState<number | null>(null);
@@ -47,6 +53,7 @@ export function Settings() {
 
   useEffect(() => {
     void backupFolderName().then(setFolder);
+    void checkPersistentStorage().then(setPersistence);
   }, []);
 
   async function handleBackupNow() {
@@ -82,6 +89,18 @@ export function Settings() {
     await clearBackupFolder();
     setFolder(null);
     notify('Folder mirroring stopped.', 'neutral');
+  }
+
+  async function handleRequestPersistence() {
+    const state = await requestPersistentStorage();
+    setPersistence(state);
+    if (state.persisted) {
+      notify('Storage is now persisted.', 'positive');
+    } else if (!state.supported) {
+      notify('This browser does not support persistent storage.', 'neutral');
+    } else {
+      notify('Persistent storage was denied.', 'negative');
+    }
   }
 
   async function handleExport() {
@@ -339,6 +358,51 @@ export function Settings() {
           automatically when you open it (at most once a day). Restoring replaces all
           current data with that snapshot.
         </p>
+
+        {/* Persistent storage */}
+        {persistence && (
+          <div
+            className={cn(
+              'mb-5 rounded-xl border p-4',
+              persistence.persisted
+                ? 'border-line bg-surface-raised/40'
+                : 'border-negative bg-negative/5',
+            )}
+          >
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="min-w-0">
+                <div className="text-sm text-ink">
+                  {persistence.persisted
+                    ? 'Storage is persisted'
+                    : 'Storage is not persisted'}
+                </div>
+                <p className="text-xs text-ink-faint">
+                  {persistence.supported ? (
+                    <>
+                      {persistence.persisted
+                        ? 'The browser will not delete this data under storage pressure.'
+                        : 'The browser may delete this data under storage pressure. Regular exports or folder mirroring are the safeguard.'}
+                      {persistence.usage != null && persistence.quota != null && (
+                        <>
+                          {' '}
+                          Using {Math.round(persistence.usage / 1024 / 1024)} MB of{' '}
+                          {Math.round(persistence.quota / 1024 / 1024)} MB.
+                        </>
+                      )}
+                    </>
+                  ) : (
+                    'This browser does not support persistent storage.'
+                  )}
+                </p>
+              </div>
+              {persistence.supported && !persistence.persisted && (
+                <Button variant="secondary" size="sm" onClick={handleRequestPersistence}>
+                  Request persistence
+                </Button>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Folder mirror */}
         {mirrorSupported ? (

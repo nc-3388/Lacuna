@@ -5,7 +5,7 @@ export const ASSET_PROTOCOL = 'lacuna-asset://';
 const DATA_IMAGE_RE = /data:(image\/[a-z0-9.+-]+);base64,([A-Za-z0-9+/=]+)/gi;
 const ASSET_RE = /lacuna-asset:\/\/([a-f0-9]{64})/gi;
 
-function bytesToBase64(bytes: Uint8Array): string {
+export function bytesToBase64(bytes: Uint8Array): string {
   let binary = '';
   const chunk = 0x8000;
   for (let i = 0; i < bytes.length; i += chunk) {
@@ -160,4 +160,47 @@ export function backupAssetToImageAsset(asset: BackupAsset): ImageAsset {
     height: asset.height,
     createdAt: asset.createdAt,
   };
+}
+
+// ---------------------------------------------------------------------------
+// Asset garbage collection
+// ---------------------------------------------------------------------------
+
+let gcTimeout: ReturnType<typeof setTimeout> | null = null;
+let gcRunning = false;
+
+/**
+ * Scan every card's Markdown and remove assets whose hash is not referenced anywhere.
+ * Safe to call at any time: it only deletes truly unreferenced rows.
+ */
+export async function collectOrphanedAssets(): Promise<number> {
+  if (gcRunning) return 0;
+  gcRunning = true;
+  try {
+    const cards = await db.cards.toArray();
+    const referenced = new Set<string>();
+    for (const card of cards) {
+      referencedAssetHashes(`${card.front}\n${card.back}`).forEach((h) => referenced.add(h));
+    }
+    const allHashes = await db.assets.toCollection().primaryKeys();
+    const orphans = allHashes.filter((h) => !referenced.has(h));
+    if (orphans.length > 0) {
+      await db.assets.bulkDelete(orphans);
+    }
+    return orphans.length;
+  } finally {
+    gcRunning = false;
+  }
+}
+
+/**
+ * Schedule a deferred asset sweep. Multiple rapid calls collapse into one so the
+ * sweep runs only after a quiet period (e.g. after a bulk edit or import finishes).
+ * Never runs during an active Learn session.
+ */
+export function scheduleAssetGc(delayMs = 3000): void {
+  if (gcTimeout) clearTimeout(gcTimeout);
+  gcTimeout = setTimeout(() => {
+    void collectOrphanedAssets();
+  }, delayMs);
 }

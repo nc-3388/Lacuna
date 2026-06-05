@@ -149,25 +149,25 @@ Routes are nested under `AppShell` (`/`), except the full-screen Learn experienc
 outside the shell. The shell is a flex row:
 
 ```
-┌───────────────┬──────────────────────────────────────────────┐
-│  SIDEBAR      │  (mobile only) top bar: ☰  ⚗ Lacuna           │
-│  (desktop)    ├──────────────────────────────────────────────┤
-│               │                                                │
-│  ⚗ Lacuna     │   <main> — routed page, scrolls independently  │
-│  Spaced rev.  │   page transitions animate here                │
-│               │                                                │
-│  ▸ Dashboard  │                                                │
-│  ▸ Study today│                                                │
-│  ▸ Search     │                                                │
-│  ▸ Share      │                                                │
-│  ▸ Settings   │                                                │
-│               │                                                │
-│  DECKS        │                                                │
-│  • Organic …  │                                                │
-│  • French …   │                                                │
-│               │                                                │
-│  ☾  collapse› │                                                │
-└───────────────┴──────────────────────────────────────────────┘
+┌───────────────┬─────────────────────────────────────────────┐
+│  SIDEBAR      │  (mobile only) top bar: Lacuna               │
+│  (desktop)    ├─────────────────────────────────────────────┤
+│               │                                              │
+│  Lacuna       │   <main> -- routed page, scrolls             │
+│  Spaced rev.  │   independently; page transitions            │
+│               │   animate here                               │
+│  > Dashboard  │                                              │
+│  > Study today│                                              │
+│  > Search     │                                              │
+│  > Share      │                                              │
+│  > Settings   │                                              │
+│               │                                              │
+│  DECKS        │                                              │
+│  - Organic .. │                                              │
+│  - French ..  │                                              │
+│               │                                              │
+│  [v] collapse │                                              │
+└───────────────┴─────────────────────────────────────────────┘
 ```
 
 - **Sidebar** (`Sidebar`): brand; primary nav (Dashboard, Study today, Search, Share,
@@ -208,7 +208,7 @@ Decks                                   [ Select ]  [ + New deck ]
 ┌ streak ──────┬ reviewed today ┬ next 7 days ▁▃▂▅▁▁▂ ─────────┐
 └──────────────┴────────────────┴────────────────────────────┘
 
-┌ Study today ───────────────────────────────  [ ▷ Study all ] ┐
+┌ Study today ───────────────────────────────  [> Study all ] ┐
 │ N cards ready across all your decks…                          │
 └───────────────────────────────────────────────────────────────┘
 
@@ -230,7 +230,7 @@ creating the first deck.
 ```
 ‹ All decks
 Exam in 6 days · 14 Jun 2026, 23:59
-Organic Chemistry                         [ ⚙ ]  [ ▷ Study ]
+Organic Chemistry                         [s]  [> Study ]
 ┌ Predicted exam score ──────────────── 68% ┐
 │ ▇▇▇▇▇▇▇▇▇▇▇▇▁▁▁▁▁▁                          │
 │ Mean predicted retrievability on exam day. │
@@ -244,17 +244,17 @@ tag chips: All · acids · mechanisms …
 
 ```
 ┌ header (hidden in focus mode) ──────────────────────────────┐
-│ ☰   ORGANIC CHEMISTRY                 68% predicted score   │
-│     ▇▇▇▇▇▇▇▇▇▁▁▁▁                          ⋯   [ Exit ]      │
+│ [=] ORGANIC CHEMISTRY                  68% predicted score   │
+│     ▇▇▇▇▇▇▇▇▇▁▁▁▁                          ...  [ Exit ]     │
 ├──────────────────────────────────────────────────────────────┤
 │                                                              │
 │          ┌── flip card (rotateX flip on reveal) ──┐          │
 │          │   QUESTION / ANSWER                     │          │
 │          └─────────────────────────────────────────┘         │
 │                                                              │
-│            [   Show answer   ]   Press Space or Up           │
-│         (after reveal)  [ ✗ No ]  [ ✓ Yes ]                  │
-│                    ↳ Undo last answer (U)                    │
+│            [   Show answer   ]                                │
+│         (after reveal)  [ X No ]  [ OK Yes ]                 │
+│                    ↳ Undo last answer                        │
 └──────────────────────────────────────────────────────────────┘
       (green/red glow rises from the bottom on grading)
 ```
@@ -311,8 +311,9 @@ invisible grader.
 - `ImageAsset { hash, blob, mimeType, width, height, createdAt }` — a card image stored as a
   binary `Blob` in the `assets` table, keyed by the SHA-256 of its bytes so identical images
   are stored once. Card Markdown carries only a `lacuna-asset://<hash>` reference, resolved to
-  an object URL at render time (and revoked on unmount). This keeps reactive card reads small
-  and stops base64 inflating exports and quota.
+  an object URL at render time and cached per hash for the app lifetime (revoked only at
+  app teardown). This keeps reactive card reads small, stops base64 inflating exports and
+  quota, and avoids the create/revoke churn on every card flip during a fast Learn session.
 - `BackupAsset { hash, data(base64), mimeType, width, height, createdAt }` — the JSON-safe form
   of an `ImageAsset` carried in backup/export files.
 
@@ -450,9 +451,11 @@ user's own history. Lacuna uses the **official gradient-based trainer** from the
   scheduler (`makeEngine`);
 - fitted weights are **validated against the FSRS clamp ranges** (`CLAMP_PARAMETERS` / the same
   bounds as `clipParameters`) before they can ever be applied; out-of-range results are rejected;
-- before/after **log loss** on the review history (via ts-fsrs replay in `evaluateParameters`) is
-  shown in the confirmation step;
-- it is **gated** on `MIN_OPTIMISE_REVIEWS` (400) so it never runs on noise;
+- before/after **log loss** is computed on a **held-out validation portion** (the last 20% of
+  each deck's review history by time) so the metric is out-of-sample, not training-set
+  overfitting. The confirmation step only offers to apply the fitted weights when they beat the
+  defaults out of sample;
+- it is **gated** on `MIN_OPTIMISE_REVIEWS` (1,000) so the train/validation split is meaningful;
 - it runs in a **Web Worker** (`src/workers/optimise.worker.ts`, initialised via `initOptimizer`
   with Vite `?url` / `?worker` imports; driven by `useOptimiser`) so the UI never blocks,
   reporting trainer progress and the before/after summary. The dev/preview server sets
@@ -544,8 +547,8 @@ cooldowns decrement by one (skip-and-decrement).
 Two modes, chosen in Settings (default **silent**):
 - **Silent (default):** the learner presses only Yes/No and the four-point grade is inferred
   (below). This is the product's core UX bet.
-- **Manual:** the four FSRS buttons (Again/Hard/Good/Easy) are shown with keyboard shortcuts and
-  the user grades directly; no inference is applied.
+- **Manual:** the four FSRS buttons (Again/Hard/Good/Easy) are shown and the user grades
+  directly; no inference is applied.
 
 ### The invisible timer & grading (`src/fsrs/grading.ts`, silent mode)
 - The response timer **starts on reveal** ("Show answer") and **stops when the answer is
@@ -568,15 +571,18 @@ Two modes, chosen in Settings (default **silent**):
   prediction-accuracy metric (§14) exists partly to surface when that bias is hurting scheduling.
 
 ### Per-card actions & state
-- **Edit** (E): opens an in-session overlay (`CardEditOverlay`) that pauses/rebases the timer;
+- **Edit**: opens an in-session overlay (`CardEditOverlay`) that pauses/rebases the timer;
   saving updates the live card without leaving the session.
 - **Flag** (toggle), **Bury until tomorrow** (`buriedUntil = startOfDay(now) + 1 day`),
   **Suspend** — all drop the card from the live pool (and the denominator) and move on.
-- **Undo** (U): single-step reversal of the last answer — restores the card's prior memory
+- **Undo**: single-step reversal of the last answer — restores the card's prior memory
   state, the `UserPerformance`, the cooldown map, the progress value and the events list, and
   deletes the written `SessionHistory` row.
 - **Focus mode** (F): hides all chrome for distraction-free review, leaving a single quiet
   "Exit focus" affordance.
+- **Keyboard shortcuts**: accessible via the "Keyboard shortcuts" item in the 3-dot action
+  menu, which opens a modal listing all available shortcuts. The `?` key still toggles this
+  overlay from anywhere.
 - **Distraction** (Page Visibility + window blur) is recorded per card for the report only;
   it never affects the grade.
 
@@ -594,7 +600,8 @@ Reaching the goal shows a celebratory tick badge; otherwise "Keep studying" is o
 
 ### Keyboard
 `Space`/`Up` reveal; after reveal `Y`/`J`/`Right` = Yes, `N`/`Left` = No; `E` edit, `U` undo,
-`F` focus mode, `?` help, `Esc` closes overlays/drawer.
+`F` focus mode, `?` help (also accessible from the 3-dot menu as "Keyboard shortcuts"),
+`Esc` closes overlays/drawer.
 
 ### Exam-date prompt
 The first time a deck is studied an inline banner (`ExamDateBanner`, not a modal) asks for the
@@ -679,11 +686,12 @@ Front/back Markdown is rendered with GFM, maths (KaTeX), syntax highlighting, an
 - Up to the **ten most recent** snapshots are kept on-device; one is taken automatically on
   open, **at most once a day** (`autoBackupIfStale`), and never blocks the UI.
 - **Pre-migration snapshot:** before a schema upgrade rewrites data, a `pre-migration`-tagged
-  snapshot is captured **inside the upgrade transaction** (so a failure rolls the whole upgrade
-  back and a success still leaves a fallback). Tagged snapshots are **exempt from the ten-snapshot
-  pruning**. The v4 image migration is also idempotent and reads-transforms-writes explicitly
-  rather than mutating inside an async Dexie `.modify()` callback (which Dexie does not reliably
-  persist).
+  snapshot is captured in a **separate committed transaction** (via a dedicated
+  `lacuna-pre-migration` IndexedDB) so a failed upgrade on the main database never rolls the
+  snapshot back with it. The snapshot is also mirrored to the configured folder if the File
+  System Access API is available. Tagged snapshots are **exempt from the ten-snapshot pruning**.
+  The v4 image migration is also idempotent and reads-transforms-writes explicitly rather than
+  mutating inside an async Dexie `.modify()` callback (which Dexie does not reliably persist).
 - Restoring replaces all current data with the snapshot.
 - **Folder mirror** (where the File System Access API is supported): each backup can also be
   written to a chosen folder so it survives clearing browser data. Where unsupported, the UI
@@ -783,6 +791,11 @@ Theme-aware Recharts panels:
   §8.1; gated at `MIN_OPTIMISE_REVIEWS`, overridable per deck, applied only on confirmation).
 - **Import & export:** export all data; import from file with the inline Merge / Replace-all
   chooser described in §13.
+- **Persistent storage:** the app requests `navigator.storage.persist()` on first run so the
+  browser does not silently evict IndexedDB data under storage pressure. The result (persisted,
+  denied, or unsupported) is surfaced honestly in the backup area of Settings, with a clear
+  warning when persistence is denied and a pointer to regular exports or folder mirroring as the
+  safeguard.
 - **Automatic backups:** "Back up now"; folder-mirror controls (where supported); a list of
   restore points (timestamp + deck/card counts) each with Delete and a two-step Restore
   confirmation.
@@ -848,4 +861,5 @@ with Relaxed/Balanced/Thorough presets and adaptive guidance copy).
 | Learn | `F` | Toggle focus mode |
 | Overlays | `Esc` | Close |
 
-Single-key shortcuts are inert while a text field is focused.
+Single-key shortcuts are inert while a text field is focused. The `?` overlay can also be
+opened from the "Keyboard shortcuts" item in the Learn mode 3-dot action menu.
