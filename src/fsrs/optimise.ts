@@ -31,9 +31,10 @@ import type { Card, Grade } from '../db/types';
 /**
  * Minimum number of reviews before optimisation is worthwhile. Below this the fit
  * is dominated by noise, so the action is gated and the threshold is stated in the
- * UI copy. FSRS's own guidance is that a few hundred reviews is the practical floor.
+ * UI copy. With fewer than 1,000 reviews a train/validation split leaves too little
+ * data to judge out-of-sample performance reliably.
  */
-export const MIN_OPTIMISE_REVIEWS = 400;
+export const MIN_OPTIMISE_REVIEWS = 1_000;
 
 const EPS = 1e-6;
 const NUM_RELEARNING_STEPS = default_relearning_steps.length;
@@ -128,15 +129,76 @@ export function tryValidateFittedWeights(
   }
 }
 
+/** Result of splitting review sequences chronologically into train and validation. */
+export interface SplitResult {
+  trainSequences: ReviewSequence[];
+  validationSequences: ReviewSequence[];
+  cutoffTimestamp: number;
+}
+
+/**
+ * Split review sequences chronologically so validation always tests on reviews the
+ * fit did not see. The cutoff is placed so roughly `trainFraction` of all reviews
+ * fall into training and the remainder into validation.
+ */
+export function chronologicallySplitSequences(
+  sequences: ReviewSequence[],
+  trainFraction: number = 0.8,
+): SplitResult {
+  const allTimestamps: number[] = [];
+  for (const seq of sequences) {
+    allTimestamps.push(...seq.timestamps);
+  }
+  allTimestamps.sort((a, b) => a - b);
+
+  const cutoffIndex = Math.max(0, Math.floor(allTimestamps.length * trainFraction) - 1);
+  const cutoffTimestamp = allTimestamps[cutoffIndex] ?? Infinity;
+
+  const trainSequences: ReviewSequence[] = [];
+  const validationSequences: ReviewSequence[] = [];
+
+  for (const seq of sequences) {
+    const splitIndex = seq.timestamps.findIndex((t) => t > cutoffTimestamp);
+    if (splitIndex === -1) {
+      trainSequences.push(seq);
+      validationSequences.push({ timestamps: [], grades: [] });
+    } else if (splitIndex === 0) {
+      trainSequences.push({ timestamps: [], grades: [] });
+      validationSequences.push(seq);
+    } else {
+      trainSequences.push({
+        timestamps: seq.timestamps.slice(0, splitIndex),
+        grades: seq.grades.slice(0, splitIndex),
+      });
+      validationSequences.push({
+        timestamps: seq.timestamps.slice(splitIndex),
+        grades: seq.grades.slice(splitIndex),
+      });
+    }
+  }
+
+  return { trainSequences, validationSequences, cutoffTimestamp };
+}
+
+export interface EvaluateOptions {
+  /** If provided, only score reviews whose timestamp is strictly greater than this value. */
+  scoreAfterTimestamp?: number;
+}
+
 /**
  * Mean log loss of a weight set over the review sequences: replay each card and
  * compare the predicted retrievability before each (non-first) review against the
  * actual outcome. Lower is better. Returns the loss and the number of scored reviews.
+ *
+ * When `scoreAfterTimestamp` is given, only reviews after that timestamp are
+ * scored; earlier reviews still update the simulated card state so the evaluation
+ * is honest (the model has not seen the held-out reviews).
  */
 export function evaluateParameters(
   sequences: ReviewSequence[],
   w: number[],
   requestRetention: number = DEFAULT_REQUEST_RETENTION,
+  options?: EvaluateOptions,
 ): { logLoss: number; scored: number } {
   const engine = fsrs(
     generatorParameters({ w, request_retention: requestRetention, enable_fuzz: false }),
@@ -149,7 +211,10 @@ export function evaluateParameters(
     let hasPrior = false;
     for (let i = 0; i < seq.grades.length; i += 1) {
       const when = new Date(seq.timestamps[i]);
-      if (hasPrior) {
+      if (
+        hasPrior &&
+        (!options?.scoreAfterTimestamp || seq.timestamps[i] > options.scoreAfterTimestamp)
+      ) {
         const r = engine.get_retrievability(card, when, false);
         const p = Math.min(1 - EPS, Math.max(EPS, r));
         const y = seq.grades[i] > 1 ? 1 : 0;
@@ -189,6 +254,8 @@ export interface OptimiseResult {
   before: number;
   after: number;
   scored: number;
+  /** True when the fitted weights beat the defaults on held-out validation data. */
+  isOutOfSampleWin: boolean;
 }
 
 /**
@@ -199,14 +266,25 @@ export async function optimiseParameters(
   cards: Card[],
   options: OptimiseOptions,
 ): Promise<OptimiseResult> {
-  const sequences = reviewSequences(cards);
+  const allSequences = reviewSequences(cards);
   const requestRetention = options.requestRetention ?? DEFAULT_REQUEST_RETENTION;
   const initialW = clip(options.initialW ? [...options.initialW] : [...default_w]);
 
-  const reviewData = cardsToBindingReviewData(cards);
-  const trainSet = reviewData.map((reviews) => options.createItem(reviews));
+  // Split chronologically: train on earlier reviews, validate on later ones.
+  const { trainSequences, cutoffTimestamp } = chronologicallySplitSequences(allSequences);
 
-  const before = evaluateParameters(sequences, initialW, requestRetention).logLoss;
+  const trainSet = trainSequences
+    .filter((seq) => seq.grades.length > 0)
+    .map((seq) => options.createItem(sequenceToBindingReviews(seq)));
+
+  if (trainSet.length === 0) {
+    throw new Error('Training set is empty after the chronological split.');
+  }
+
+  // Evaluate defaults and the eventual fit on the held-out portion only.
+  const before = evaluateParameters(allSequences, initialW, requestRetention, {
+    scoreAfterTimestamp: cutoffTimestamp,
+  }).logLoss;
 
   const rawW = await options.computeParameters(trainSet, {
     enableShortTerm: true,
@@ -226,8 +304,19 @@ export async function optimiseParameters(
   const w = clip([...rawW]);
   validateFittedWeights(w);
 
-  const final = evaluateParameters(sequences, w, requestRetention);
-  return { w, before, after: final.logLoss, scored: final.scored };
+  const final = evaluateParameters(allSequences, w, requestRetention, {
+    scoreAfterTimestamp: cutoffTimestamp,
+  });
+
+  const isOutOfSampleWin = final.scored > 0 && final.logLoss < before;
+
+  return {
+    w,
+    before,
+    after: final.logLoss,
+    scored: final.scored,
+    isOutOfSampleWin,
+  };
 }
 
 /** Clip a weight set to the FSRS valid ranges (always returns a fresh 21-length array). */

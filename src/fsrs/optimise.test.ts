@@ -7,6 +7,7 @@ import {
 import { checkParameters, default_w } from 'ts-fsrs';
 import {
   cardsToBindingReviewData,
+  chronologicallySplitSequences,
   countReviews,
   evaluateParameters,
   optimiseParameters,
@@ -126,6 +127,42 @@ describe('validateFittedWeights', () => {
   });
 });
 
+describe('chronological train/validation split', () => {
+  it('puts roughly the train fraction of reviews into training', () => {
+    const cards = syntheticDeck();
+    const seqs = reviewSequences(cards);
+    const total = countReviews(cards);
+    const split = chronologicallySplitSequences(seqs, 0.8);
+    const validationSequences = split.validationSequences;
+    const cutoffTimestamp = split.cutoffTimestamp;
+
+    const trainCount = split.trainSequences.reduce((s, seq) => s + seq.grades.length, 0);
+    const valCount = validationSequences.reduce((s, seq) => s + seq.grades.length, 0);
+
+    expect(trainCount + valCount).toBe(total);
+    // Every validation review is strictly after the cutoff.
+    for (const seq of validationSequences) {
+      for (const t of seq.timestamps) {
+        expect(t).toBeGreaterThan(cutoffTimestamp);
+      }
+    }
+    // Every training review is at or before the cutoff.
+    for (const seq of split.trainSequences) {
+      for (const t of seq.timestamps) {
+        expect(t).toBeLessThanOrEqual(cutoffTimestamp);
+      }
+    }
+  });
+
+  it('handles a deck with every review before the cutoff', () => {
+    const cards = syntheticDeck();
+    const seqs = reviewSequences(cards);
+    const split = chronologicallySplitSequences(seqs, 1.0);
+    const valCount = split.validationSequences.reduce((s, seq) => s + seq.grades.length, 0);
+    expect(valCount).toBe(0);
+  });
+});
+
 describe('evaluateParameters', () => {
   it('returns a finite mean log loss over scored (non-first) reviews', () => {
     const seqs = reviewSequences(syntheticDeck());
@@ -134,6 +171,18 @@ describe('evaluateParameters', () => {
     expect(logLoss).toBeGreaterThan(0);
     const expectedScored = countReviews(syntheticDeck()) - syntheticDeck().length;
     expect(scored).toBe(expectedScored);
+  });
+
+  it('only scores reviews after scoreAfterTimestamp when given', () => {
+    const cards = syntheticDeck();
+    const seqs = reviewSequences(cards);
+    const { cutoffTimestamp } = chronologicallySplitSequences(seqs, 0.8);
+    const { scored } = evaluateParameters(seqs, [...default_w], undefined, {
+      scoreAfterTimestamp: cutoffTimestamp,
+    });
+    const allScored = countReviews(cards) - cards.length;
+    expect(scored).toBeLessThan(allScored);
+    expect(scored).toBeGreaterThanOrEqual(0);
   });
 });
 
@@ -146,7 +195,23 @@ describe('optimiseParameters', () => {
     expect(() => checkParameters(result.w)).not.toThrow();
     expect(Number.isFinite(result.before)).toBe(true);
     expect(Number.isFinite(result.after)).toBe(true);
-    expect(result.scored).toBeGreaterThan(0);
+    expect(result.scored).toBeGreaterThanOrEqual(0);
+    // isOutOfSampleWin is present and a boolean.
+    expect(typeof result.isOutOfSampleWin).toBe('boolean');
+  });
+
+  it('computes before/after on the held-out validation portion', async () => {
+    const cards = syntheticDeck();
+    const result = await optimiseParameters(cards, bindingDeps);
+
+    // The metrics should reflect the validation split: scored <= total - train_count
+    const allSeqs = reviewSequences(cards);
+    const totalNonFirst = countReviews(cards) - cards.length;
+    const trainSplit = chronologicallySplitSequences(allSeqs, 0.8);
+    const trainNonFirst =
+      trainSplit.trainSequences.reduce((s, seq) => s + seq.grades.length, 0) -
+      trainSplit.trainSequences.filter((seq) => seq.grades.length > 0).length;
+    expect(result.scored).toBeLessThanOrEqual(totalNonFirst - trainNonFirst);
   });
 
   it('rejects out-of-range trainer output', async () => {

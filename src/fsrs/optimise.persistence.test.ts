@@ -67,6 +67,8 @@ describe('optimised weights persistence', () => {
         ),
     });
 
+    expect(typeof result.isOutOfSampleWin).toBe('boolean');
+
     await updateDeck(deck.id, {
       fsrsParameters: { ...deck.fsrsParameters, w: result.w },
     });
