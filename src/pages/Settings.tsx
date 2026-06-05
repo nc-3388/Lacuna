@@ -15,6 +15,12 @@ import {
   type ImportMode,
 } from '../db/portability';
 import {
+  exportCardsCsv,
+  exportCardsTsv,
+  exportCardsPlainText,
+  downloadTextFile,
+} from '../db/export';
+import {
   backupFolderName,
   chooseBackupFolder,
   clearBackupFolder,
@@ -109,6 +115,39 @@ export function Settings() {
       notify('Backup downloaded.', 'positive');
     } catch {
       notify('Could not create the backup.', 'negative');
+    }
+  }
+
+  async function handleExportCsv() {
+    try {
+      const csv = await exportCardsCsv();
+      const stamp = new Date().toISOString().slice(0, 10);
+      downloadTextFile(csv, `lacuna-cards-${stamp}.csv`, 'text/csv');
+      notify('CSV exported.', 'positive');
+    } catch {
+      notify('Could not export CSV.', 'negative');
+    }
+  }
+
+  async function handleExportTsv() {
+    try {
+      const tsv = await exportCardsTsv();
+      const stamp = new Date().toISOString().slice(0, 10);
+      downloadTextFile(tsv, `lacuna-cards-${stamp}.tsv`, 'text/tab-separated-values');
+      notify('TSV exported.', 'positive');
+    } catch {
+      notify('Could not export TSV.', 'negative');
+    }
+  }
+
+  async function handleExportPlainText() {
+    try {
+      const text = await exportCardsPlainText();
+      const stamp = new Date().toISOString().slice(0, 10);
+      downloadTextFile(text, `lacuna-cards-${stamp}.txt`, 'text/plain');
+      notify('Plain text exported.', 'positive');
+    } catch {
+      notify('Could not export plain text.', 'negative');
     }
   }
 
@@ -278,11 +317,22 @@ export function Settings() {
         <div className="flex flex-wrap gap-3">
           <Button variant="secondary" onClick={handleExport}>
             <DownloadIcon width={18} height={18} />
-            Export all data
+            Export all data (JSON)
           </Button>
           <Button variant="secondary" onClick={() => fileInputRef.current?.click()}>
             <UploadIcon width={18} height={18} />
             Import from file
+          </Button>
+        </div>
+        <div className="mt-3 flex flex-wrap gap-3">
+          <Button variant="ghost" size="sm" onClick={handleExportCsv}>
+            Export CSV
+          </Button>
+          <Button variant="ghost" size="sm" onClick={handleExportTsv}>
+            Export TSV
+          </Button>
+          <Button variant="ghost" size="sm" onClick={handleExportPlainText}>
+            Export plain text
           </Button>
           <input
             ref={fileInputRef}
