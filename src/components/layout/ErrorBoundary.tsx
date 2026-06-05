@@ -39,6 +39,16 @@ export class ErrorBoundary extends Component<Props, State> {
     copied: false,
   };
 
+  private _mounted = false;
+
+  componentDidMount() {
+    this._mounted = true;
+  }
+
+  componentWillUnmount() {
+    this._mounted = false;
+  }
+
   static getDerivedStateFromError(error: Error): Partial<State> {
     return { error };
   }
@@ -49,7 +59,9 @@ export class ErrorBoundary extends Component<Props, State> {
     this.setState({ componentStack: info.componentStack ?? null });
     // Gather non-sensitive counts for the diagnostic bundle (best-effort).
     gatherCounts()
-      .then((counts) => this.setState({ counts }))
+      .then((counts) => {
+        if (this._mounted) this.setState({ counts });
+      })
       .catch(() => {});
   }
 
