@@ -14,6 +14,8 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@open-spaced-repetition/binding": "^0.4.0",
+    "@open-spaced-repetition/binding-wasm32-wasi": "^0.4.0",
     "dexie": "^4.0.10",
     "dexie-react-hooks": "^1.1.7",
     "katex": "^0.16.11",
@@ -31,7 +33,10 @@
     "ts-fsrs": "^5.2.3"
   },
   "overrides": {
-    "nanoid": "3.3.11"
+    "nanoid": "3.3.11",
+    "@emnapi/core": "1.7.1",
+    "@emnapi/runtime": "1.7.1",
+    "@napi-rs/wasm-runtime": "1.1.0"
   },
   "devDependencies": {
     "@tailwindcss/vite": "4.1.18",

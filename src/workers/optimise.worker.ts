@@ -1,8 +1,13 @@
-// Web Worker that runs FSRS parameter optimisation off the main thread so a long
-// replay never blocks the UI. It posts progress updates and a final result; the
-// caller (see src/state/useOptimiser.ts) owns confirmation and persistence.
+// Web Worker that runs FSRS parameter optimisation off the main thread so training
+// never blocks the UI. Initialises the official WASM trainer, posts progress updates
+// and a final result; the caller (see src/state/useOptimiser.ts) owns confirmation
+// and persistence.
 
-import { optimiseParameters, type OptimiseResult } from '../fsrs/optimise';
+import {
+  optimiseParameters,
+  type OptimiseResult,
+} from '../fsrs/optimise';
+import { getBindingOptimiser } from '../fsrs/bindingOptimiser';
 import type { Card } from '../db/types';
 
 export interface OptimiseRequest {
@@ -21,17 +26,25 @@ const ctx = globalThis as unknown as {
 };
 
 ctx.onmessage = (event: MessageEvent<OptimiseRequest>) => {
-  try {
-    const { cards, requestRetention } = event.data;
-    const result = optimiseParameters(cards, {
-      requestRetention,
-      onProgress: (value) => ctx.postMessage({ type: 'progress', value }),
-    });
-    ctx.postMessage({ type: 'done', result });
-  } catch (err) {
-    ctx.postMessage({
-      type: 'error',
-      message: err instanceof Error ? err.message : String(err),
-    });
-  }
+  void (async () => {
+    try {
+      const { cards, requestRetention } = event.data;
+      const binding = await getBindingOptimiser();
+      const result = await optimiseParameters(cards, {
+        requestRetention,
+        computeParameters: binding.computeParameters,
+        createItem: (reviews) =>
+          new binding.FSRSBindingItem(
+            reviews.map((r) => new binding.FSRSBindingReview(r.rating, r.deltaT)),
+          ),
+        onProgress: (value) => ctx.postMessage({ type: 'progress', value }),
+      });
+      ctx.postMessage({ type: 'done', result });
+    } catch (err) {
+      ctx.postMessage({
+        type: 'error',
+        message: err instanceof Error ? err.message : String(err),
+      });
+    }
+  })();
 };

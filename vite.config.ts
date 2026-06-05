@@ -3,9 +3,21 @@ import react from '@vitejs/plugin-react-swc';
 import tailwindcss from '@tailwindcss/vite';
 import { version } from './package.json';
 
+// Cross-origin isolation headers required by the FSRS WASM trainer worker.
+const crossOriginIsolationHeaders = {
+  'Cross-Origin-Opener-Policy': 'same-origin',
+  'Cross-Origin-Embedder-Policy': 'require-corp',
+};
+
 // Lacuna is a static, serverless single-page application.
 export default defineConfig({
   plugins: [react(), tailwindcss()],
+  server: {
+    headers: crossOriginIsolationHeaders,
+  },
+  preview: {
+    headers: crossOriginIsolationHeaders,
+  },
   // Surface the package version to the app (used by the diagnostic bundle).
   define: {
     __APP_VERSION__: JSON.stringify(version),
@@ -15,6 +27,7 @@ export default defineConfig({
   // Without this, navigating to a route that imports recharts/katex/highlight.js
   // froze the page for several seconds while Vite re-ran dependency optimisation.
   optimizeDeps: {
+    exclude: ['@open-spaced-repetition/binding'],
     include: [
       'react',
       'react-dom',

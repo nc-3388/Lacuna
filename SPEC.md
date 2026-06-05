@@ -43,6 +43,8 @@ British English throughout. No emojis anywhere in the product or its copy.
 - **Persistence:** Dexie (IndexedDB) with `dexie-react-hooks` (`useLiveQuery`) for reactive
   reads.
 - **Scheduling maths:** the official `ts-fsrs` package (FSRS-6). No hand-rolled memory maths.
+- **Parameter training:** `@open-spaced-repetition/binding` (fsrs-rs via WASM in a Web Worker) for
+  fitting FSRS weights to review history.
 - **Motion:** the `motion` library (`motion/react`).
 - **Markdown / maths / code:** `react-markdown` + `remark-gfm` + `remark-math` +
   `rehype-katex` + `rehype-highlight` + `rehype-raw`. KaTeX and highlight.js styles imported
@@ -440,16 +442,21 @@ as permanently maximally urgent.
 
 ### 8.1 Parameter optimisation (`src/fsrs/optimise.ts`, Web Worker)
 The default weights are a starting point; most of FSRS's efficiency comes from fitting them to a
-user's own history. ts-fsrs ships the maths but no trainer, so Lacuna includes a self-contained
-optimiser (no extra dependency):
-- it replays each card's grade sequence under candidate weights, predicts the retrievability the
-  model would have assigned just before each (non-first) review, and scores it against the actual
-  outcome with **log loss** (lower = better-calibrated);
-- it hill-climbs the 21 weights (coordinate descent, multiplicative steps), clipping every
-  candidate to the FSRS valid ranges via `clipParameters`;
+user's own history. Lacuna uses the **official gradient-based trainer** from the ts-fsrs authors
+(`@open-spaced-repetition/binding`, fsrs-rs compiled to WASM):
+- each card's `history[]` is converted to the binding's review-item format (grade 1–4, `deltaT` in
+  days since the previous review, with `0` on the first review);
+- `computeParameters()` fits the 21 weights with `enableShortTerm: true`, consistent with the
+  scheduler (`makeEngine`);
+- fitted weights are **validated against the FSRS clamp ranges** (`CLAMP_PARAMETERS` / the same
+  bounds as `clipParameters`) before they can ever be applied; out-of-range results are rejected;
+- before/after **log loss** on the review history (via ts-fsrs replay in `evaluateParameters`) is
+  shown in the confirmation step;
 - it is **gated** on `MIN_OPTIMISE_REVIEWS` (400) so it never runs on noise;
-- it runs in a **Web Worker** (`src/workers/optimise.worker.ts`, driven by `useOptimiser`) so the
-  UI never blocks, reporting progress and a before/after log-loss summary;
+- it runs in a **Web Worker** (`src/workers/optimise.worker.ts`, initialised via `initOptimizer`
+  with Vite `?url` / `?worker` imports; driven by `useOptimiser`) so the UI never blocks,
+  reporting trainer progress and the before/after summary. The dev/preview server sets
+  cross-origin isolation headers required by the WASM worker;
 - new weights are applied only on explicit confirmation, after an automatic pre-change restore
   point; a "Reset to defaults" path is always available. A global default (on) and a per-deck
   `autoOptimise` override govern whether the action is offered (§15).

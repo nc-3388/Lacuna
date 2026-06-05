@@ -1,10 +1,19 @@
 import { describe, it, expect } from 'vitest';
+import {
+  computeParameters,
+  FSRSBindingItem,
+  FSRSBindingReview,
+} from '@open-spaced-repetition/binding';
 import { checkParameters, default_w } from 'ts-fsrs';
 import {
+  cardsToBindingReviewData,
   countReviews,
   evaluateParameters,
   optimiseParameters,
   reviewSequences,
+  sequenceToBindingReviews,
+  tryValidateFittedWeights,
+  validateFittedWeights,
   MIN_OPTIMISE_REVIEWS,
 } from './optimise';
 import { MS_PER_DAY } from './params';
@@ -57,6 +66,34 @@ function syntheticDeck(): Card[] {
   return patterns.map((p, i) => cardWith(p, start + i * MS_PER_DAY));
 }
 
+const bindingDeps = {
+  computeParameters,
+  createItem: (reviews: { rating: number; deltaT: number }[]) =>
+    new FSRSBindingItem(
+      reviews.map((r) => new FSRSBindingReview(r.rating, r.deltaT)),
+    ),
+};
+
+describe('history-to-binding conversion', () => {
+  it('maps grade sequences to binding reviews with deltaT in days', () => {
+    const card = cardWith([3, 4, 2], Date.UTC(2026, 0, 1), 3);
+    const reviews = sequenceToBindingReviews(reviewSequences([card])[0]);
+    expect(reviews[0]).toEqual({ rating: 3, deltaT: 0 });
+    expect(reviews[1]).toEqual({ rating: 4, deltaT: 3 });
+    expect(reviews[2]).toEqual({ rating: 2, deltaT: 3 });
+  });
+
+  it('produces one review array per card with history', () => {
+    const cards = syntheticDeck();
+    const data = cardsToBindingReviewData(cards);
+    expect(data).toHaveLength(cards.length);
+    for (const reviews of data) {
+      expect(reviews[0].deltaT).toBe(0);
+      expect(reviews.every((r) => r.rating >= 1 && r.rating <= 4)).toBe(true);
+    }
+  });
+});
+
 describe('review extraction and gating', () => {
   it('counts every review and extracts non-empty sequences', () => {
     const cards = syntheticDeck();
@@ -67,8 +104,25 @@ describe('review extraction and gating', () => {
 
   it('exposes a sensible minimum-review threshold', () => {
     expect(MIN_OPTIMISE_REVIEWS).toBeGreaterThanOrEqual(100);
-    // A tiny deck is below the bar (the UI gates the action on this).
     expect(countReviews(syntheticDeck())).toBeLessThan(MIN_OPTIMISE_REVIEWS);
+  });
+});
+
+describe('validateFittedWeights', () => {
+  it('accepts the default FSRS weight set', () => {
+    expect(() => validateFittedWeights([...default_w])).not.toThrow();
+    expect(tryValidateFittedWeights([...default_w]).ok).toBe(true);
+  });
+
+  it('rejects weights outside FSRS valid ranges', () => {
+    const bad = [...default_w];
+    bad[0] = 999;
+    expect(tryValidateFittedWeights(bad).ok).toBe(false);
+    expect(() => validateFittedWeights(bad)).toThrow();
+  });
+
+  it('rejects the wrong number of weights', () => {
+    expect(tryValidateFittedWeights([1, 2, 3]).ok).toBe(false);
   });
 });
 
@@ -78,29 +132,50 @@ describe('evaluateParameters', () => {
     const { logLoss, scored } = evaluateParameters(seqs, [...default_w]);
     expect(Number.isFinite(logLoss)).toBe(true);
     expect(logLoss).toBeGreaterThan(0);
-    // First review of each card is unscored (no prior prediction).
     const expectedScored = countReviews(syntheticDeck()) - syntheticDeck().length;
     expect(scored).toBe(expectedScored);
   });
 });
 
 describe('optimiseParameters', () => {
-  it('produces a valid 21-weight array within FSRS bounds and never worsens the loss', () => {
+  it('produces a valid 21-weight array via the official trainer', async () => {
     const cards = syntheticDeck();
-    const result = optimiseParameters(cards, { passes: 3 });
+    const result = await optimiseParameters(cards, bindingDeps);
 
     expect(result.w).toHaveLength(21);
-    // checkParameters throws if any weight is out of range.
     expect(() => checkParameters(result.w)).not.toThrow();
-    // Hill-climb only accepts improvements, so the fit never gets worse.
-    expect(result.after).toBeLessThanOrEqual(result.before + 1e-9);
+    expect(Number.isFinite(result.before)).toBe(true);
+    expect(Number.isFinite(result.after)).toBe(true);
     expect(result.scored).toBeGreaterThan(0);
   });
 
-  it('reports progress from 0 to 1', () => {
+  it('rejects out-of-range trainer output', async () => {
+    const badCompute: typeof computeParameters = async () => {
+      const w = [...default_w];
+      w[0] = 999;
+      return w;
+    };
+    await expect(
+      optimiseParameters(syntheticDeck(), {
+        ...bindingDeps,
+        computeParameters: badCompute,
+      }),
+    ).rejects.toThrow(/outside FSRS valid ranges/);
+  });
+
+  it('forwards trainer progress callbacks as fractions from 0 to 1', async () => {
     const seen: number[] = [];
-    optimiseParameters(syntheticDeck(), { passes: 2, onProgress: (f) => seen.push(f) });
-    expect(seen[seen.length - 1]).toBeCloseTo(1, 6);
-    expect(seen.every((f) => f > 0 && f <= 1)).toBe(true);
+    const mockCompute: typeof computeParameters = async (_items, options) => {
+      options?.progress?.(1, 4);
+      options?.progress?.(2, 4);
+      options?.progress?.(4, 4);
+      return [...default_w];
+    };
+    await optimiseParameters(syntheticDeck(), {
+      computeParameters: mockCompute,
+      createItem: bindingDeps.createItem,
+      onProgress: (f) => seen.push(f),
+    });
+    expect(seen).toEqual([0.25, 0.5, 1]);
   });
 });
