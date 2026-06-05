@@ -15,6 +15,7 @@
 // The resulting string is a short scheme tag (LAC1 = compressed, LAC0 = plain) followed
 // by base64, so it is just letters, digits and the usual base64 punctuation.
 
+import { z } from 'zod';
 import { db } from './schema';
 import { createDeckWithCards, updateDeck } from './repository';
 import { clampRequestRetention } from '../fsrs/params';
@@ -26,6 +27,35 @@ import { stripAssetImages } from './assets';
 const SHARE_VERSION = 1;
 const PREFIX_COMPRESSED = 'LAC1';
 const PREFIX_PLAIN = 'LAC0';
+
+// ---------------------------------------------------------------------------
+// Zod runtime schema for share payloads
+// ---------------------------------------------------------------------------
+
+const ShareCardSchema = z.object({
+  k: z.union([z.literal(0), z.literal(1), z.literal(2)]),
+  f: z.string(),
+  b: z.string().optional(),
+  g: z.array(z.string()).optional(),
+  i: z.literal(1).optional(),
+});
+
+const ShareDeckSchema = z.object({
+  n: z.string().min(1),
+  o: z.union([z.literal(0), z.literal(1)]),
+  c: z.number(),
+  e: z.number(),
+  r: z.number().optional(),
+  p: z.number().optional(),
+  cards: z.array(ShareCardSchema),
+});
+
+const SharePayloadSchema = z.object({
+  v: z.literal(SHARE_VERSION),
+  by: z.union([z.string(), z.null()]).optional(),
+  at: z.number(),
+  decks: z.array(ShareDeckSchema),
+});
 
 /** A single card in a share payload. `k` is the kind. */
 interface ShareCard {
@@ -142,10 +172,15 @@ export async function decodeShare(code: string): Promise<SharePayload> {
   } catch {
     throw new Error('The share code is corrupted and could not be read.');
   }
-  if (!payload || payload.v !== SHARE_VERSION || !Array.isArray(payload.decks)) {
+  const parse = SharePayloadSchema.safeParse(payload);
+  if (!parse.success) {
+    if (import.meta.env.DEV) {
+      // eslint-disable-next-line no-console
+      console.error('Share payload validation failed:', parse.error.issues);
+    }
     throw new Error('This share code is from an unsupported version of Lacuna.');
   }
-  return payload;
+  return parse.data;
 }
 
 /** Count the cards a payload would create (reversible pairs count as two). */

@@ -95,6 +95,18 @@ describe('share codes', () => {
     await expect(decodeShare('not a real code')).rejects.toThrow();
   });
 
+  it('rejects a payload with a valid prefix but malformed nested structure', async () => {
+    // A payload where a deck is missing the required `cards` array.
+    const malformed = {
+      v: 1,
+      by: null,
+      at: Date.now(),
+      decks: [{ n: 'Bad deck', o: 0, c: 0, e: 0 }],
+    };
+    const plain = 'LAC0' + btoa(JSON.stringify(malformed));
+    await expect(decodeShare(plain)).rejects.toThrow(/unsupported version/);
+  });
+
   it('strips images from share codes and imports placeholders gracefully', async () => {
     const deck = await createDeck('Image deck');
     const asset = await storeImageBlob(new Blob(['already-compressed'], { type: 'image/png' }), 'image/png', 100, 80);
