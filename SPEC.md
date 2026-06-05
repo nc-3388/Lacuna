@@ -311,8 +311,9 @@ invisible grader.
 - `ImageAsset { hash, blob, mimeType, width, height, createdAt }` — a card image stored as a
   binary `Blob` in the `assets` table, keyed by the SHA-256 of its bytes so identical images
   are stored once. Card Markdown carries only a `lacuna-asset://<hash>` reference, resolved to
-  an object URL at render time (and revoked on unmount). This keeps reactive card reads small
-  and stops base64 inflating exports and quota.
+  an object URL at render time and cached per hash for the app lifetime (revoked only at
+  app teardown). This keeps reactive card reads small, stops base64 inflating exports and
+  quota, and avoids the create/revoke churn on every card flip during a fast Learn session.
 - `BackupAsset { hash, data(base64), mimeType, width, height, createdAt }` — the JSON-safe form
   of an `ImageAsset` carried in backup/export files.
 
@@ -450,9 +451,11 @@ user's own history. Lacuna uses the **official gradient-based trainer** from the
   scheduler (`makeEngine`);
 - fitted weights are **validated against the FSRS clamp ranges** (`CLAMP_PARAMETERS` / the same
   bounds as `clipParameters`) before they can ever be applied; out-of-range results are rejected;
-- before/after **log loss** on the review history (via ts-fsrs replay in `evaluateParameters`) is
-  shown in the confirmation step;
-- it is **gated** on `MIN_OPTIMISE_REVIEWS` (400) so it never runs on noise;
+- before/after **log loss** is computed on a **held-out validation portion** (the last 20% of
+  each deck's review history by time) so the metric is out-of-sample, not training-set
+  overfitting. The confirmation step only offers to apply the fitted weights when they beat the
+  defaults out of sample;
+- it is **gated** on `MIN_OPTIMISE_REVIEWS` (1,000) so the train/validation split is meaningful;
 - it runs in a **Web Worker** (`src/workers/optimise.worker.ts`, initialised via `initOptimizer`
   with Vite `?url` / `?worker` imports; driven by `useOptimiser`) so the UI never blocks,
   reporting trainer progress and the before/after summary. The dev/preview server sets
@@ -679,11 +682,12 @@ Front/back Markdown is rendered with GFM, maths (KaTeX), syntax highlighting, an
 - Up to the **ten most recent** snapshots are kept on-device; one is taken automatically on
   open, **at most once a day** (`autoBackupIfStale`), and never blocks the UI.
 - **Pre-migration snapshot:** before a schema upgrade rewrites data, a `pre-migration`-tagged
-  snapshot is captured **inside the upgrade transaction** (so a failure rolls the whole upgrade
-  back and a success still leaves a fallback). Tagged snapshots are **exempt from the ten-snapshot
-  pruning**. The v4 image migration is also idempotent and reads-transforms-writes explicitly
-  rather than mutating inside an async Dexie `.modify()` callback (which Dexie does not reliably
-  persist).
+  snapshot is captured in a **separate committed transaction** (via a dedicated
+  `lacuna-pre-migration` IndexedDB) so a failed upgrade on the main database never rolls the
+  snapshot back with it. The snapshot is also mirrored to the configured folder if the File
+  System Access API is available. Tagged snapshots are **exempt from the ten-snapshot pruning**.
+  The v4 image migration is also idempotent and reads-transforms-writes explicitly rather than
+  mutating inside an async Dexie `.modify()` callback (which Dexie does not reliably persist).
 - Restoring replaces all current data with the snapshot.
 - **Folder mirror** (where the File System Access API is supported): each backup can also be
   written to a chosen folder so it survives clearing browser data. Where unsupported, the UI
@@ -783,6 +787,11 @@ Theme-aware Recharts panels:
   §8.1; gated at `MIN_OPTIMISE_REVIEWS`, overridable per deck, applied only on confirmation).
 - **Import & export:** export all data; import from file with the inline Merge / Replace-all
   chooser described in §13.
+- **Persistent storage:** the app requests `navigator.storage.persist()` on first run so the
+  browser does not silently evict IndexedDB data under storage pressure. The result (persisted,
+  denied, or unsupported) is surfaced honestly in the backup area of Settings, with a clear
+  warning when persistence is denied and a pointer to regular exports or folder mirroring as the
+  safeguard.
 - **Automatic backups:** "Back up now"; folder-mirror controls (where supported); a list of
   restore points (timestamp + deck/card counts) each with Delete and a two-step Restore
   confirmation.
