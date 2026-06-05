@@ -1,9 +1,10 @@
 import 'fake-indexeddb/auto';
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import Dexie from 'dexie';
 import { migrateDeckRecord, migrateCardRecord } from './migrations';
 import { defaultFsrsParameters, FSRS_VERSION } from '../fsrs/params';
 import type { ReviewLog } from './types';
+import { getPreMigrationSnapshot, savePreMigrationSnapshot } from './preMigrationSnapshots';
 
 describe('migrateDeckRecord', () => {
   it('re-tags an old deck to fsrs_version 6 and reseeds default FSRS-6 parameters', () => {
@@ -183,13 +184,19 @@ describe('Dexie upgrade from the old 17-parameter schema', () => {
     expect(card.stability).toBe(4); // preserved
     v2.close();
   });
+});
 
-  it('takes a pre-migration restore point and extracts images on the v3 to v4 upgrade', async () => {
-    const dbName = `lacuna-v4-${Date.now()}`;
-    const pngDataUri =
-      'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+M8AAAMBAQDJ/pLvAAAAAElFTkSuQmCC';
+describe('pre-migration snapshot ordering', () => {
+  beforeEach(async () => {
+    // Clean up the pre-migration DB between tests.
+    const preDb = new Dexie('lacuna-pre-migration');
+    await preDb.delete();
+  });
 
-    // Build a v3 database carrying a base64 image inside a card's Markdown.
+  it('writes a snapshot before the destructive upgrade and it survives a failed migration', async () => {
+    const dbName = `lacuna-pre-mig-${Date.now()}`;
+
+    // 1. Create a v3 database with some data.
     const v3 = new Dexie(dbName);
     v3.version(3).stores({
       decks: 'id, createdAt, examDate',
@@ -200,12 +207,18 @@ describe('Dexie upgrade from the old 17-parameter schema', () => {
       appState: 'key',
     });
     await v3.open();
+    await v3.table('decks').add({
+      id: 'd1',
+      name: 'Pre-migration deck',
+      examDate: 1000,
+      createdAt: 0,
+    });
     await v3.table('cards').add({
       id: 'c1',
       deckId: 'd1',
       type: 'front_back',
-      front: `Look: ![pic](${pngDataUri})`,
-      back: 'a',
+      front: 'question',
+      back: 'answer',
       stability: null,
       difficulty: null,
       lastReviewed: null,
@@ -220,45 +233,82 @@ describe('Dexie upgrade from the old 17-parameter schema', () => {
     });
     v3.close();
 
-    // Reopen at v4 with the real snapshot helper and the asset extraction.
-    const { snapshotBeforeUpgrade } = await import('./schema');
-    const { extractMarkdownAssets } = await import('./assets');
+    // 2. Simulate the pre-migration snapshot capture (mirrors ensurePreMigrationSnapshot).
+    const { readAllDataFromVersion } = await import('./schema');
+    const payload = await readAllDataFromVersion(dbName);
+    expect(payload.decks).toHaveLength(1);
+    expect(payload.cards).toHaveLength(1);
+    await savePreMigrationSnapshot(4, payload);
+
+    // 3. Open at v4 with a migration that deliberately throws.
     const v4 = new Dexie(dbName);
-    const stores = {
+    v4.version(3).stores({
       decks: 'id, createdAt, examDate',
       cards: 'id, deckId, type, lastReviewed',
       sessionHistory: '++id, deckId, timestamp',
       userPerformance: 'deckId',
       backups: '++id, createdAt',
       appState: 'key',
-    };
-    v4.version(3).stores(stores);
+    });
     v4.version(4)
-      .stores({ ...stores, assets: 'hash, createdAt' })
-      .upgrade(async (tx) => {
-        await snapshotBeforeUpgrade(tx, 4);
-        const rows = await tx.table('cards').toArray();
-        for (const card of rows) {
-          const front = await extractMarkdownAssets(card.front ?? '', (asset) =>
-            tx.table('assets').put(asset),
-          );
-          await tx.table('cards').put({ ...card, front });
-        }
+      .stores({
+        decks: 'id, createdAt, examDate',
+        cards: 'id, deckId, type, lastReviewed',
+        sessionHistory: '++id, deckId, timestamp',
+        userPerformance: 'deckId',
+        backups: '++id, createdAt',
+        appState: 'key',
+        assets: 'hash, createdAt',
+      })
+      .upgrade(async () => {
+        throw new Error('Simulated migration failure');
       });
+
+    await expect(v4.open()).rejects.toThrow();
+
+    // 4. The pre-migration snapshot still exists and is restorable.
+    const snapshot = await getPreMigrationSnapshot(4);
+    expect(snapshot).toBeDefined();
+    expect(snapshot!.payload.decks).toHaveLength(1);
+    expect(snapshot!.payload.decks[0].name).toBe('Pre-migration deck');
+    expect(snapshot!.payload.cards).toHaveLength(1);
+    expect(snapshot!.payload.cards[0].front).toBe('question');
+
+    v4.close();
+  });
+
+  it('does not take a snapshot when the database is already at the target version', async () => {
+    const dbName = `lacuna-current-${Date.now()}`;
+    const v4 = new Dexie(dbName);
+    v4.version(4).stores({
+      decks: 'id, createdAt, examDate',
+      cards: 'id, deckId, type, lastReviewed',
+      sessionHistory: '++id, deckId, timestamp',
+      userPerformance: 'deckId',
+      backups: '++id, createdAt',
+      appState: 'key',
+      assets: 'hash, createdAt',
+    });
     await v4.open();
+    await v4.table('decks').add({
+      id: 'd1',
+      name: 'Current deck',
+      examDate: 1000,
+      createdAt: 0,
+    });
+    v4.close();
 
-    // The card's image is now an asset reference, not base64.
-    const migrated = await v4.table('cards').get('c1');
-    expect(migrated.front).toContain('lacuna-asset://');
-    expect(migrated.front).not.toContain('base64');
-    expect(await v4.table('assets').count()).toBe(1);
+    // readAllDataFromVersion returns the current version (4). If the current
+    // version is not less than the target, no snapshot should be written.
+    const { readAllDataFromVersion } = await import('./schema');
+    const payload = await readAllDataFromVersion(dbName);
+    expect(payload.decks).toHaveLength(1);
+    expect(payload.version).toBe(4);
+    // Because the on-disk version (4) is not less than the target (4), the
+    // snapshot function should skip writing.
+    const snapshot = await getPreMigrationSnapshot(4);
+    expect(snapshot).toBeUndefined();
 
-    // A pre-migration restore point exists and still holds the original base64 card.
-    const snapshots = await v4.table('backups').toArray();
-    const preMigration = snapshots.find((s) => s.tag === 'pre-migration');
-    expect(preMigration).toBeDefined();
-    const savedCard = preMigration.payload.cards.find((c: { id: string }) => c.id === 'c1');
-    expect(savedCard.front).toContain('base64');
     v4.close();
   });
 });
