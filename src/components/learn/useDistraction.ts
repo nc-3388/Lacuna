@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 
 /**
  * Tracks when the user leaves the page (tab hidden or window blurred) during a Learn
@@ -52,17 +52,20 @@ export function useDistraction(): DistractionTracker {
     };
   }, []);
 
-  return {
-    beginCard: () => {
-      distractedThisCard.current = false;
-    },
-    wasDistracted: () => distractedThisCard.current,
-    blurredMs: () => {
-      // Include any in-progress blur period.
-      const live =
-        blurStartedAt.current !== null ? Date.now() - blurStartedAt.current : 0;
-      return blurredTotal.current + live;
-    },
-    sessionMs: () => Date.now() - sessionStart.current,
-  };
+  return useMemo(
+    () => ({
+      beginCard: () => {
+        distractedThisCard.current = false;
+      },
+      wasDistracted: () => distractedThisCard.current,
+      blurredMs: () => {
+        // Include any in-progress blur period.
+        const live =
+          blurStartedAt.current !== null ? Date.now() - blurStartedAt.current : 0;
+        return blurredTotal.current + live;
+      },
+      sessionMs: () => Date.now() - sessionStart.current,
+    }),
+    [],
+  );
 }

@@ -141,11 +141,8 @@ export function LearnMode() {
         reachedGoal,
       });
       setCanUndo(false);
-      lastAnswer.current = null;
-      setPhase('finished');
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-    },
-    [objectiveLabel],
+      lastAnswer.current = null;      setPhase('finished');
+    }, [objectiveLabel, distraction],
   );
 
   /** Present the next eligible card, or finish if the goal has been reached. */
@@ -166,8 +163,7 @@ export function LearnMode() {
     setMenuOpen(false);
     timerStart.current = performance.now();
     distraction.beginCard();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [finish]);
+  }, [finish, distraction]);
 
   // Stable ref so the initial-load effect never re-runs just because serveNext's
   // callback identity changed (which would reset phase and undo reveal/exit).
@@ -354,8 +350,7 @@ export function LearnMode() {
     } catch {
       // If undo fails, leave the session state as-is so the user can continue.
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [distraction]);
 
   /** Drop the current card from the live pool after a suspend/bury, then move on. */
   const afterRemoval = useCallback(() => {
