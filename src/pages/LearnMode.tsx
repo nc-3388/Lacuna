@@ -265,7 +265,8 @@ export function LearnMode() {
       const deck = decksRef.current.get(current.deckId);
       if (!ctx || !deck) return;
       submitting.current = true;
-      const manualGrade: Grade | null = typeof input === 'number' ? input : null;
+      try {
+        const manualGrade: Grade | null = typeof input === 'number' ? input : null;
       const correct: boolean = typeof input === 'number' ? input > 1 : input;
 
       // Fire the feedback flash immediately, independent of the (async) DB write and
@@ -321,9 +322,11 @@ export function LearnMode() {
       setCanUndo(true);
 
       setProgress(sessionProgress(nextCards, ctx));
-      if (sessionComplete(nextCards, ctx)) finish(true);
-      else serveNext();
-      submitting.current = false;
+        if (sessionComplete(nextCards, ctx)) finish(true);
+        else serveNext();
+      } finally {
+        submitting.current = false;
+      }
     },
     [phase, current, distraction, finish, serveNext],
   );
@@ -332,21 +335,25 @@ export function LearnMode() {
     const snap = lastAnswer.current;
     const ctx = ctxRef.current;
     if (!snap || !ctx) return;
-    await undoReview(snap.undo);
-    cardsRef.current = cardsRef.current.map((c) =>
-      c.id === snap.undo.cardBefore.id ? snap.undo.cardBefore : c,
-    );
-    cooldowns.current = snap.cooldowns;
-    if (snap.undo.perfBefore) perfRef.current.set(snap.deckId, snap.undo.perfBefore);
-    events.current = events.current.slice(0, snap.eventsLen);
-    lastAnswer.current = null;
-    setCanUndo(false);
-    setProgress(snap.progressBefore);
-    setCurrent(snap.undo.cardBefore);
-    setPhase('question');
-    setMenuOpen(false);
-    timerStart.current = performance.now();
-    distraction.beginCard();
+    try {
+      await undoReview(snap.undo);
+      cardsRef.current = cardsRef.current.map((c) =>
+        c.id === snap.undo.cardBefore.id ? snap.undo.cardBefore : c,
+      );
+      cooldowns.current = snap.cooldowns;
+      if (snap.undo.perfBefore) perfRef.current.set(snap.deckId, snap.undo.perfBefore);
+      events.current = events.current.slice(0, snap.eventsLen);
+      lastAnswer.current = null;
+      setCanUndo(false);
+      setProgress(snap.progressBefore);
+      setCurrent(snap.undo.cardBefore);
+      setPhase('question');
+      setMenuOpen(false);
+      timerStart.current = performance.now();
+      distraction.beginCard();
+    } catch {
+      // If undo fails, leave the session state as-is so the user can continue.
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -363,21 +370,29 @@ export function LearnMode() {
 
   const suspendCurrent = useCallback(async () => {
     if (!current) return;
-    await suspendCard(current.id);
-    cardsRef.current = cardsRef.current.map((c) =>
-      c.id === current.id ? { ...c, suspended: true } : c,
-    );
-    afterRemoval();
+    try {
+      await suspendCard(current.id);
+      cardsRef.current = cardsRef.current.map((c) =>
+        c.id === current.id ? { ...c, suspended: true } : c,
+      );
+      afterRemoval();
+    } catch {
+      // If suspend fails, the card remains in the pool and the user can try again.
+    }
   }, [current, afterRemoval]);
 
   const buryCurrent = useCallback(async () => {
     if (!current) return;
-    const until = startOfDay(Date.now()) + MS_PER_DAY;
-    await buryCard(current.id, until);
-    cardsRef.current = cardsRef.current.map((c) =>
-      c.id === current.id ? { ...c, buriedUntil: until } : c,
-    );
-    afterRemoval();
+    try {
+      const until = startOfDay(Date.now()) + MS_PER_DAY;
+      await buryCard(current.id, until);
+      cardsRef.current = cardsRef.current.map((c) =>
+        c.id === current.id ? { ...c, buriedUntil: until } : c,
+      );
+      afterRemoval();
+    } catch {
+      // If bury fails, the card remains in the pool and the user can try again.
+    }
   }, [current, afterRemoval]);
 
   /** Open the in-session editor, pausing the response timer while it is open. */
