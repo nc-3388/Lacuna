@@ -50,6 +50,7 @@ import {
   PauseIcon,
   UndoIcon,
 } from '../components/ui/icons';
+import { PomodoroTimer } from '../components/learn/PomodoroTimer';
 
 type Phase = 'loading' | 'question' | 'answer' | 'finished';
 
@@ -636,6 +637,9 @@ export function LearnMode() {
             </div>
             <ProgressBar value={progress} height={6} />
           </div>
+
+          {/* Pomodoro timer */}
+          <PomodoroTimer />
 
           {/* Per-card action menu (edit / suspend / bury) */}
           <div className="relative">

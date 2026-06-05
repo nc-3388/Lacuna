@@ -15,6 +15,11 @@ import {
   type ImportMode,
 } from '../db/portability';
 import {
+  loadPomodoroSettings,
+  savePomodoroSettings,
+  type PomodoroSettings,
+} from '../hooks/usePomodoro';
+import {
   exportCardsCsv,
   exportCardsTsv,
   exportCardsPlainText,
@@ -48,6 +53,7 @@ export function Settings() {
   const { notify } = useToast();
   const [gradingMode, setGradingMode] = useGradingMode();
   const [autoOptimise, setAutoOptimise] = useAutoOptimiseDefault();
+  const [pomoSettings, setPomoSettings] = useState<PomodoroSettings>(loadPomodoroSettings);
   const backups = useBackups();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [persistence, setPersistence] = useState<StoragePersistenceState | null>(null);
@@ -307,6 +313,61 @@ export function Settings() {
         </div>
       </section>
 
+      {/* Pomodoro timer */}
+      <section className="mb-8 rounded-2xl border border-line bg-surface p-6">
+        <h2 className="mb-1 font-display text-xl">Pomodoro timer</h2>
+        <p className="mb-5 text-sm text-ink-soft">
+          A built-in focus timer for your study sessions. Customise the durations to match
+          your own rhythm.
+        </p>
+        <div className="grid grid-cols-3 gap-4">
+          <DurationInput
+            label="Focus"
+            value={pomoSettings.workMinutes}
+            onChange={(v) => {
+              const next = { ...pomoSettings, workMinutes: v };
+              setPomoSettings(next);
+              savePomodoroSettings(next);
+            }}
+          />
+          <DurationInput
+            label="Short break"
+            value={pomoSettings.shortBreakMinutes}
+            onChange={(v) => {
+              const next = { ...pomoSettings, shortBreakMinutes: v };
+              setPomoSettings(next);
+              savePomodoroSettings(next);
+            }}
+          />
+          <DurationInput
+            label="Long break"
+            value={pomoSettings.longBreakMinutes}
+            onChange={(v) => {
+              const next = { ...pomoSettings, longBreakMinutes: v };
+              setPomoSettings(next);
+              savePomodoroSettings(next);
+            }}
+          />
+        </div>
+        <div className="mt-5 flex items-start justify-between gap-3 border-t border-line pt-5">
+          <div className="min-w-0">
+            <div className="text-sm">Auto-start breaks</div>
+            <p className="mt-1 text-sm text-ink-soft">
+              Automatically start the break timer when a focus session ends.
+            </p>
+          </div>
+          <Toggle
+            checked={pomoSettings.autoStartBreaks}
+            onChange={(checked) => {
+              const next = { ...pomoSettings, autoStartBreaks: checked };
+              setPomoSettings(next);
+              savePomodoroSettings(next);
+            }}
+            label="Auto-start breaks"
+          />
+        </div>
+      </section>
+
       {/* Data portability */}
       <section className="rounded-2xl border border-line bg-surface p-6">
         <h2 className="mb-1 font-display text-xl">Import &amp; export</h2>
@@ -539,5 +600,35 @@ export function Settings() {
         )}
       </section>
     </div>
+  );
+}
+
+function DurationInput({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: number;
+  onChange: (v: number) => void;
+}) {
+  return (
+    <label className="block text-sm text-ink-soft">
+      {label}
+      <div className="mt-2 flex items-center gap-2">
+        <input
+          type="number"
+          min={1}
+          max={120}
+          value={value}
+          onChange={(e) => {
+            const n = Number(e.target.value);
+            if (!Number.isNaN(n)) onChange(Math.max(1, Math.min(120, n)));
+          }}
+          className="w-full rounded-lg border border-line-strong bg-surface px-3 py-2 text-ink outline-none transition-colors focus:border-accent"
+        />
+        <span className="shrink-0 text-xs text-ink-faint">min</span>
+      </div>
+    </label>
   );
 }
