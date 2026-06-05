@@ -443,6 +443,17 @@ export function LearnMode() {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.repeat) return;
+      // While the user is typing into any input, textarea, or content-editable
+      // element, card shortcuts stay inert so keystrokes don't accidentally grade.
+      const target = e.target as HTMLElement | null;
+      if (
+        target &&
+        (target.tagName === 'INPUT' ||
+          target.tagName === 'TEXTAREA' ||
+          target.isContentEditable)
+      ) {
+        return;
+      }
       // The edit overlay owns the keyboard entirely while open, so typing into it
       // never reveals or grades the card underneath.
       if (editing) return;
