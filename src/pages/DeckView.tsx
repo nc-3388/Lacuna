@@ -105,8 +105,8 @@ export function DeckView() {
   }`;
 
   function startStudy() {
-    if (cards!.length === 0) return;
-    if (!deck!.examDatePromptDismissed) {
+    if (!cards?.length) return;
+    if (!deck?.examDatePromptDismissed) {
       setExamBannerOpen(true);
     } else {
       navigate(studyPath);
