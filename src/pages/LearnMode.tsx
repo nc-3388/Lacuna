@@ -37,6 +37,7 @@ import { SessionReport } from '../components/learn/SessionReport';
 import { useDistraction } from '../components/learn/useDistraction';
 import type { SessionEvent, SessionSummary } from '../components/learn/types';
 import { useGradingMode } from '../state/gradingMode';
+import { useFocusTrap } from '../hooks/useFocusTrap';
 import {
   CheckIcon,
   ClockIcon,
@@ -582,30 +583,7 @@ export function LearnMode() {
       </AnimatePresence>
 
       {/* Navigation drawer: hidden by default, slides in for quick navigation away. */}
-      <AnimatePresence>
-        {navOpen && (
-          <motion.div
-            className="fixed inset-0 z-40"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-          >
-            <div
-              className="absolute inset-0 bg-black/50 backdrop-blur-sm"
-              onClick={() => setNavOpen(false)}
-            />
-            <motion.div
-              className="absolute inset-y-0 left-0"
-              initial={{ x: -280 }}
-              animate={{ x: 0 }}
-              exit={{ x: -280 }}
-              transition={{ type: 'spring', stiffness: 260, damping: 30 }}
-            >
-              <Sidebar collapsed={false} onToggleCollapsed={() => setNavOpen(false)} />
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      <NavSidebar open={navOpen} onClose={() => setNavOpen(false)} />
 
       {/* Help overlay (opened with ?) */}
       <KeyHints open={hintsOpen} onClose={() => setHintsOpen(false)} />
@@ -806,6 +784,40 @@ export function LearnMode() {
         </div>
       </main>
     </div>
+  );
+}
+
+function NavSidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const trapRef = useFocusTrap(open);
+  return (
+    <AnimatePresence>
+      {open && (
+        <motion.div
+          ref={trapRef}
+          role="dialog"
+          aria-label="Navigation"
+          aria-modal="true"
+          className="fixed inset-0 z-40"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+        >
+          <div
+            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+            onClick={onClose}
+          />
+          <motion.div
+            className="absolute inset-y-0 left-0"
+            initial={{ x: -280 }}
+            animate={{ x: 0 }}
+            exit={{ x: -280 }}
+            transition={{ type: 'spring', stiffness: 260, damping: 30 }}
+          >
+            <Sidebar collapsed={false} onToggleCollapsed={onClose} />
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
   );
 }
 

@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react';
 import { motion } from 'motion/react';
+import { useFocusTrap } from '../../hooks/useFocusTrap';
 import { MarkdownEditor } from '../markdown/MarkdownEditor';
 import { TagInput } from '../ui/TagInput';
 import { Button } from '../ui/Button';
@@ -32,6 +33,7 @@ export function CardEditOverlay({
   onCancel,
 }: CardEditOverlayProps) {
   const { notify } = useToast();
+  const trapRef = useFocusTrap(true);
   const [type, setType] = useState<CardType>(card.type);
   const [front, setFront] = useState(card.front);
   const [back, setBack] = useState(card.back);
@@ -63,6 +65,7 @@ export function CardEditOverlay({
 
   return (
     <motion.div
+      ref={trapRef}
       className="fixed inset-0 z-50 flex flex-col"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
