@@ -7,7 +7,17 @@
 import { db } from './schema';
 import { assetUrl, referencedAssetHashes } from './assets';
 
+const MAX_SIZE = 200;
+
 const cache = new Map<string, string>();
+
+function evictOldest(): void {
+  const first = cache.keys().next().value as string | undefined;
+  if (first === undefined) return;
+  const url = cache.get(first);
+  if (url) URL.revokeObjectURL(url);
+  cache.delete(first);
+}
 
 /**
  * Resolve an asset hash to an object URL, creating and caching one if necessary.
@@ -15,12 +25,18 @@ const cache = new Map<string, string>();
  */
 export async function resolveAssetUrl(hash: string): Promise<string | null> {
   const cached = cache.get(hash);
-  if (cached) return cached;
+  if (cached) {
+    // Touch: move to the back of the LRU queue.
+    cache.delete(hash);
+    cache.set(hash, cached);
+    return cached;
+  }
 
   const asset = await db.assets.get(hash);
   if (!asset) return null;
 
   const url = URL.createObjectURL(asset.blob);
+  if (cache.size >= MAX_SIZE) evictOldest();
   cache.set(hash, url);
   return url;
 }
