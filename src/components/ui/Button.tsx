@@ -24,12 +24,12 @@ const base =
 
 const variants: Record<Variant, string> = {
   primary:
-    'bg-accent text-accent-fg hover:brightness-105 shadow-sm shadow-accent/20',
+    'bg-accent text-accent-fg hover:brightness-105 shadow-sm shadow-accent/20 hover:shadow-md hover:shadow-accent/25',
   secondary:
-    'bg-surface-raised text-ink border border-line-strong hover:border-accent/60 hover:text-accent',
+    'bg-surface-raised text-ink border border-line-strong hover:border-accent/60 hover:text-accent hover:shadow-sm hover:shadow-black/5',
   ghost: 'text-ink-soft hover:text-ink hover:bg-ink/5',
   danger:
-    'bg-transparent text-negative border border-negative/40 hover:bg-negative/10',
+    'bg-transparent text-negative border border-negative/40 hover:bg-negative/10 hover:shadow-sm hover:shadow-negative/10',
 };
 
 const sizes: Record<Size, string> = {

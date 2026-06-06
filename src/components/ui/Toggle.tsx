@@ -1,3 +1,4 @@
+import { motion } from 'motion/react';
 import { cn } from './cn';
 
 interface ToggleProps {
@@ -21,11 +22,10 @@ export function Toggle({ checked, onChange, label, id }: ToggleProps) {
           checked ? 'bg-accent' : 'bg-ink/20',
         )}
       >
-        <span
-          className={cn(
-            'absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform duration-200',
-            checked && 'translate-x-5',
-          )}
+        <motion.span
+          className="absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white shadow"
+          animate={{ x: checked ? 20 : 0 }}
+          transition={{ type: 'spring', stiffness: 500, damping: 30 }}
         />
       </button>
       {label && <span className="text-sm text-ink-soft">{label}</span>}

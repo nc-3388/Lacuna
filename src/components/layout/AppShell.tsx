@@ -119,15 +119,15 @@ export function AppShell() {
 
         <main ref={mainRef} className="min-w-0 flex-1 overflow-y-auto">
           <ErrorBoundary label="this page">
-            {/* Each route fades and lifts in as the previous one settles out, giving
-                navigation a sense of place without slowing the user down. */}
+            {/* Each route fades, scales, and lifts in as the previous one settles out,
+                giving navigation a polished sense of place without slowing the user down. */}
             <AnimatePresence mode="wait" initial={false}>
               <motion.div
                 key={location.pathname}
-                initial={{ opacity: 0, y: 12 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -8 }}
-                transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+                initial={{ opacity: 0, y: 18, scale: 0.98 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: -12, scale: 0.985 }}
+                transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
               >
                 {outlet}
               </motion.div>

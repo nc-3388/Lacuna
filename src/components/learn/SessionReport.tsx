@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Bar,
   BarChart,
@@ -8,7 +8,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
-import { motion } from 'motion/react';
+import { motion, AnimatePresence } from 'motion/react';
 import { Button } from '../ui/Button';
 import { ProgressBar } from '../ui/ProgressBar';
 import { useChartColours } from '../analytics/useChartColours';
@@ -21,6 +21,86 @@ const GRADE_LABELS: Record<number, string> = {
   3: 'Good',
   4: 'Easy',
 };
+
+/** A simple spring-driven count-up hook that animates a number from 0 to target. */
+function useCountUp(target: number, durationMs = 1200, delayMs = 0) {
+  const [value, setValue] = useState(0);
+  const raf = useRef<number | null>(null);
+  const startTime = useRef<number | null>(null);
+
+  useEffect(() => {
+    const delayId = window.setTimeout(() => {
+      const tick = (now: number) => {
+        if (startTime.current === null) startTime.current = now;
+        const elapsed = now - startTime.current;
+        const progress = Math.min(elapsed / durationMs, 1);
+        // Ease-out cubic
+        const eased = 1 - Math.pow(1 - progress, 3);
+        const next = Math.round(eased * target);
+        setValue((prev) => (next !== prev ? next : prev));
+        if (progress < 1) {
+          raf.current = requestAnimationFrame(tick);
+        }
+      };
+      raf.current = requestAnimationFrame(tick);
+    }, delayMs);
+
+    return () => {
+      window.clearTimeout(delayId);
+      if (raf.current) cancelAnimationFrame(raf.current);
+    };
+  }, [target, durationMs, delayMs]);
+
+  return value;
+}
+
+/** Small burst of confetti particles that celebrate a reached goal. */
+function ConfettiBurst() {
+  const particles = useMemo(() => {
+    const colours = ['#34d399', '#fbbf24', '#60a5fa', '#f87171', '#a78bfa', '#f472b6'];
+    return Array.from({ length: 30 }).map((_, i) => ({
+      id: i,
+      x: (Math.random() - 0.5) * 500,
+      y: -Math.random() * 300 - 100,
+      rotation: Math.random() * 720 - 360,
+      scale: 0.4 + Math.random() * 0.8,
+      colour: colours[i % colours.length],
+      delay: Math.random() * 0.25,
+      duration: 0.8 + Math.random() * 0.8,
+    }));
+  }, []);
+
+  return (
+    <motion.div
+      className="pointer-events-none fixed inset-0 z-50 overflow-hidden"
+      aria-hidden
+      initial={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.4 }}
+    >
+      {particles.map((p) => (
+        <motion.div
+          key={p.id}
+          className="absolute left-1/2 top-1/3 h-2.5 w-2.5 rounded-sm"
+          style={{ backgroundColor: p.colour }}
+          initial={{ x: 0, y: 0, opacity: 1, scale: 0, rotate: 0 }}
+          animate={{
+            x: p.x,
+            y: p.y,
+            opacity: [1, 1, 0],
+            scale: p.scale,
+            rotate: p.rotation,
+          }}
+          transition={{
+            duration: p.duration,
+            delay: p.delay,
+            ease: [0.16, 1, 0.3, 1],
+          }}
+        />
+      ))}
+    </motion.div>
+  );
+}
 
 export function SessionReport({
   summary,
@@ -61,8 +141,24 @@ export function SessionReport({
   const gradeColour = (g: number) =>
     g === 1 ? c.inkFaint : g === 2 ? c.inkSoft : g === 3 ? c.accent : c.positive;
 
+  const countTotal = useCountUp(total, 1000, 300);
+  const countAccuracy = useCountUp(accuracy, 1000, 450);
+  const countMean = useCountUp(Math.round(meanResponse * 10), 1000, 600);
+  const countFocus = useCountUp(Math.round(summary.focusFraction * 100), 1000, 750);
+
+  // Animate progress bar from before to after over 1.2 seconds.
+  const [animatedProgress, setAnimatedProgress] = useState(summary.masteryBefore);
+  useEffect(() => {
+    const id = window.setTimeout(() => setAnimatedProgress(summary.masteryAfter), 150);
+    return () => window.clearTimeout(id);
+  }, [summary.masteryAfter]);
+
   return (
     <div className="mx-auto max-w-3xl px-6 py-12">
+      <AnimatePresence>
+        {summary.reachedGoal && <ConfettiBurst key="confetti" />}
+      </AnimatePresence>
+
       <motion.div
         initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
@@ -86,26 +182,37 @@ export function SessionReport({
           {summary.reachedGoal ? 'You’ve reached your goal' : 'Nice work'}
         </h1>
 
-        {/* Progress before/after */}
+        {/* Progress before/after with animated fill */}
         <div className="mb-6 rounded-2xl border border-line bg-surface p-6">
           <div className="mb-2 flex items-center justify-between text-sm text-ink-soft">
             <span>{summary.objectiveLabel}</span>
             <span className="tabular text-ink">
               {Math.round(summary.masteryBefore * 100)}% →{' '}
-              <span className="font-medium text-accent">
+              <motion.span
+                className="font-medium text-accent"
+                initial={{ opacity: 0, y: 4 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 1.2, duration: 0.3 }}
+              >
                 {Math.round(summary.masteryAfter * 100)}%
-              </span>
+              </motion.span>
             </span>
           </div>
-          <ProgressBar value={summary.masteryAfter} />
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.2, duration: 0.3 }}
+          >
+            <ProgressBar value={animatedProgress} />
+          </motion.div>
         </div>
 
-        {/* Stat tiles — revealed one after another so the numbers land in sequence. */}
+        {/* Stat tiles — revealed one after another with count-up numbers. */}
         <div className="mb-6 grid grid-cols-2 gap-4 sm:grid-cols-4">
-          <Stat index={0} label="Cards reviewed" value={String(total)} />
-          <Stat index={1} label="Accuracy" value={`${accuracy}%`} />
-          <Stat index={2} label="Mean time" value={`${meanResponse.toFixed(1)}s`} />
-          <Stat index={3} label="Focus" value={`${Math.round(summary.focusFraction * 100)}%`} />
+          <Stat index={0} label="Cards reviewed" value={String(countTotal)} />
+          <Stat index={1} label="Accuracy" value={`${countAccuracy}%`} />
+          <Stat index={2} label="Mean time" value={`${(countMean / 10).toFixed(1)}s`} />
+          <Stat index={3} label="Focus" value={`${countFocus}%`} />
         </div>
 
         {/* Grade distribution */}
@@ -171,7 +278,15 @@ export function SessionReport({
   );
 }
 
-function Stat({ label, value, index }: { label: string; value: string; index: number }) {
+function Stat({
+  label,
+  value,
+  index,
+}: {
+  label: string;
+  value: string;
+  index: number;
+}) {
   return (
     <motion.div
       initial={{ opacity: 0, y: 12 }}
@@ -179,7 +294,14 @@ function Stat({ label, value, index }: { label: string; value: string; index: nu
       transition={{ duration: 0.3, delay: 0.2 + index * 0.07, ease: [0.16, 1, 0.3, 1] }}
       className="rounded-xl border border-line bg-surface p-4"
     >
-      <div className="font-display text-3xl tabular tracking-tight">{value}</div>
+      <motion.div
+        className="font-display text-3xl tabular tracking-tight"
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+      >
+        {value}
+      </motion.div>
       <div className="mt-1 text-xs uppercase tracking-wide text-ink-faint">{label}</div>
     </motion.div>
   );

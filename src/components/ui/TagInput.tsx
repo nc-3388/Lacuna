@@ -1,4 +1,5 @@
 import { useState, type KeyboardEvent } from 'react';
+import { motion } from 'motion/react';
 import { CloseIcon, TagIcon } from './icons';
 
 interface TagInputProps {
@@ -43,8 +44,11 @@ export function TagInput({ tags, onChange, suggestions = [], placeholder }: TagI
       <div className="flex flex-wrap items-center gap-1.5 rounded-lg border border-line-strong bg-surface px-2.5 py-2 focus-within:border-accent">
         <TagIcon width={15} height={15} className="text-ink-faint" />
         {tags.map((tag) => (
-          <span
+          <motion.span
             key={tag}
+            initial={{ opacity: 0, scale: 0.85 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ type: 'spring', stiffness: 500, damping: 28 }}
             className="inline-flex items-center gap-1 rounded-full bg-accent-soft px-2 py-0.5 text-xs text-accent"
           >
             {tag}
@@ -56,7 +60,7 @@ export function TagInput({ tags, onChange, suggestions = [], placeholder }: TagI
             >
               <CloseIcon width={11} height={11} />
             </button>
-          </span>
+          </motion.span>
         ))}
         <input
           value={draft}
@@ -70,14 +74,15 @@ export function TagInput({ tags, onChange, suggestions = [], placeholder }: TagI
       {available.length > 0 && (
         <div className="mt-2 flex flex-wrap gap-1.5">
           {available.map((s) => (
-            <button
+            <motion.button
               key={s}
               type="button"
               onClick={() => addTag(s)}
+              whileTap={{ scale: 0.92 }}
               className="rounded-full border border-line px-2 py-0.5 text-xs text-ink-soft transition-colors hover:border-accent hover:text-accent"
             >
               {s}
-            </button>
+            </motion.button>
           ))}
         </div>
       )}

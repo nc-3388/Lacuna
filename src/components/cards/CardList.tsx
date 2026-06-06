@@ -460,18 +460,18 @@ function CardRow({
   const buried = card.buriedUntil != null && card.buriedUntil > Date.now();
   const leech = isLeech(card);
   const flagged = card.flagged === true;
-  return (
-    <motion.div
+  return (      <motion.div
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.25, delay: Math.min(index * 0.03, 0.25) }}
       onClick={selectMode ? onToggle : undefined}
+      whileHover={selectMode ? undefined : { y: -2 }}
       className={cn(
-        'group relative flex items-start gap-4 rounded-xl border bg-surface p-4 transition-colors',
+        'group relative flex items-start gap-4 rounded-xl border bg-surface p-4 transition-colors duration-200',
         selectMode && 'cursor-pointer',
         selected
           ? 'border-accent ring-2 ring-accent/30'
-          : 'border-line hover:border-line-strong',
+          : 'border-line hover:border-line-strong hover:shadow-md hover:shadow-black/[0.03]',
       )}
     >
       {selectMode && (
@@ -552,7 +552,8 @@ function CardRow({
             onClick={onToggleFlag}
             title={flagged ? 'Remove flag' : 'Flag card'}
             aria-pressed={flagged}
-            whileTap={{ scale: 0.88 }}
+            whileTap={{ scale: 0.85 }}
+            whileHover={{ scale: 1.08 }}
             className={cn(
               'rounded-lg p-2 transition-opacity hover:bg-ink/5 hover:text-accent focus-visible:opacity-100',
               flagged
@@ -566,7 +567,8 @@ function CardRow({
             type="button"
             onClick={onEdit}
             title="Edit card"
-            whileTap={{ scale: 0.88 }}
+            whileTap={{ scale: 0.85 }}
+            whileHover={{ scale: 1.08 }}
             className="rounded-lg p-2 text-ink-faint opacity-0 transition-opacity hover:bg-ink/5 hover:text-accent focus-visible:opacity-100 group-hover:opacity-100"
           >
             <EditIcon width={16} height={16} />
@@ -575,7 +577,8 @@ function CardRow({
             type="button"
             onClick={onDelete}
             title="Delete card"
-            whileTap={{ scale: 0.88 }}
+            whileTap={{ scale: 0.85 }}
+            whileHover={{ scale: 1.08 }}
             className="rounded-lg p-2 text-ink-faint opacity-0 transition-opacity hover:bg-negative/10 hover:text-negative focus-visible:opacity-100 group-hover:opacity-100"
           >
             <TrashIcon width={16} height={16} />
