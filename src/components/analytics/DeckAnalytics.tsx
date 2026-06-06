@@ -72,6 +72,7 @@ export function DeckAnalytics({ cards, history }: DeckAnalyticsProps) {
           description="Average predicted retrievability at your exam date, over time."
           empty={trajectory.length < 2}
           emptyMessage="Study this deck to start plotting your trajectory."
+          delay={0}
         >
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart data={trajectory} margin={{ top: 8, right: 12, bottom: 0, left: -8 }}>
@@ -108,6 +109,7 @@ export function DeckAnalytics({ cards, history }: DeckAnalyticsProps) {
         description="Brier score for predicted recall versus actual recall. Lower is better."
         empty={predictionAccuracy.length === 0}
         emptyMessage="Review cards with existing memory state to measure prediction accuracy."
+        delay={0.08}
       >
         <ResponsiveContainer width="100%" height="100%">
           <LineChart
@@ -158,6 +160,7 @@ export function DeckAnalytics({ cards, history }: DeckAnalyticsProps) {
         description="How many cards fall into each stability range."
         empty={cards.length === 0}
         emptyMessage="Add cards to see their stability profile."
+        delay={0.16}
       >
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={profile} margin={{ top: 8, right: 12, bottom: 0, left: -16 }}>
@@ -183,6 +186,7 @@ export function DeckAnalytics({ cards, history }: DeckAnalyticsProps) {
         description="Reviews completed each day over the past 30 days."
         empty={!hasReviews}
         emptyMessage="Your daily review counts will appear here."
+        delay={0.24}
       >
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={volume} margin={{ top: 8, right: 12, bottom: 0, left: -16 }}>

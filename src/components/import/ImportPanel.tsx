@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import { Button } from '../ui/Button';
 import { UploadIcon } from '../ui/icons';
 import { cn } from '../ui/cn';
@@ -140,34 +141,52 @@ export function ImportPanel({ onImport, onCancel, importLabel = 'Import cards' }
       </div>
 
       {/* Live preview */}
-      {text.trim() && (
-        <div className="rounded-lg border border-line bg-surface-raised/40 p-3">
-          <div className="mb-2 text-xs text-ink-soft">
-            {result.cards.length} card{result.cards.length === 1 ? '' : 's'} ready
-            {result.skipped > 0 && (
-              <span className="text-ink-faint"> · {result.skipped} row{result.skipped === 1 ? '' : 's'} skipped</span>
-            )}
-          </div>
-          {result.cards.length > 0 && (
-            <ul className="flex flex-col gap-1.5">
-              {result.cards.slice(0, 4).map((c, i) => (
-                <li key={i} className="flex items-center gap-2 text-sm">
-                  <span className="rounded bg-ink/5 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-ink-faint">
-                    {c.type === 'cloze' ? 'Cloze' : 'F/B'}
-                  </span>
-                  <span className="truncate text-ink">{c.front}</span>
-                  {c.back && <span className="truncate text-ink-faint">— {c.back}</span>}
-                </li>
-              ))}
-              {result.cards.length > 4 && (
-                <li className="text-xs text-ink-faint">
-                  …and {result.cards.length - 4} more
-                </li>
+      <AnimatePresence mode="wait">
+        {text.trim() && (
+          <motion.div
+            key="preview"
+            initial={{ opacity: 0, y: 8, height: 0 }}
+            animate={{ opacity: 1, y: 0, height: 'auto' }}
+            exit={{ opacity: 0, y: -6, height: 0 }}
+            transition={{ duration: 0.25, ease: [0.25, 0.1, 0.25, 1] }}
+            className="overflow-hidden rounded-lg border border-line bg-surface-raised/40 p-3"
+          >
+            <div className="mb-2 text-xs text-ink-soft">
+              {result.cards.length} card{result.cards.length === 1 ? '' : 's'} ready
+              {result.skipped > 0 && (
+                <span className="text-ink-faint"> · {result.skipped} row{result.skipped === 1 ? '' : 's'} skipped</span>
               )}
-            </ul>
-          )}
-        </div>
-      )}
+            </div>
+            {result.cards.length > 0 && (
+              <ul className="flex flex-col gap-1.5">
+                <AnimatePresence>
+                  {result.cards.slice(0, 4).map((c, i) => (
+                    <motion.li
+                      key={i}
+                      initial={{ opacity: 0, x: -8 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: 8 }}
+                      transition={{ duration: 0.2, delay: i * 0.04 }}
+                      className="flex items-center gap-2 text-sm"
+                    >
+                      <span className="rounded bg-ink/5 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-ink-faint">
+                        {c.type === 'cloze' ? 'Cloze' : 'F/B'}
+                      </span>
+                      <span className="truncate text-ink">{c.front}</span>
+                      {c.back && <span className="truncate text-ink-faint">— {c.back}</span>}
+                    </motion.li>
+                  ))}
+                </AnimatePresence>
+                {result.cards.length > 4 && (
+                  <li className="text-xs text-ink-faint">
+                    …and {result.cards.length - 4} more
+                  </li>
+                )}
+              </ul>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <div className="flex justify-end gap-2">
         {onCancel && (
