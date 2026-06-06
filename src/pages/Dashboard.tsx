@@ -44,6 +44,8 @@ export function Dashboard() {
   const [merging, setMerging] = useState(false);
   const [mergeTarget, setMergeTarget] = useState<string | null>(null);
 
+  const allSelected = decks ? decks.length > 0 && decks.every((d) => selected.has(d.id)) : false;
+
   const selectedDecks = useMemo(
     () => (decks ?? []).filter((d) => selected.has(d.id)),
     [decks, selected],
@@ -298,22 +300,22 @@ export function Dashboard() {
             <button
               type="button"
               onClick={toggleAll}
-              aria-pressed={!!(decks?.length && decks.every((d) => selected.has(d.id)))}
+              aria-pressed={allSelected}
               className="flex items-center gap-2 text-sm text-ink-soft transition-colors hover:text-ink"
             >
               <span
                 className={cn(
                   'grid h-6 w-6 place-items-center rounded-full border transition-colors',
-                  decks?.length && decks.every((d) => selected.has(d.id))
+                  allSelected
                     ? 'border-accent bg-accent text-accent-fg'
                     : 'border-line-strong',
                 )}
               >
-                {decks?.length && decks.every((d) => selected.has(d.id)) && (
+                {allSelected && (
                   <CheckIcon width={14} height={14} />
                 )}
               </span>
-              {decks?.length && decks.every((d) => selected.has(d.id)) ? 'Deselect all' : 'Select all'}
+              {allSelected ? 'Deselect all' : 'Select all'}
             </button>
             <span className="text-sm text-ink-faint">{selected.size} selected</span>
             <div className="ml-auto flex gap-2">
