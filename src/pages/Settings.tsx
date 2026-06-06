@@ -830,10 +830,16 @@ function KeyCaptureOverlay({
   }, [action, onCapture, onCancel]);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm">
-      <div className="rounded-2xl border border-line-strong bg-surface px-8 py-6 shadow-2xl">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm"
+      onClick={onCancel}
+    >
+      <div
+        className="rounded-2xl border border-line-strong bg-surface px-8 py-6 shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
         <h3 className="mb-2 font-display text-lg">Set shortcut for {ACTION_LABELS[action]}</h3>
-        <p className="text-sm text-ink-soft">Press the key you want to use. Press Escape to cancel.</p>
+        <p className="text-sm text-ink-soft">Press the key you want to use. Press Escape or click outside this card to cancel.</p>
       </div>
     </div>
   );

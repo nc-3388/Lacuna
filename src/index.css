@@ -109,12 +109,25 @@
     color: hsl(var(--ink));
     font-family: var(--font-body);
     font-weight: 400;
+    -webkit-user-select: none;
+    user-select: none;
     /* Subtle paper grain for atmosphere and depth rather than a flat fill. */
     background-image: radial-gradient(
       hsl(var(--ink) / var(--grain-opacity)) 0.5px,
       transparent 0.5px
     );
     background-size: 4px 4px;
+  }
+
+  /* Re-enable text selection for actual editable and readable content. */
+  input,
+  textarea,
+  select,
+  [contenteditable],
+  .prose-lacuna,
+  .prose-lacuna * {
+    -webkit-user-select: text;
+    user-select: text;
   }
 
   h1, h2, h3, h4 {
