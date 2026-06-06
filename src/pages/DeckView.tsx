@@ -34,6 +34,7 @@ import {
   ChartIcon,
   ChevronLeftIcon,
   PlayIcon,
+  PlusIcon,
   SearchIcon,
   SettingsIcon,
 } from '../components/ui/icons';
@@ -130,16 +131,20 @@ export function DeckView() {
   }, [cards, deck, filters, searchQuery, sortMode, visibleTag]);
 
   if (deck === undefined || cards === undefined) {
-    return <div className="p-10 text-ink-faint">Loading…</div>;
+    return <DeckViewSkeleton />;
   }
   if (deck === null) {
     return (
-      <div className="p-10">
+      <motion.div
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="p-10"
+      >
         <p className="mb-4 text-ink-soft">This deck could not be found.</p>
         <Link to="/" className="text-accent underline">
           Back to dashboard
         </Link>
-      </div>
+      </motion.div>
     );
   }
 
@@ -422,15 +427,22 @@ export function DeckView() {
                 ))}
               </div>
             )}
-            <CardList
-              cards={searchedCards}
-              deck={deck}
-              allDecks={allDecks ?? []}
-              onNewCard={() => navigate(`/deck/${deck.id}/cards/new`)}
-              onEditCard={(card: Card) =>
-                navigate(`/deck/${deck.id}/cards/${card.id}/edit`)
-              }
-            />
+            {searchedCards.length === 0 ? (
+              <EmptyCardState
+                hasQuery={searchQuery.trim().length > 0 || filters.size > 0}
+                onNewCard={() => navigate(`/deck/${deck.id}/cards/new`)}
+              />
+            ) : (
+              <CardList
+                cards={searchedCards}
+                deck={deck}
+                allDecks={allDecks ?? []}
+                onNewCard={() => navigate(`/deck/${deck.id}/cards/new`)}
+                onEditCard={(card: Card) =>
+                  navigate(`/deck/${deck.id}/cards/${card.id}/edit`)
+                }
+              />
+            )}
           </>
         ) : (
           <DeckAnalytics cards={cards} history={history ?? []} />
@@ -545,6 +557,47 @@ function ExamDateBanner({
   );
 }
 
+function DeckViewSkeleton() {
+  return (
+    <div className="mx-auto max-w-5xl px-6 py-8 md:px-10">
+      <div className="mb-6 h-4 w-24 animate-pulse rounded bg-ink/10" />
+      <div className="mb-8">
+        <div className="mb-1 h-3 w-40 animate-pulse rounded bg-ink/10" />
+        <div className="h-10 w-64 animate-pulse rounded bg-ink/10 md:w-80" />
+      </div>
+      <div className="mb-6 rounded-2xl border border-line bg-surface p-5">
+        <div className="mb-2 flex justify-between">
+          <div className="h-4 w-32 animate-pulse rounded bg-ink/10" />
+          <div className="h-4 w-10 animate-pulse rounded bg-ink/10" />
+        </div>
+        <div className="h-2 w-full animate-pulse rounded-full bg-ink/10" />
+        <div className="mt-3 h-3 w-48 animate-pulse rounded bg-ink/10" />
+      </div>
+      <div className="mb-6 flex gap-1 border-b border-line pb-2">
+        <div className="h-8 w-20 animate-pulse rounded bg-ink/10" />
+        <div className="h-8 w-24 animate-pulse rounded bg-ink/10" />
+      </div>
+      <div className="mb-4 flex flex-col gap-3">
+        <div className="h-10 w-full animate-pulse rounded-xl bg-ink/10" />
+        <div className="flex gap-2">
+          <div className="h-7 w-24 animate-pulse rounded-lg bg-ink/10" />
+          <div className="h-7 w-20 animate-pulse rounded-lg bg-ink/10" />
+          <div className="h-7 w-24 animate-pulse rounded-lg bg-ink/10" />
+        </div>
+      </div>
+      <div className="space-y-3">
+        {Array.from({ length: 5 }).map((_, i) => (
+          <div key={i} className="flex items-center gap-4 rounded-xl border border-line bg-surface px-4 py-3">
+            <div className="h-4 w-4 animate-pulse rounded bg-ink/10" />
+            <div className="h-4 flex-1 animate-pulse rounded bg-ink/10" />
+            <div className="h-4 w-20 animate-pulse rounded bg-ink/10" />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function TabButton({
   active,
   onClick,
@@ -573,6 +626,41 @@ function TabButton({
         />
       )}
     </button>
+  );
+}
+
+function EmptyCardState({
+  hasQuery,
+  onNewCard,
+}: {
+  hasQuery: boolean;
+  onNewCard: () => void;
+}) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+      className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-line-strong bg-surface/50 py-16 text-center"
+    >
+      <div className="mb-4 grid h-12 w-12 place-items-center rounded-xl bg-accent-soft text-accent">
+        <CardsIcon width={22} height={22} />
+      </div>
+      <h3 className="mb-1 font-display text-xl">
+        {hasQuery ? 'No cards match' : 'No cards yet'}
+      </h3>
+      <p className="mb-6 max-w-sm text-sm text-ink-soft">
+        {hasQuery
+          ? 'Try clearing your search or filters to see more cards.'
+          : 'This deck is empty. Add your first card to start revising.'}
+      </p>
+      {!hasQuery && (
+        <Button variant="primary" onClick={onNewCard}>
+          <PlusIcon width={18} height={18} />
+          New card
+        </Button>
+      )}
+    </motion.div>
   );
 }
 
