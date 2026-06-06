@@ -28,6 +28,7 @@ import {
   relativeExam,
   toDateTimeLocalValue,
 } from '../utils/datetime';
+import { DateTimePicker } from '../components/ui/DateTimePicker';
 import {
   CardsIcon,
   ChartIcon,
@@ -83,28 +84,15 @@ export function DeckView() {
     return () => window.removeEventListener('keydown', onKey);
   }, [deckId, navigate]);
 
-  if (deck === undefined || cards === undefined) {
-    return <div className="p-10 text-ink-faint">Loading…</div>;
-  }
-  if (deck === null) {
-    return (
-      <div className="p-10">
-        <p className="mb-4 text-ink-soft">This deck could not be found.</p>
-        <Link to="/" className="text-accent underline">
-          Back to dashboard
-        </Link>
-      </div>
-    );
-  }
-
   // Progress reflects the cards actually in play (suspended/buried are excluded).
-  const progress = progressValue(availableCards(cards), deck);
+  const progress = deck && cards ? progressValue(availableCards(cards), deck) : 0;
 
   // The active tag filter narrows both the visible list and the study session.
   const visibleTag = activeTag && allTags.includes(activeTag) ? activeTag : null;
 
   // Deck-scoped search: text + structured filters + sort.
   const searchedCards = useMemo(() => {
+    if (!cards) return [];
     let pool = visibleTag
       ? cards.filter((c) => (c.tags ?? []).includes(visibleTag))
       : [...cards];
@@ -112,7 +100,7 @@ export function DeckView() {
     // Apply text query and inline operators.
     const trimmed = searchQuery.trim();
     if (trimmed || filters.size > 0) {
-      const hits = searchCards(trimmed, pool, [deck], {
+      const hits = searchCards(trimmed, pool, deck ? [deck] : [], {
         filters: [...filters],
         parseQuery: true,
       });
@@ -140,6 +128,20 @@ export function DeckView() {
     }
     return pool;
   }, [cards, deck, filters, searchQuery, sortMode, visibleTag]);
+
+  if (deck === undefined || cards === undefined) {
+    return <div className="p-10 text-ink-faint">Loading…</div>;
+  }
+  if (deck === null) {
+    return (
+      <div className="p-10">
+        <p className="mb-4 text-ink-soft">This deck could not be found.</p>
+        <Link to="/" className="text-accent underline">
+          Back to dashboard
+        </Link>
+      </div>
+    );
+  }
 
   const studyPath = `/deck/${deck.id}/learn${
     visibleTag ? `?tag=${encodeURIComponent(visibleTag)}` : ''
@@ -516,15 +518,13 @@ function ExamDateBanner({
           Lacuna schedules every card to peak on your exam day. Set the real date and time
           so the queue and progress bar are accurate.
         </p>
-        <label className="block max-w-sm text-sm text-ink-soft">
-          Exam date and time
-          <input
-            type="datetime-local"
-            value={value}
-            onChange={(e) => setValue(e.target.value)}
-            className="mt-2 w-full rounded-lg border border-line-strong bg-surface px-3 py-2.5 text-ink outline-none focus:border-accent"
+        <div className="max-w-sm">
+          <DateTimePicker
+            value={fromDateTimeLocalValue(value) || deck.examDate}
+            onChange={(ms) => setValue(toDateTimeLocalValue(ms))}
+            label="Exam date and time"
           />
-        </label>
+        </div>
         <div className="mt-4 flex flex-wrap items-center gap-3">
           <Button variant="primary" onClick={handleSet}>
             Set date and study
@@ -586,18 +586,19 @@ function FilterChip({
   onClick: () => void;
 }) {
   return (
-    <button
+    <motion.button
       type="button"
       onClick={onClick}
       aria-pressed={active}
+      whileTap={{ scale: 0.92 }}
       className={cn(
-        'rounded-full border px-3 py-1 text-xs transition-colors',
+        'rounded-full border px-3 py-1 text-xs transition-all duration-150',
         active
           ? 'border-accent bg-accent-soft text-accent'
           : 'border-line text-ink-soft hover:border-line-strong',
       )}
     >
       {label}
-    </button>
+    </motion.button>
   );
 }

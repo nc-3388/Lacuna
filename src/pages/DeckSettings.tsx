@@ -17,6 +17,7 @@ import {
   fromDateTimeLocalValue,
   toDateTimeLocalValue,
 } from '../utils/datetime';
+import { DateTimePicker } from '../components/ui/DateTimePicker';
 import {
   clampRequestRetention,
   defaultFsrsParameters,
@@ -155,15 +156,11 @@ export function DeckSettings() {
                   className="mt-2 w-full rounded-lg border border-line-strong bg-surface px-3 py-2.5 text-ink outline-none focus:border-accent"
                 />
               </label>
-              <label className="block text-sm text-ink-soft">
-                Exam date and time
-                <input
-                  type="datetime-local"
-                  value={examValue}
-                  onChange={(e) => setExamValue(e.target.value)}
-                  className="mt-2 w-full rounded-lg border border-line-strong bg-surface px-3 py-2.5 text-ink outline-none focus:border-accent"
-                />
-              </label>
+              <DateTimePicker
+                value={fromDateTimeLocalValue(examValue) || deck.examDate}
+                onChange={(ms) => setExamValue(toDateTimeLocalValue(ms))}
+                label="Exam date and time"
+              />
 
               <div className="block text-sm text-ink-soft">
                 <div className="mb-2">Exam objective</div>
