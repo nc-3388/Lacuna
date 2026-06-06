@@ -45,6 +45,12 @@ import {
   checkPersistentStorage,
   type StoragePersistenceState,
 } from '../db/persistence';
+import {
+  useShortcutBindings,
+  ACTION_LABELS,
+  formatBinding,
+  type LearnAction,
+} from '../state/shortcutBindings';
 
 export function Settings() {
   const { theme, resolvedTheme, setTheme } = useTheme();
@@ -57,6 +63,8 @@ export function Settings() {
   const backups = useBackups();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [persistence, setPersistence] = useState<StoragePersistenceState | null>(null);
+  const shortcutBindings = useShortcutBindings();
+  const [capturingAction, setCapturingAction] = useState<LearnAction | null>(null);
 
   const [pending, setPending] = useState<BackupFile | null>(null);
   const [confirmRestore, setConfirmRestore] = useState<number | null>(null);
@@ -329,6 +337,63 @@ export function Settings() {
             onChange={setAutoOptimise}
             label="Optimise scheduling"
           />
+        </div>
+      </section>
+
+      {/* Keyboard shortcuts */}
+      <section className="mb-8 rounded-2xl border border-line bg-surface p-6">
+        <h2 className="mb-1 font-display text-xl">Keyboard shortcuts</h2>
+        <p className="mb-5 text-sm text-ink-soft">
+          Customise the keys used while studying. Click any row then press the key you want
+          to assign. Changes are remembered on this device.
+        </p>
+        <div className="flex flex-col gap-2">
+          {(Object.keys(ACTION_LABELS) as LearnAction[]).map((action) => (
+            <button
+              key={action}
+              type="button"
+              onClick={() => setCapturingAction(action)}
+              className={cn(
+                'flex items-center justify-between rounded-lg border px-4 py-2.5 text-left transition-colors',
+                capturingAction === action
+                  ? 'border-accent bg-accent-soft'
+                  : 'border-line hover:border-line-strong',
+              )}
+            >
+              <span className="text-sm">{ACTION_LABELS[action]}</span>
+              <kbd
+                className={cn(
+                  'rounded border px-2 py-0.5 text-xs',
+                  capturingAction === action
+                    ? 'border-accent bg-accent text-accent-fg'
+                    : 'border-line-strong bg-surface text-ink-faint',
+                )}
+              >
+                {capturingAction === action
+                  ? 'Press a key…'
+                  : formatBinding(shortcutBindings.bindings[action])}
+              </kbd>
+            </button>
+          ))}
+        </div>
+        {capturingAction && (
+          <KeyCaptureOverlay
+            action={capturingAction}
+            onCapture={(key) => {
+              shortcutBindings.setBinding(capturingAction, key);
+              setCapturingAction(null);
+              notify('Shortcut updated.', 'positive');
+            }}
+            onCancel={() => setCapturingAction(null)}
+          />
+        )}
+        <div className="mt-4 flex justify-end">
+          <Button variant="ghost" size="sm" onClick={() => {
+            shortcutBindings.reset();
+            notify('Shortcuts reset to defaults.', 'neutral');
+          }}>
+            Reset to defaults
+          </Button>
         </div>
       </section>
 
@@ -618,6 +683,54 @@ export function Settings() {
           </ul>
         )}
       </section>
+    </div>
+  );
+}
+
+function KeyCaptureOverlay({
+  action,
+  onCapture,
+  onCancel,
+}: {
+  action: LearnAction;
+  onCapture: (key: string) => void;
+  onCancel: () => void;
+}) {
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      e.preventDefault();
+      if (e.key === 'Escape') {
+        onCancel();
+        return;
+      }
+      // Ignore modifier-only keys and navigation keys that should not be bound.
+      if (
+        e.key === 'Shift' ||
+        e.key === 'Control' ||
+        e.key === 'Alt' ||
+        e.key === 'Meta' ||
+        e.key === 'Tab' ||
+        e.key === 'CapsLock' ||
+        e.key === 'Dead'
+      ) {
+        return;
+      }
+      if (e.key === ' ') {
+        onCapture('Space');
+        return;
+      }
+      onCapture(e.key.length === 1 ? e.key.toLowerCase() : e.key);
+    };
+    window.addEventListener('keydown', handler, { capture: true });
+    return () => window.removeEventListener('keydown', handler, { capture: true });
+  }, [action, onCapture, onCancel]);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm">
+      <div className="rounded-2xl border border-line-strong bg-surface px-8 py-6 shadow-2xl">
+        <h3 className="mb-2 font-display text-lg">Set shortcut for {ACTION_LABELS[action]}</h3>
+        <p className="text-sm text-ink-soft">Press the key you want to use. Press Escape to cancel.</p>
+      </div>
     </div>
   );
 }

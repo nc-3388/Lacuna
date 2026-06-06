@@ -38,6 +38,7 @@ import { useDistraction } from '../components/learn/useDistraction';
 import type { SessionEvent, SessionSummary } from '../components/learn/types';
 import { useGradingMode } from '../state/gradingMode';
 import { useFocusTrap } from '../hooks/useFocusTrap';
+import { useShortcutBindings, keyMatches } from '../state/shortcutBindings';
 import {
   CheckIcon,
   ClockIcon,
@@ -71,6 +72,7 @@ export function LearnMode() {
   const navigate = useNavigate();
   const distraction = useDistraction();
   const [gradingMode] = useGradingMode();
+  const { bindings } = useShortcutBindings();
 
   const isGlobal = !deckId;
 
@@ -476,34 +478,32 @@ export function LearnMode() {
         e.preventDefault();
         setHintsOpen(true);
         return;
-      }
-      const k = e.key.toLowerCase();
-      if (k === 'f') {
+      }      if (keyMatches(e, bindings.focus)) {
         e.preventDefault();
         setFocusMode((v) => !v);
         return;
       }
-      if (k === 'e' && current && (phase === 'question' || phase === 'answer')) {
+      if (keyMatches(e, bindings.edit) && current && (phase === 'question' || phase === 'answer')) {
         e.preventDefault();
         openEdit();
         return;
       }
-      if (k === 'u' && canUndo) {
+      if (keyMatches(e, bindings.undo) && canUndo) {
         e.preventDefault();
         void undoLast();
         return;
       }
-      if (phase === 'question' && (e.code === 'Space' || e.code === 'ArrowUp')) {
+      if (phase === 'question' && (keyMatches(e, bindings.reveal) || e.code === 'ArrowUp')) {
         e.preventDefault();
         reveal();
-      } else      if (phase === 'answer') {
+      } else if (phase === 'answer') {
         if (gradingMode === 'manual') {
-          if (k === '1') answer(1);
-          else if (k === '2') answer(2);
-          else if (k === '3') answer(3);
-          else if (k === '4') answer(4);
-        } else if (k === 'y' || k === 'j' || e.code === 'ArrowRight') answer(true);
-        else if (k === 'n' || e.code === 'ArrowLeft') answer(false);
+          if (keyMatches(e, bindings.again)) answer(1);
+          else if (keyMatches(e, bindings.hard)) answer(2);
+          else if (keyMatches(e, bindings.good)) answer(3);
+          else if (keyMatches(e, bindings.easy)) answer(4);
+        } else if (keyMatches(e, bindings.yes) || e.code === 'ArrowRight') answer(true);
+        else if (keyMatches(e, bindings.no) || e.code === 'ArrowLeft') answer(false);
       }
     };
     window.addEventListener('keydown', onKey);

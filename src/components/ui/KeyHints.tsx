@@ -1,5 +1,6 @@
 import { AnimatePresence, motion } from 'motion/react';
 import { SHORTCUT_GROUPS } from '../../state/shortcuts';
+import { useShortcutBindings, formatBinding } from '../../state/shortcutBindings';
 import { CloseIcon } from './icons';
 
 /**
@@ -7,6 +8,48 @@ import { CloseIcon } from './icons';
  * the shared SHORTCUT_GROUPS registry so it always matches the real handlers.
  */
 export function KeyHints({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const { bindings } = useShortcutBindings();
+
+  // Build shortcut groups from live bindings so the cheatsheet never drifts.
+  const liveGroups = SHORTCUT_GROUPS.map((group) => ({
+    ...group,
+    shortcuts: group.shortcuts.map((s) => {
+      // Replace hardcoded keys with custom bindings for the Learn actions.
+      const description = s.description.toLowerCase();
+      if (description.includes('show the answer')) {
+        return { ...s, keys: [formatBinding(bindings.reveal)] };
+      }
+      if (description.includes('mark correct') && !description.includes('manual')) {
+        return { ...s, keys: [formatBinding(bindings.yes)] };
+      }
+      if (description.includes('mark incorrect')) {
+        return { ...s, keys: [formatBinding(bindings.no)] };
+      }
+      if (description.includes('again')) {
+        return { ...s, keys: [formatBinding(bindings.again)] };
+      }
+      if (description.includes('hard')) {
+        return { ...s, keys: [formatBinding(bindings.hard)] };
+      }
+      if (description.includes('good')) {
+        return { ...s, keys: [formatBinding(bindings.good)] };
+      }
+      if (description.includes('easy')) {
+        return { ...s, keys: [formatBinding(bindings.easy)] };
+      }
+      if (description.includes('edit the current card')) {
+        return { ...s, keys: [formatBinding(bindings.edit)] };
+      }
+      if (description.includes('toggle focus')) {
+        return { ...s, keys: [formatBinding(bindings.focus)] };
+      }
+      if (description.includes('undo')) {
+        return { ...s, keys: [formatBinding(bindings.undo)] };
+      }
+      return s;
+    }),
+  }));
+
   return (
     <AnimatePresence>
       {open && (
@@ -48,7 +91,7 @@ export function KeyHints({ open, onClose }: { open: boolean; onClose: () => void
             </header>
 
             <div className="grid gap-6 px-6 py-6 sm:grid-cols-2">
-              {SHORTCUT_GROUPS.map((group) => (
+              {liveGroups.map((group) => (
                 <div key={group.title}>
                   <h3 className="mb-2 text-xs uppercase tracking-[0.14em] text-ink-faint">
                     {group.title}
