@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
+import { SettingsNav } from '../components/settings/SettingsNav';
 import { useTheme, type Theme } from '../state/ThemeContext';
 import { ACCENTS, useAccent } from '../state/AccentContext';
 import { FONT_SCALE_STEPS, useFontScale } from '../state/FontScaleContext';
@@ -53,6 +54,16 @@ import {
   formatBinding,
   type LearnAction,
 } from '../state/shortcutBindings';
+
+const SETTINGS_SECTIONS = [
+  { id: 'settings-appearance', label: 'Appearance' },
+  { id: 'settings-dashboard', label: 'Dashboard' },
+  { id: 'settings-study', label: 'Study' },
+  { id: 'settings-shortcuts', label: 'Shortcuts' },
+  { id: 'settings-pomodoro', label: 'Timer' },
+  { id: 'settings-export', label: 'Export' },
+  { id: 'settings-backups', label: 'Backups' },
+];
 
 export function Settings() {
   const { theme, resolvedTheme, setTheme } = useTheme();
@@ -195,6 +206,7 @@ export function Settings() {
 
   return (
     <div className="mx-auto max-w-2xl px-6 py-10 md:px-10">
+      <SettingsNav sections={SETTINGS_SECTIONS} />
       <header className="mb-10">
         <p className="mb-1 text-sm uppercase tracking-[0.18em] text-ink-faint">
           Preferences
@@ -204,6 +216,7 @@ export function Settings() {
 
       {/* Appearance */}
       <motion.section
+        id="settings-appearance"
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.24, ease: [0.16, 1, 0.3, 1] }}
@@ -349,6 +362,7 @@ export function Settings() {
 
       {/* Dashboard */}
       <motion.section
+        id="settings-dashboard"
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.24, delay: 0.04, ease: [0.16, 1, 0.3, 1] }}
@@ -392,6 +406,7 @@ export function Settings() {
 
       {/* Study and scheduling */}
       <motion.section
+        id="settings-study"
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.24, delay: 0.05, ease: [0.16, 1, 0.3, 1] }}
@@ -414,7 +429,6 @@ export function Settings() {
           <Toggle
             checked={gradingMode === 'manual'}
             onChange={(checked) => setGradingMode(checked ? 'manual' : 'silent')}
-            label="Manual grading"
           />
         </div>
 
@@ -431,13 +445,13 @@ export function Settings() {
           <Toggle
             checked={autoOptimise}
             onChange={setAutoOptimise}
-            label="Optimise scheduling"
           />
         </div>
       </motion.section>
 
       {/* Keyboard shortcuts */}
       <motion.section
+        id="settings-shortcuts"
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.24, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}
@@ -500,6 +514,7 @@ export function Settings() {
 
       {/* Pomodoro timer */}
       <motion.section
+        id="settings-pomodoro"
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.24, delay: 0.15, ease: [0.16, 1, 0.3, 1] }}
@@ -553,13 +568,13 @@ export function Settings() {
               setPomoSettings(next);
               savePomodoroSettings(next);
             }}
-            label="Auto-start breaks"
           />
         </div>
       </motion.section>
 
       {/* Data portability */}
       <motion.section
+        id="settings-export"
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.24, delay: 0.2, ease: [0.16, 1, 0.3, 1] }}
@@ -653,6 +668,7 @@ export function Settings() {
 
       {/* Automatic backups */}
       <motion.section
+        id="settings-backups"
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.24, delay: 0.25, ease: [0.16, 1, 0.3, 1] }}

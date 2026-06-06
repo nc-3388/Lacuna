@@ -39,7 +39,7 @@ import type { SessionEvent, SessionSummary } from '../components/learn/types';
 import { useGradingMode } from '../state/gradingMode';
 import { useFocusTrap } from '../hooks/useFocusTrap';
 import { useShortcutBindings, keyMatches } from '../state/shortcutBindings';
-import { useMotionSpeed, speedMultiplier } from '../state/motionSpeed';
+import { useMotionSpeed, speedMultiplier, type MotionSpeed } from '../state/motionSpeed';
 import {
   CheckIcon,
   ClockIcon,
@@ -727,7 +727,7 @@ export function LearnMode() {
 
       {/* Card */}
       <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col px-6 py-8">
-        {current && <FlipCard card={current} revealed={phase === 'answer'} />}
+        {current && <FlipCard card={current} revealed={phase === 'answer'} motionSpeed={motionSpeed} />}
 
         {/* Controls */}
         <div className="mt-8">
@@ -936,7 +936,7 @@ function MenuItem({
  *
  * Enhanced with 3D perspective, dynamic shadows, and staggered text reveals.
  */
-function FlipCard({ card, revealed }: { card: Card; revealed: boolean }) {
+function FlipCard({ card, revealed, motionSpeed }: { card: Card; revealed: boolean; motionSpeed: MotionSpeed }) {
   const isCloze = card.type === 'cloze';
   return (
     <div
