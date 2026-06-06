@@ -24,6 +24,8 @@ The instructions are as follows. These instructions are strict, which means they
 13. Never add TODO implementations, placeholder functions, mock data, or stub behaviour unless explicitly requested.
 14. Inspect the surrounding code before changing behaviour. Do not assume APIs, types, or files exist without checking.
 15. Always update SPEC.md, the README.md or any other applicable documentation after any meaningful changes to reflect changes.
+16. Anything you do to change the user facing interface, you must make sure it's beautifully implemented, seamless and looks native rather than bolted on as a side project. This means that if you are making changes to the user interface, you should take the time to ensure that those changes are well-designed and well-implemented, and that they fit seamlessly into the existing user interface. This will help to ensure that the user experience remains smooth and enjoyable, and that any changes you make do not feel out of place or jarring to the user. If your changes involve UI, read the frontend-design.md file and follow the principles outlined in it.
+17. Never add cringe comments to the user-facing interface, such as design comments. The UI should feel minimal and intentional, and minimising the unnecessary text is essential to achieving that.
 
 #### Quick fire rules:
 
