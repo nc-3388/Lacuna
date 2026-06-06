@@ -25,22 +25,15 @@ The instructions are as follows. These instructions are strict, which means they
 - Avoid placeholder implementations.
 
 6. Before implementing new functionality or giving the user bug reports or feature suggestions, search the codebase as well as the web when applicable to determine whether similar functionality already exists.
-
 7. Prefer extending existing systems over creating parallel ones.
-
 8. Follow existing naming conventions, file organisation, and coding style. Do not introduce a different architectural pattern unless there is a strong reason.
-
 9. When multiple reasonable solutions exist, briefly explain the trade-offs and always ask the user which they prefer before proceeding unless there is a clearly superior option; in that case, tell the user and proceed. This will help to ensure that you are making informed decisions about how to implement new functionality, and that you are taking the user's preferences into account when making those decisions.
-
 10. Do not implement features that were not requested. Avoid speculative improvements. If you think a feature would be a good idea, you can suggest it to the user, but you should not implement it without the user's explicit approval. This will help to ensure that you are focusing on the tasks that the user has requested, and that you are not wasting time implementing features that may not be useful or desired by the user.
-
 11. Avoid modifying unrelated files. Minimise the size of changes whenever practical. This will reduce merge conflicts.
-
 12. Do not remove comments unless they are incorrect, obsolete, or replaced by better documentation; if you do see an outdated comment, you should update it. Comments are an important part of the codebase, and they help to explain the purpose and functionality of different parts of the code. Removing comments can make the codebase more difficult to understand, and can lead to confusion for other developers who may be working with the code in the future.
-
 13. Never add TODO implementations, placeholder functions, mock data, or stub behaviour unless explicitly requested.
-
 14. Inspect the surrounding code before changing behaviour. Do not assume APIs, types, or files exist without checking.
+15. Always update SPEC.md, the README.md or any other applicable documentation after any meaningful changes to reflect changes.
 
 ### Guidelines:
 1. You should aim to make the codebase readable and as concise as possible. This means making surgical changes to the codebase, rather than making large, sweeping changes that may be difficult to understand. This will help to ensure that the codebase remains easy to read and understand, while still being efficient and effective. This also means that you are encouraged to use helper functions, and to prefer small functions over large, monolithic ones. This means that when suitable, you ought to create new files, rather than bloating current files. This will help to improve the readability of the codebase, and make it easier for other developers to understand and work with.

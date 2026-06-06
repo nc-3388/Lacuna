@@ -170,9 +170,10 @@ export function Sidebar({ collapsed, onToggleCollapsed }: SidebarProps) {
                 >
                   <span
                     className={cn(
-                      'h-2 w-2 shrink-0 rounded-full',
-                      active ? 'bg-accent' : 'bg-line-strong',
+                      'h-2.5 w-2.5 shrink-0 rounded-full border',
+                      active ? 'border-accent bg-accent' : 'border-transparent bg-line-strong',
                     )}
+                    style={deck.colour ? { backgroundColor: deck.colour } : undefined}
                   />
                   {!collapsed && <span className="truncate">{deck.name}</span>}
                 </NavLink>

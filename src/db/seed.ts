@@ -92,6 +92,7 @@ export async function seedIfFirstRun(): Promise<void> {
       fsrsVersion: FSRS_VERSION,
       fsrsParameters: defaultFsrsParameters(),
       examObjective: 'expectedMarks',
+      colour: '#0d9488',
     };
 
     const [fcAsset, sampleAsset] = await Promise.all([

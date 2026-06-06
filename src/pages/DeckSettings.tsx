@@ -33,6 +33,7 @@ import {
 } from '../state/optimiseSetting';
 import { ChevronLeftIcon } from '../components/ui/icons';
 import { cn } from '../components/ui/cn';
+import { DECK_COLOURS } from '../db/types';
 import type { Card, Deck, ExamObjective } from '../db/types';
 
 /** Named anchor points for the target-retention slider. */
@@ -60,6 +61,7 @@ export function DeckSettings() {
   const [objective, setObjective] = useState<ExamObjective>('expectedMarks');
   const [newPerDay, setNewPerDay] = useState('');
   const [retention, setRetention] = useState(DEFAULT_REQUEST_RETENTION);
+  const [colour, setColour] = useState<string | undefined>(undefined);
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
@@ -69,6 +71,7 @@ export function DeckSettings() {
     setObjective(deck.examObjective);
     setNewPerDay(deck.newCardsPerDay ? String(deck.newCardsPerDay) : '');
     setRetention(clampRequestRetention(deck.fsrsParameters.requestRetention));
+    setColour(deck.colour);
     setLoaded(true);
   }, [deck, loaded]);
 
@@ -101,6 +104,7 @@ export function DeckSettings() {
       examDate: Number.isNaN(ms) ? deck.examDate : ms,
       examObjective: objective,
       newCardsPerDay,
+      colour,
       fsrsParameters: {
         ...deck.fsrsParameters,
         requestRetention: clampRequestRetention(retention),
@@ -156,6 +160,36 @@ export function DeckSettings() {
                   className="mt-2 w-full rounded-lg border border-line-strong bg-surface px-3 py-2.5 text-ink outline-none focus:border-accent"
                 />
               </label>
+
+              {/* Colour picker */}
+              <div className="block text-sm text-ink-soft">
+                <div className="mb-2">Deck colour</div>
+                <div className="flex flex-wrap gap-2">
+                  {DECK_COLOURS.map((c) => {
+                    const active = colour === c.hex;
+                    return (
+                      <button
+                        key={c.key}
+                        type="button"
+                        title={c.label}
+                        onClick={() => setColour(active ? undefined : c.hex)}
+                        aria-pressed={active}
+                        className={cn(
+                          'h-8 w-8 rounded-full transition-all duration-150',
+                          active
+                            ? 'ring-2 ring-offset-2 ring-offset-surface ring-ink'
+                            : 'hover:scale-110',
+                        )}
+                        style={{ backgroundColor: c.hex }}
+                      />
+                    );
+                  })}
+                </div>
+                <span className="mt-1 block text-xs text-ink-faint">
+                  Pick a colour to help identify this deck on the dashboard and in the sidebar.
+                </span>
+              </div>
+
               <DateTimePicker
                 value={fromDateTimeLocalValue(examValue) || deck.examDate}
                 onChange={(ms) => setExamValue(toDateTimeLocalValue(ms))}

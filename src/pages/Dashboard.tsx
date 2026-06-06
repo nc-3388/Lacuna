@@ -11,7 +11,9 @@ import {
   mergeDecks,
   restoreDecks,
   snapshotDecks,
+  updateDeck,
 } from '../db/repository';
+import { DECK_COLOURS } from '../db/types';
 import { Button } from '../components/ui/Button';
 import { ProgressBar } from '../components/ui/ProgressBar';
 import { useToast } from '../components/ui/Toast';
@@ -34,6 +36,7 @@ export function Dashboard() {
   const [creating, setCreating] = useState(false);
   const [createMode, setCreateMode] = useState<'blank' | 'import'>('blank');
   const [newName, setNewName] = useState('');
+  const [newColour, setNewColour] = useState<string | undefined>(undefined);
   const [selectMode, setSelectMode] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [merging, setMerging] = useState(false);
@@ -77,8 +80,9 @@ export function Dashboard() {
 
   async function handleCreate() {
     if (!newName.trim()) return;
-    const deck = await createDeck(newName);
+    const deck = await createDeck(newName, newColour);
     setNewName('');
+    setNewColour(undefined);
     setCreating(false);
     notify('Deck created.', 'positive');
     navigate(`/deck/${deck.id}`);
@@ -86,7 +90,9 @@ export function Dashboard() {
 
   async function handleImportNew(cards: ParsedCard[]) {
     const deck = await createDeckWithCards(newName, cards);
+    await updateDeck(deck.id, { colour: newColour });
     setNewName('');
+    setNewColour(undefined);
     setCreating(false);
     notify(`Deck created with ${cards.length} card${cards.length === 1 ? '' : 's'}.`, 'positive');
     navigate(`/deck/${deck.id}`);
@@ -212,6 +218,32 @@ export function Dashboard() {
                   className="mt-2 w-full rounded-lg border border-line-strong bg-surface px-3 py-2.5 text-ink outline-none focus:border-accent"
                 />
               </label>
+
+              {/* Colour picker */}
+              <div className="block text-sm text-ink-soft">
+                <div className="mb-2">Deck colour</div>
+                <div className="flex flex-wrap gap-2">
+                  {DECK_COLOURS.map((c) => {
+                    const active = newColour === c.hex;
+                    return (
+                      <button
+                        key={c.key}
+                        type="button"
+                        title={c.label}
+                        onClick={() => setNewColour(active ? undefined : c.hex)}
+                        aria-pressed={active}
+                        className={cn(
+                          'h-8 w-8 rounded-full transition-all duration-150',
+                          active
+                            ? 'ring-2 ring-offset-2 ring-offset-surface ring-ink'
+                            : 'hover:scale-110',
+                        )}
+                        style={{ backgroundColor: c.hex }}
+                      />
+                    );
+                  })}
+                </div>
+              </div>
 
               {createMode === 'blank' ? (
                 <>
@@ -343,7 +375,7 @@ export function Dashboard() {
       ) : (
         <>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {activeDecks.map((deck, i) => (
+            {activeDecks.slice(0, 3).map((deck, i) => (
               <DeckCard
                 key={deck.id}
                 deck={deck}
@@ -354,6 +386,20 @@ export function Dashboard() {
                 onToggleSelected={() => toggleSelected(deck.id)}
               />
             ))}
+            {activeDecks.length > 3 && (
+              <button
+                type="button"
+                onClick={() => {
+                  document.querySelector('aside nav')?.scrollIntoView({ behavior: 'smooth' });
+                }}
+                className="group flex h-full flex-col items-center justify-center rounded-2xl border border-dashed border-line-strong bg-surface/50 p-5 text-center transition-colors hover:border-line hover:bg-surface"
+              >
+                <span className="mb-1 text-3xl text-ink-faint transition-colors group-hover:text-ink">
+                  +{activeDecks.length - 3}
+                </span>
+                <span className="text-sm text-ink-faint">more decks in sidebar</span>
+              </button>
+            )}
           </div>
 
           {archivedDecks.length > 0 && (
@@ -404,7 +450,15 @@ function DeckCard({
   selected: boolean;
   onToggleSelected: () => void;
 }) {
-  const body = (      <motion.div
+  const colourBar = deck.colour ? (
+    <span
+      className="absolute inset-x-0 top-0 h-1 rounded-t-2xl"
+      style={{ backgroundColor: deck.colour }}
+    />
+  ) : null;
+
+  const body = (
+    <motion.div
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       whileHover={{ y: -4 }}
@@ -417,6 +471,7 @@ function DeckCard({
           : 'border-line hover:border-line-strong hover:shadow-xl hover:shadow-black/[0.04]',
       )}
     >
+      {colourBar}
       {selectMode && (
         <span
           className={cn(

@@ -28,9 +28,9 @@ async function reset() {
 describe('share codes', () => {
   beforeEach(reset);
 
-  it('round-trips a deck, preserving content, cloze and the date due', async () => {
+  it('round-trips a deck, preserving content, cloze, colour and the date due', async () => {
     const deck = await createDeck('Chemistry');
-    await updateDeck(deck.id, { examObjective: 'securedTopics', examDate: 1_900_000_000_000 });
+    await updateDeck(deck.id, { examObjective: 'securedTopics', examDate: 1_900_000_000_000, colour: '#e11d48' });
     await createCard(deck.id, 'front_back', 'What is water?', 'H2O', ['basics']);
     await createCard(deck.id, 'cloze', 'The capital of France is {{c1::Paris}}.', '');
 
@@ -51,6 +51,7 @@ describe('share codes', () => {
     expect(imported.name).toBe('Chemistry');
     expect(imported.examObjective).toBe('securedTopics');
     expect(imported.examDate).toBe(1_900_000_000_000);
+    expect(imported.colour).toBe('#e11d48');
 
     const importedCards = await db.cards.where('deckId').equals(imported.id).toArray();
     expect(importedCards).toHaveLength(2);

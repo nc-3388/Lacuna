@@ -47,6 +47,7 @@ const ShareDeckSchema = z.object({
   e: z.number(),
   r: z.number().optional(),
   p: z.number().optional(),
+  l: z.string().optional(),
   cards: z.array(ShareCardSchema),
 });
 
@@ -79,6 +80,7 @@ interface ShareDeck {
   e: number; // examDate (date due)
   r?: number; // requestRetention
   p?: number; // newCardsPerDay
+  l?: string; // colour
   cards: ShareCard[];
 }
 
@@ -267,6 +269,7 @@ export async function buildShareCode(deckIds: string[]): Promise<string> {
       e: deck.examDate,
       r: deck.fsrsParameters.requestRetention,
       ...(deck.newCardsPerDay ? { p: deck.newCardsPerDay } : {}),
+      ...(deck.colour ? { l: deck.colour } : {}),
       cards: packCards(cards),
     });
   }
@@ -315,6 +318,7 @@ export async function importSharePayload(
             },
           }
         : {}),
+      ...(d.l ? { colour: d.l } : {}),
     });
     cardCount += drafts.length;
   }

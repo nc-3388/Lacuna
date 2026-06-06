@@ -48,6 +48,7 @@ export function CardList({ cards, deck, allDecks, onNewCard, onEditCard }: CardL
   const [tagValue, setTagValue] = useState('');
   const [importing, setImporting] = useState(false);
 
+
   const otherDecks = useMemo(
     () => allDecks.filter((d) => d.id !== deck.id),
     [allDecks, deck.id],
@@ -455,20 +456,35 @@ function CardRow({
   onDelete: () => void;
   onToggleFlag: () => void;
 }) {
+  const [revealed, setRevealed] = useState(false);
+  const [hovered, setHovered] = useState(false);
+  const showBack = revealed || hovered;
+
   const reviewed = card.lastReviewed !== null;
   const tags = card.tags ?? [];
   const buried = card.buriedUntil != null && card.buriedUntil > Date.now();
   const leech = isLeech(card);
   const flagged = card.flagged === true;
-  return (      <motion.div
+
+  function handleClick() {
+    if (selectMode) {
+      onToggle();
+    } else {
+      setRevealed((v) => !v);
+    }
+  }
+
+  return (
+    <motion.div
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.25, delay: Math.min(index * 0.03, 0.25) }}
-      onClick={selectMode ? onToggle : undefined}
+      onClick={handleClick}
+      onMouseEnter={() => !selectMode && setHovered(true)}
+      onMouseLeave={() => !selectMode && setHovered(false)}
       whileHover={selectMode ? undefined : { y: -2 }}
       className={cn(
-        'group relative flex items-start gap-4 rounded-xl border bg-surface p-4 transition-colors duration-200',
-        selectMode && 'cursor-pointer',
+        'group relative flex items-start gap-4 rounded-xl border bg-surface p-4 transition-colors duration-200 cursor-pointer',
         selected
           ? 'border-accent ring-2 ring-accent/30'
           : 'border-line hover:border-line-strong hover:shadow-md hover:shadow-black/[0.03]',
@@ -490,6 +506,11 @@ function CardRow({
           <span className="rounded-full bg-ink/5 px-2 py-0.5 text-[11px] uppercase tracking-wide text-ink-faint">
             {card.type === 'cloze' ? 'Cloze' : 'Front / Back'}
           </span>
+          {showBack && (
+            <span className="rounded-full bg-accent-soft px-2 py-0.5 text-[11px] font-medium text-accent">
+              Back
+            </span>
+          )}
           {reviewed ? (
             <span className="text-[11px] text-ink-faint tabular">
               Stability {card.stability!.toFixed(1)}d
@@ -517,8 +538,18 @@ function CardRow({
           )}
           {flagged && <FlagIcon width={13} height={13} className="text-accent" />}
         </div>
-        <div className="max-h-24 overflow-hidden text-sm text-ink-soft [mask-image:linear-gradient(to_bottom,black_60%,transparent)]">
-          <CardContent card={card} side="front" />
+        <div className="relative max-h-24 overflow-hidden text-sm text-ink-soft [mask-image:linear-gradient(to_bottom,black_60%,transparent)]">
+          <AnimatePresence mode="wait" initial={false}>
+            <motion.div
+              key={showBack ? 'back' : 'front'}
+              initial={{ opacity: 0, y: 4 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -4 }}
+              transition={{ duration: 0.15 }}
+            >
+              <CardContent card={card} side={showBack ? 'back' : 'front'} />
+            </motion.div>
+          </AnimatePresence>
         </div>
         {tags.length > 0 && (
           <div className="mt-2 flex flex-wrap items-center gap-1.5">
@@ -540,7 +571,7 @@ function CardRow({
           {card.suspended && (
             <button
               type="button"
-              onClick={onResume}
+              onClick={(e) => { e.stopPropagation(); onResume(); }}
               title="Resume card"
               className="rounded-lg px-2 py-1 text-xs text-ink-faint transition-colors hover:bg-ink/5 hover:text-accent"
             >
@@ -549,7 +580,7 @@ function CardRow({
           )}
           <motion.button
             type="button"
-            onClick={onToggleFlag}
+            onClick={(e) => { e.stopPropagation(); onToggleFlag(); }}
             title={flagged ? 'Remove flag' : 'Flag card'}
             aria-pressed={flagged}
             whileTap={{ scale: 0.85 }}
@@ -565,7 +596,7 @@ function CardRow({
           </motion.button>
           <motion.button
             type="button"
-            onClick={onEdit}
+            onClick={(e) => { e.stopPropagation(); onEdit(); }}
             title="Edit card"
             whileTap={{ scale: 0.85 }}
             whileHover={{ scale: 1.08 }}
@@ -575,7 +606,7 @@ function CardRow({
           </motion.button>
           <motion.button
             type="button"
-            onClick={onDelete}
+            onClick={(e) => { e.stopPropagation(); onDelete(); }}
             title="Delete card"
             whileTap={{ scale: 0.85 }}
             whileHover={{ scale: 1.08 }}

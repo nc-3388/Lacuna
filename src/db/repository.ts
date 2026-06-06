@@ -22,7 +22,7 @@ import { scheduleAssetGc } from './assets';
 // Decks
 // ---------------------------------------------------------------------------
 
-export async function createDeck(name: string): Promise<Deck> {
+export async function createDeck(name: string, colour?: string): Promise<Deck> {
   const createdAt = Date.now();
   const deck: Deck = {
     id: makeId(),
@@ -32,6 +32,7 @@ export async function createDeck(name: string): Promise<Deck> {
     fsrsVersion: FSRS_VERSION,
     fsrsParameters: defaultFsrsParameters(),
     examObjective: 'expectedMarks',
+    ...(colour ? { colour } : {}),
   };
   await db.decks.add(deck);
   await db.userPerformance.add(emptyPerformance(deck.id));

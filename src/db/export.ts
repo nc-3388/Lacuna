@@ -25,11 +25,13 @@ async function fetchDecksAndCards() {
     db.cards.toArray(),
   ]);
   const deckMap = new Map(decks.map((d) => [d.id, d.name]));
-  return { deckMap, cards };
+  const colourMap = new Map(decks.map((d) => [d.id, d.colour ?? '']));
+  return { deckMap, colourMap, cards };
 }
 
 const EXPORT_HEADERS = [
   'deck_name',
+  'deck_colour',
   'front',
   'back',
   'tags',
@@ -48,9 +50,11 @@ const EXPORT_HEADERS = [
 function cardToRow(
   c: Awaited<ReturnType<typeof fetchDecksAndCards>>['cards'][number],
   deckMap: Map<string, string>,
+  colourMap: Map<string, string>,
 ): string[] {
   return [
     deckMap.get(c.deckId) ?? '',
+    colourMap.get(c.deckId) ?? '',
     c.front,
     c.back,
     (c.tags ?? []).join(';'),
@@ -68,24 +72,26 @@ function cardToRow(
 }
 
 export async function exportCardsCsv(): Promise<string> {
-  const { deckMap, cards } = await fetchDecksAndCards();
-  const rows = [formatRow(EXPORT_HEADERS, ','), ...cards.map((c) => formatRow(cardToRow(c, deckMap), ','))];
+  const { deckMap, colourMap, cards } = await fetchDecksAndCards();
+  const rows = [formatRow(EXPORT_HEADERS, ','), ...cards.map((c) => formatRow(cardToRow(c, deckMap, colourMap), ','))];
   return rows.join('\r\n');
 }
 
 export async function exportCardsTsv(): Promise<string> {
-  const { deckMap, cards } = await fetchDecksAndCards();
-  const rows = [formatRow(EXPORT_HEADERS, '\t'), ...cards.map((c) => formatRow(cardToRow(c, deckMap), '\t'))];
+  const { deckMap, colourMap, cards } = await fetchDecksAndCards();
+  const rows = [formatRow(EXPORT_HEADERS, '\t'), ...cards.map((c) => formatRow(cardToRow(c, deckMap, colourMap), '\t'))];
   return rows.join('\r\n');
 }
 
 export async function exportCardsPlainText(): Promise<string> {
-  const { deckMap, cards } = await fetchDecksAndCards();
+  const { deckMap, colourMap, cards } = await fetchDecksAndCards();
   const parts: string[] = [];
   for (const c of cards) {
     const deckName = deckMap.get(c.deckId) ?? 'Unknown deck';
+    const deckColour = colourMap.get(c.deckId);
     const tags = (c.tags ?? []).join(', ');
     const lines: string[] = [`Deck: ${deckName}`];
+    if (deckColour) lines.push(`Colour: ${deckColour}`);
     if (c.type === 'cloze') {
       lines.push(`Cloze: ${c.front}`);
     } else {

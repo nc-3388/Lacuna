@@ -51,6 +51,18 @@ export interface ReviewLog {
   retrievabilityAtReview: number | null;
 }
 
+/** Predefined deck colours for visual identification. */
+export const DECK_COLOURS = [
+  { key: 'slate',   label: 'Slate',   hex: '#64748b' },
+  { key: 'rose',    label: 'Rose',    hex: '#e11d48' },
+  { key: 'amber',   label: 'Amber',   hex: '#d97706' },
+  { key: 'emerald', label: 'Emerald', hex: '#059669' },
+  { key: 'sky',     label: 'Sky',     hex: '#0284c7' },
+  { key: 'violet',  label: 'Violet',  hex: '#7c3aed' },
+  { key: 'coral',   label: 'Coral',   hex: '#ea580c' },
+  { key: 'teal',    label: 'Teal',    hex: '#0d9488' },
+] as const;
+
 export interface Deck {
   id: string;
   name: string;
@@ -81,6 +93,8 @@ export interface Deck {
    * global default applies; false opts this deck out even when the global default is on.
    */
   autoOptimise?: boolean;
+  /** Optional deck colour used for visual identification in the dashboard and sidebar. */
+  colour?: string;
 }
 
 export interface Card {
