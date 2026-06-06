@@ -33,8 +33,10 @@ import {
   ChartIcon,
   ChevronLeftIcon,
   PlayIcon,
+  SearchIcon,
   SettingsIcon,
 } from '../components/ui/icons';
+import { searchCards, type CardFilter } from '../db/search';
 import { cn } from '../components/ui/cn';
 import type { Card, Deck } from '../db/types';
 
@@ -53,6 +55,9 @@ export function DeckView() {
   const [examBannerOpen, setExamBannerOpen] = useState(false);
   const [postExamDismissed, setPostExamDismissed] = useState(false);
   const [activeTag, setActiveTag] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [sortMode, setSortMode] = useState<'due' | 'created' | 'stability' | 'alpha'>('due');
+  const [filters, setFilters] = useState<Set<CardFilter>>(new Set());
 
   // Distinct tags across the deck, for the filter row.
   const allTags = useMemo(() => {
@@ -97,9 +102,45 @@ export function DeckView() {
 
   // The active tag filter narrows both the visible list and the study session.
   const visibleTag = activeTag && allTags.includes(activeTag) ? activeTag : null;
-  const visibleCards = visibleTag
-    ? cards.filter((c) => (c.tags ?? []).includes(visibleTag))
-    : cards;
+
+  // Deck-scoped search: text + structured filters + sort.
+  const searchedCards = useMemo(() => {
+    let pool = visibleTag
+      ? cards.filter((c) => (c.tags ?? []).includes(visibleTag))
+      : [...cards];
+
+    // Apply text query and inline operators.
+    const trimmed = searchQuery.trim();
+    if (trimmed || filters.size > 0) {
+      const hits = searchCards(trimmed, pool, [deck], {
+        filters: [...filters],
+        parseQuery: true,
+      });
+      pool = hits.map((h) => h.card);
+    }
+
+    // Sort.
+    switch (sortMode) {
+      case 'due':
+        pool.sort((a, b) => {
+          const ad = a.due ?? Number.MAX_SAFE_INTEGER;
+          const bd = b.due ?? Number.MAX_SAFE_INTEGER;
+          return ad - bd;
+        });
+        break;
+      case 'created':
+        pool.sort((a, b) => b.createdAt - a.createdAt);
+        break;
+      case 'stability':
+        pool.sort((a, b) => (b.stability ?? 0) - (a.stability ?? 0));
+        break;
+      case 'alpha':
+        pool.sort((a, b) => a.front.localeCompare(b.front));
+        break;
+    }
+    return pool;
+  }, [cards, deck, filters, searchQuery, sortMode, visibleTag]);
+
   const studyPath = `/deck/${deck.id}/learn${
     visibleTag ? `?tag=${encodeURIComponent(visibleTag)}` : ''
   }`;
@@ -111,6 +152,14 @@ export function DeckView() {
     } else {
       navigate(studyPath);
     }
+  }
+
+  function toggleFilter(value: CardFilter) {
+    setFilters((prev) => {
+      const next = new Set(prev);
+      next.has(value) ? next.delete(value) : next.add(value);
+      return next;
+    });
   }
 
   return (
@@ -272,6 +321,74 @@ export function DeckView() {
       >
         {tab === 'cards' ? (
           <>
+            {/* Search bar + sort + filters */}
+            <div className="mb-4 flex flex-col gap-3">
+              <div className="flex items-center gap-3 rounded-xl border border-line-strong bg-surface px-4 py-2.5 focus-within:border-accent">
+                <SearchIcon width={18} height={18} className="text-ink-faint" />
+                <input
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search cards… (try tag:chemistry or is:leech)"
+                  className="flex-1 bg-transparent text-sm text-ink outline-none placeholder:text-ink-faint"
+                />
+                {searchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => setSearchQuery('')}
+                    className="text-xs text-ink-faint hover:text-ink"
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <select
+                  value={sortMode}
+                  onChange={(e) => setSortMode(e.target.value as typeof sortMode)}
+                  className="rounded-lg border border-line bg-surface px-3 py-1.5 text-xs text-ink-soft outline-none focus:border-accent"
+                >
+                  <option value="due">Sort by due date</option>
+                  <option value="created">Sort by created</option>
+                  <option value="stability">Sort by stability</option>
+                  <option value="alpha">Sort A–Z</option>
+                </select>
+                <FilterChip
+                  label="Due"
+                  active={filters.has('due')}
+                  onClick={() => toggleFilter('due')}
+                />
+                <FilterChip
+                  label="New"
+                  active={filters.has('new')}
+                  onClick={() => toggleFilter('new')}
+                />
+                <FilterChip
+                  label="Leeches"
+                  active={filters.has('leech')}
+                  onClick={() => toggleFilter('leech')}
+                />
+                <FilterChip
+                  label="Flagged"
+                  active={filters.has('flagged')}
+                  onClick={() => toggleFilter('flagged')}
+                />
+                <FilterChip
+                  label="Suspended"
+                  active={filters.has('suspended')}
+                  onClick={() => toggleFilter('suspended')}
+                />
+                {filters.size > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setFilters(new Set())}
+                    className="text-xs text-ink-faint hover:text-ink"
+                  >
+                    Clear filters
+                  </button>
+                )}
+              </div>
+            </div>
+
             {allTags.length > 0 && (
               <div className="mb-4 flex flex-wrap items-center gap-1.5">
                 <button
@@ -304,7 +421,7 @@ export function DeckView() {
               </div>
             )}
             <CardList
-              cards={visibleCards}
+              cards={searchedCards}
               deck={deck}
               allDecks={allDecks ?? []}
               onNewCard={() => navigate(`/deck/${deck.id}/cards/new`)}
@@ -455,6 +572,32 @@ function TabButton({
           className="absolute inset-x-0 -bottom-px h-0.5 rounded-full bg-accent"
         />
       )}
+    </button>
+  );
+}
+
+function FilterChip({
+  label,
+  active,
+  onClick,
+}: {
+  label: string;
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      className={cn(
+        'rounded-full border px-3 py-1 text-xs transition-colors',
+        active
+          ? 'border-accent bg-accent-soft text-accent'
+          : 'border-line text-ink-soft hover:border-line-strong',
+      )}
+    >
+      {label}
     </button>
   );
 }

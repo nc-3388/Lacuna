@@ -19,6 +19,68 @@ export interface SearchOptions {
   filters?: CardFilter[];
   /** Reference time for the "due" filter; defaults to now. */
   now?: number;
+  /** When true, the query string itself is parsed for inline operators (tag:, deck:, is:). */
+  parseQuery?: boolean;
+}
+
+export interface ParsedQuery {
+  text: string;
+  tags: string[];
+  decks: string[];
+  filters: CardFilter[];
+}
+
+/**
+ * Extract inline search operators from a query string.
+ * Supported operators:
+ *   tag:foo       -> cards tagged "foo"
+ *   deck:bar      -> cards in deck named "bar" (global search)
+ *   is:due|new|leech|flagged|suspended -> structured filter
+ * The remaining text is treated as a plain substring query.
+ */
+export function parseAdvancedQuery(query: string): ParsedQuery {
+  const tags: string[] = [];
+  const decks: string[] = [];
+  const filters: CardFilter[] = [];
+  const textParts: string[] = [];
+
+  // Split on spaces, but keep quoted strings together.
+  const tokens = query.match(/[^\s"']+|"[^"]*"|'[^']*'/g) ?? [];
+  for (const token of tokens) {
+    const clean = token.replace(/^["']|["']$/g, '').trim();
+    if (!clean) continue;
+
+    const tagMatch = clean.match(/^tag:(.+)$/i);
+    if (tagMatch) {
+      tags.push(normalise(tagMatch[1]!));
+      continue;
+    }
+
+    const deckMatch = clean.match(/^deck:(.+)$/i);
+    if (deckMatch) {
+      decks.push(normalise(deckMatch[1]!));
+      continue;
+    }
+
+    const isMatch = clean.match(/^is:(.+)$/i);
+    if (isMatch) {
+      const filter = isMatch[1]!.toLowerCase();
+      if (
+        filter === 'due' ||
+        filter === 'new' ||
+        filter === 'leech' ||
+        filter === 'flagged' ||
+        filter === 'suspended'
+      ) {
+        filters.push(filter as CardFilter);
+      }
+      continue;
+    }
+
+    textParts.push(clean);
+  }
+
+  return { text: textParts.join(' '), tags, decks, filters };
 }
 
 /** Whether a single card satisfies one structured filter. */
@@ -56,11 +118,12 @@ export function searchCards(
   decks: Deck[],
   options: SearchOptions = {},
 ): SearchResult[] {
-  const filters = options.filters ?? [];
   const now = options.now ?? Date.now();
-  const q = normalise(query.trim());
+  const parsed = options.parseQuery ? parseAdvancedQuery(query) : null;
+  const filters = [...(options.filters ?? []), ...(parsed?.filters ?? [])];
+  const q = normalise(parsed ? parsed.text : query.trim());
   // Nothing to do without either a text query or an active filter.
-  if (!q && filters.length === 0) return [];
+  if (!q && filters.length === 0 && !parsed?.tags.length && !parsed?.decks.length) return [];
 
   const deckById = new Map(decks.map((d) => [d.id, d]));
   const ranked: { card: Card; deck: Deck; score: number }[] = [];
@@ -71,6 +134,17 @@ export function searchCards(
 
     // Every active filter must match (AND), narrowing the set before text ranking.
     if (filters.length && !filters.every((f) => matchesFilter(card, f, now))) continue;
+
+    // Inline tag operators (AND between multiple tag: tokens).
+    if (parsed?.tags.length) {
+      const cardTags = (card.tags ?? []).map(normalise);
+      if (!parsed.tags.every((t) => cardTags.includes(t))) continue;
+    }
+
+    // Inline deck operator.
+    if (parsed?.decks.length) {
+      if (!parsed.decks.some((d) => normalise(deck.name).includes(d))) continue;
+    }
 
     let score = 0;
     if (q) {
