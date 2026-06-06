@@ -59,9 +59,9 @@ export function ToastProvider({ children }: { children: ReactNode }) {
           duration,
         },
       ]);
-      window.setTimeout(() => dismiss(id), duration);
+      // Dismissal is managed by ToastBar via requestAnimationFrame so it can be paused on hover.
     },
-    [dismiss],
+    [],
   );
 
   return (
@@ -82,23 +82,43 @@ function ToastBar({ toast, onDismiss }: { toast: ToastItem; onDismiss: () => voi
   const [progress, setProgress] = useState(1);
   const rafRef = useRef<number>(0);
   const startRef = useRef<number>(0);
+  const remainingRef = useRef<number>(toast.duration);
+  const onDismissRef = useRef(onDismiss);
 
+  // Keep the latest onDismiss without causing re-runs.
   useEffect(() => {
+    onDismissRef.current = onDismiss;
+  }, [onDismiss]);
+
+  const resume = useCallback(() => {
     startRef.current = performance.now();
     const duration = toast.duration;
 
     function tick(now: number) {
       const elapsed = now - startRef.current;
-      const remaining = Math.max(0, 1 - elapsed / duration);
-      setProgress(remaining);
-      if (remaining > 0) {
+      const currentRemaining = Math.max(0, remainingRef.current - elapsed);
+      setProgress(currentRemaining / duration);
+
+      if (currentRemaining > 0) {
         rafRef.current = requestAnimationFrame(tick);
+      } else {
+        onDismissRef.current();
       }
     }
 
     rafRef.current = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(rafRef.current);
   }, [toast.duration]);
+
+  const pause = useCallback(() => {
+    cancelAnimationFrame(rafRef.current);
+    const elapsed = performance.now() - startRef.current;
+    remainingRef.current = Math.max(0, remainingRef.current - elapsed);
+  }, []);
+
+  useEffect(() => {
+    resume();
+    return () => cancelAnimationFrame(rafRef.current);
+  }, [resume]);
 
   const toneClasses = {
     positive: 'border-positive/40 text-positive',
@@ -123,23 +143,8 @@ function ToastBar({ toast, onDismiss }: { toast: ToastItem; onDismiss: () => voi
         'relative flex items-center gap-3 rounded-xl border px-4 py-3 text-sm shadow-lg backdrop-blur bg-surface-raised/95 max-w-xs overflow-hidden',
         toneClasses[toast.tone],
       )}
-      onMouseEnter={() => {
-        // Pause on hover by freezing progress at current value
-        cancelAnimationFrame(rafRef.current);
-      }}
-      onMouseLeave={() => {
-        // Resume from where we left off
-        const remaining = progress * toast.duration;
-        startRef.current = performance.now() - (toast.duration - remaining);
-        rafRef.current = requestAnimationFrame(function tick(now) {
-          const elapsed = now - startRef.current;
-          const p = Math.max(0, 1 - elapsed / toast.duration);
-          setProgress(p);
-          if (p > 0) {
-            rafRef.current = requestAnimationFrame(tick);
-          }
-        });
-      }}
+      onMouseEnter={pause}
+      onMouseLeave={resume}
     >
       {/* Dismiss timer progress bar */}
       <motion.div
