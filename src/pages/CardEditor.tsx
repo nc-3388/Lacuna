@@ -87,26 +87,34 @@ export function CardEditor() {
   const deckPath = `/deck/${deckId}`;
 
   if (deck === undefined || (editing && card === undefined && !loaded)) {
-    return <div className="p-10 text-ink-faint">Loading…</div>;
+    return <CardEditorSkeleton />;
   }
   if (deck === null) {
     return (
-      <div className="p-10">
+      <motion.div
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="p-10"
+      >
         <p className="mb-4 text-ink-soft">This deck could not be found.</p>
         <Link to="/" className="text-accent underline">
           Back to dashboard
         </Link>
-      </div>
+      </motion.div>
     );
   }
   if (editing && card === null) {
     return (
-      <div className="p-10">
+      <motion.div
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="p-10"
+      >
         <p className="mb-4 text-ink-soft">This card could not be found.</p>
         <Link to={deckPath} className="text-accent underline">
           Back to {deck.name}
         </Link>
-      </div>
+      </motion.div>
     );
   }
 
@@ -389,6 +397,33 @@ export function CardEditor() {
               {editing ? 'Save changes' : 'Add card'}
             </Button>
           </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function CardEditorSkeleton() {
+  return (
+    <div className="mx-auto max-w-4xl px-6 pb-10 pt-8 md:px-10">
+      <div className="mb-6 h-4 w-24 animate-pulse rounded bg-ink/10" />
+      <div className="mb-8">
+        <div className="mb-3 h-4 w-16 animate-pulse rounded bg-ink/10" />
+        <div className="h-10 w-48 animate-pulse rounded bg-ink/10" />
+      </div>
+      <div className="flex flex-col gap-5">
+        <div>
+          <div className="mb-2 h-3 w-20 animate-pulse rounded bg-ink/10" />
+          <div className="flex gap-2">
+            <div className="h-10 flex-1 animate-pulse rounded-lg bg-ink/10" />
+            <div className="h-10 flex-1 animate-pulse rounded-lg bg-ink/10" />
+          </div>
+        </div>
+        <div className="h-40 w-full animate-pulse rounded-lg bg-ink/10" />
+        <div className="h-40 w-full animate-pulse rounded-lg bg-ink/10" />
+        <div>
+          <div className="mb-2 h-3 w-12 animate-pulse rounded bg-ink/10" />
+          <div className="h-10 w-full animate-pulse rounded-lg bg-ink/10" />
         </div>
       </div>
     </div>

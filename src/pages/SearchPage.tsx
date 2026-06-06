@@ -4,7 +4,7 @@ import { motion } from 'motion/react';
 import { useAllCards, useDecks } from '../state/useData';
 import { plainPreview, searchCards, type CardFilter } from '../db/search';
 import { cn } from '../components/ui/cn';
-import { FlagIcon, SearchIcon, TagIcon } from '../components/ui/icons';
+import { FlagIcon, SearchIcon, TagIcon, CardsIcon } from '../components/ui/icons';
 
 /** The structured filters offered as quick chips, in display order. */
 const FILTER_CHIPS: { value: CardFilter; label: string }[] = [
@@ -95,15 +95,40 @@ export function SearchPage() {
         )}
       </div>
 
-      {!active ? (
-        <p className="text-sm text-ink-faint">
-          Start typing to search the front, back, deck name and tags of every card, or pick a
-          filter above to browse due, new, flagged, suspended or leech cards.
-        </p>
+      {!decks || !cards ? (
+        <SearchSkeleton />
+      ) : !active ? (
+        <motion.div
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3 }}
+          className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-line-strong bg-surface/50 py-16 text-center"
+        >
+          <div className="mb-4 grid h-12 w-12 place-items-center rounded-xl bg-accent-soft text-accent">
+            <SearchIcon width={22} height={22} />
+          </div>
+          <h3 className="mb-1 font-display text-xl">Search across all cards</h3>
+          <p className="max-w-sm text-sm text-ink-soft">
+            Start typing to search the front, back, deck name and tags of every card, or pick a
+            filter above to browse due, new, flagged, suspended or leech cards.
+          </p>
+        </motion.div>
       ) : results.length === 0 ? (
-        <p className="text-sm text-ink-faint">
-          No cards match{trimmed ? ` “${trimmed}”` : ' those filters'}.
-        </p>
+        <motion.div
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3 }}
+          className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-line-strong bg-surface/50 py-16 text-center"
+        >
+          <div className="mb-4 grid h-12 w-12 place-items-center rounded-xl bg-accent-soft text-accent">
+            <CardsIcon width={22} height={22} />
+          </div>
+          <h3 className="mb-1 font-display text-xl">No cards match</h3>
+          <p className="max-w-sm text-sm text-ink-soft">
+            No cards match{trimmed ? ` "${trimmed}"` : ' those filters'}.
+            Try clearing your search or filters.
+          </p>
+        </motion.div>
       ) : (
         <>
           <p className="mb-3 text-sm text-ink-soft">
@@ -120,7 +145,8 @@ export function SearchPage() {
                 onClick={() =>
                   navigate(`/deck/${hit.card.deckId}/cards/${hit.card.id}/edit`)
                 }
-                className="flex flex-col gap-1 rounded-xl border border-line bg-surface p-4 text-left transition-colors hover:border-line-strong"
+                whileHover={{ y: -2, transition: { duration: 0.15 } }}
+                className="flex flex-col gap-1 rounded-xl border border-line bg-surface p-4 text-left transition-colors duration-200 hover:border-line-strong hover:shadow-md hover:shadow-black/[0.03]"
               >
                 <span className="text-sm text-ink">
                   {plainPreview(hit.card.front, 140) || '(empty front)'}
@@ -147,6 +173,23 @@ export function SearchPage() {
           </div>
         </>
       )}
+    </div>
+  );
+}
+
+function SearchSkeleton() {
+  return (
+    <div className="space-y-2">
+      {Array.from({ length: 6 }).map((_, i) => (
+        <div
+          key={i}
+          className="flex flex-col gap-1 rounded-xl border border-line bg-surface p-4"
+        >
+          <div className="h-4 w-3/4 animate-pulse rounded bg-ink/10" />
+          <div className="h-4 w-1/2 animate-pulse rounded bg-ink/10" />
+          <div className="mt-1 h-3 w-24 animate-pulse rounded bg-ink/10" />
+        </div>
+      ))}
     </div>
   );
 }

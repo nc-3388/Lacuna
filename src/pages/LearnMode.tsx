@@ -498,12 +498,17 @@ export function LearnMode() {
         reveal();
       } else if (phase === 'answer') {
         if (gradingMode === 'manual') {
-          if (keyMatches(e, bindings.again)) answer(1);
-          else if (keyMatches(e, bindings.hard)) answer(2);
-          else if (keyMatches(e, bindings.good)) answer(3);
-          else if (keyMatches(e, bindings.easy)) answer(4);
-        } else if (keyMatches(e, bindings.yes) || e.code === 'ArrowRight') answer(true);
-        else if (keyMatches(e, bindings.no) || e.code === 'ArrowLeft') answer(false);
+          if (keyMatches(e, bindings.again)) { e.preventDefault(); answer(1); }
+          else if (keyMatches(e, bindings.hard)) { e.preventDefault(); answer(2); }
+          else if (keyMatches(e, bindings.good)) { e.preventDefault(); answer(3); }
+          else if (keyMatches(e, bindings.easy)) { e.preventDefault(); answer(4); }
+        } else if (keyMatches(e, bindings.yes) || e.code === 'ArrowRight') {
+          e.preventDefault();
+          answer(true);
+        } else if (keyMatches(e, bindings.no) || e.code === 'ArrowLeft') {
+          e.preventDefault();
+          answer(false);
+        }
       }
     };
     window.addEventListener('keydown', onKey);
@@ -519,11 +524,7 @@ export function LearnMode() {
   );
 
   if (phase === 'loading') {
-    return (
-      <div className="grid h-screen place-items-center text-ink-faint">
-        <span className="animate-pulse font-display text-2xl">Preparing session…</span>
-      </div>
-    );
+    return <LearnSkeleton />;
   }
 
   if (phase === 'finished' && summary) {
@@ -554,25 +555,48 @@ export function LearnMode() {
 
   return (
     <div className="flex min-h-screen flex-col bg-paper">
-      {/* Grading feedback: a soft glow rising from the foot of the screen — green for a
-          correct answer, a muted red for a missed one. Purely decorative and never
-          intercepts pointer or keyboard input. */}
+      {/* Grading feedback: a soft glow rising from the foot of the screen plus a
+          radial ring that pulses outward from the card centre — green for correct,
+          muted red for missed. Purely decorative and never intercepts input. */}
       <AnimatePresence>
         {feedback && (
-          <motion.div
-            key={feedback}
-            aria-hidden
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.18 }}
-            className={
-              'pointer-events-none fixed inset-x-0 bottom-0 z-30 h-56 ' +
-              (feedback === 'correct'
-                ? 'bg-gradient-to-t from-positive/25 to-transparent'
-                : 'bg-gradient-to-t from-negative/20 to-transparent')
-            }
-          />
+          <>
+            <motion.div
+              key={`${feedback}-glow`}
+              aria-hidden
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.22 }}
+              className={
+                'pointer-events-none fixed inset-x-0 bottom-0 z-30 h-56 ' +
+                (feedback === 'correct'
+                  ? 'bg-gradient-to-t from-positive/25 to-transparent'
+                  : 'bg-gradient-to-t from-negative/20 to-transparent')
+              }
+            />
+            <motion.div
+              key={`${feedback}-ring`}
+              aria-hidden
+              className="pointer-events-none fixed inset-0 z-30 flex items-center justify-center"
+              initial={{ opacity: 0.6 }}
+              animate={{ opacity: 0 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.6, ease: 'easeOut' }}
+            >
+              <motion.div
+                initial={{ scale: 0.6, opacity: 0.5 }}
+                animate={{ scale: 2.5, opacity: 0 }}
+                transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
+                className={
+                  'h-96 w-96 rounded-full ' +
+                  (feedback === 'correct'
+                    ? 'bg-positive/15 ring-4 ring-positive/20'
+                    : 'bg-negative/10 ring-4 ring-negative/15')
+                }
+              />
+            </motion.div>
+          </>
         )}
       </AnimatePresence>
 
@@ -709,10 +733,10 @@ export function LearnMode() {
             {phase === 'question' ? (
               <motion.div
                 key="show"
-                initial={{ opacity: 0, y: 8 }}
+                initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -8 }}
-                transition={{ duration: 0.15 }}
+                transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
                 className="flex flex-col items-center gap-2"
               >
                 <Button variant="primary" size="lg" className="w-full max-w-sm" onClick={reveal}>
@@ -722,56 +746,68 @@ export function LearnMode() {
             ) : (
               <motion.div
                 key="grade"
-                initial={{ opacity: 0, y: 8 }}
+                initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -8 }}
-                transition={{ duration: 0.15 }}
+                transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
                 className="flex flex-col items-center gap-3"
               >
                 {gradingMode === 'manual' ? (
-                  <>
-                    <div className="grid w-full max-w-2xl grid-cols-2 gap-3 md:grid-cols-4">
-                      <Button variant="danger" size="lg" onClick={() => answer(1)}>
+                  <motion.div
+                    className="grid w-full max-w-2xl grid-cols-2 gap-3 md:grid-cols-4"
+                    initial="hidden"
+                    animate="visible"
+                    variants={{
+                      hidden: {},
+                      visible: { transition: { staggerChildren: 0.05 } },
+                    }}
+                  >
+                    <motion.div variants={buttonReveal}>
+                      <Button variant="danger" size="lg" className="w-full" onClick={() => answer(1)}>
                         <CloseIcon width={18} height={18} />
                         Again
                       </Button>
-                      <Button variant="secondary" size="lg" onClick={() => answer(2)}>
+                    </motion.div>
+                    <motion.div variants={buttonReveal}>
+                      <Button variant="secondary" size="lg" className="w-full" onClick={() => answer(2)}>
                         Hard
                       </Button>
-                      <Button variant="secondary" size="lg" onClick={() => answer(3)}>
+                    </motion.div>
+                    <motion.div variants={buttonReveal}>
+                      <Button variant="secondary" size="lg" className="w-full" onClick={() => answer(3)}>
                         Good
                       </Button>
-                      <Button variant="primary" size="lg" onClick={() => answer(4)}>
+                    </motion.div>
+                    <motion.div variants={buttonReveal}>
+                      <Button variant="primary" size="lg" className="w-full" onClick={() => answer(4)}>
                         <CheckIcon width={18} height={18} />
                         Easy
                       </Button>
-                    </div>
-
-                  </>
+                    </motion.div>
+                  </motion.div>
                 ) : (
-                  <>
-                <div className="flex w-full max-w-md gap-3">
-                  <Button
-                    variant="danger"
-                    size="lg"
-                    className="flex-1"
-                    onClick={() => answer(false)}
+                  <motion.div
+                    className="flex w-full max-w-md gap-3"
+                    initial="hidden"
+                    animate="visible"
+                    variants={{
+                      hidden: {},
+                      visible: { transition: { staggerChildren: 0.06 } },
+                    }}
                   >
-                    <CloseIcon width={18} height={18} />
-                    No
-                  </Button>
-                  <Button
-                    variant="primary"
-                    size="lg"
-                    className="flex-1"
-                    onClick={() => answer(true)}
-                  >
-                    <CheckIcon width={18} height={18} />
-                    Yes
-                  </Button>
-                </div>
-
-                  </>
+                    <motion.div variants={buttonReveal} className="flex-1">
+                      <Button variant="danger" size="lg" className="w-full" onClick={() => answer(false)}>
+                        <CloseIcon width={18} height={18} />
+                        No
+                      </Button>
+                    </motion.div>
+                    <motion.div variants={buttonReveal} className="flex-1">
+                      <Button variant="primary" size="lg" className="w-full" onClick={() => answer(true)}>
+                        <CheckIcon width={18} height={18} />
+                        Yes
+                      </Button>
+                    </motion.div>
+                  </motion.div>
                 )}
               </motion.div>
             )}
@@ -801,6 +837,40 @@ export function LearnMode() {
     </div>
   );
 }
+
+function LearnSkeleton() {
+  return (
+    <div className="flex min-h-screen flex-col bg-paper">
+      <header className="sticky top-0 z-10 border-b border-line bg-paper/85 backdrop-blur">
+        <div className="mx-auto flex max-w-3xl items-center gap-4 px-6 py-4">
+          <div className="h-9 w-9 animate-pulse rounded-lg bg-ink/10" />
+          <div className="min-w-0 flex-1">
+            <div className="mb-1 h-3 w-32 animate-pulse rounded bg-ink/10" />
+            <div className="h-1.5 w-full animate-pulse rounded-full bg-ink/10" />
+          </div>
+          <div className="h-9 w-9 animate-pulse rounded-lg bg-ink/10" />
+          <div className="h-9 w-16 animate-pulse rounded-lg bg-ink/10" />
+        </div>
+      </header>
+      <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col px-6 py-8">
+        <div className="flex flex-1 items-center justify-center">
+          <div className="w-full rounded-3xl border border-line bg-surface px-8 py-12">
+            <div className="mx-auto mb-4 h-3 w-20 animate-pulse rounded bg-ink/10" />
+            <div className="mx-auto h-6 w-3/4 animate-pulse rounded bg-ink/10" />
+          </div>
+        </div>
+        <div className="mt-8 flex flex-col items-center gap-2">
+          <div className="h-12 w-full max-w-sm animate-pulse rounded-lg bg-ink/10" />
+        </div>
+      </main>
+    </div>
+  );
+}
+
+const buttonReveal = {
+  hidden: { opacity: 0, y: 12, scale: 0.96 },
+  visible: { opacity: 1, y: 0, scale: 1, transition: { duration: 0.22, ease: [0.16, 1, 0.3, 1] } },
+};
 
 function NavSidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
   const trapRef = useFocusTrap(open);
@@ -861,6 +931,8 @@ function MenuItem({
  * A card that flips vertically to reveal its answer. The two faces are swapped via a
  * keyed transition (rather than absolute stacking) so the card's height always fits the
  * content, even when the answer is much longer than the question.
+ *
+ * Enhanced with 3D perspective, dynamic shadows, and staggered text reveals.
  */
 function FlipCard({ card, revealed }: { card: Card; revealed: boolean }) {
   const isCloze = card.type === 'cloze';
@@ -873,27 +945,37 @@ function FlipCard({ card, revealed }: { card: Card; revealed: boolean }) {
         <AnimatePresence mode="wait" initial={false}>
           <motion.div
             key={revealed ? 'back' : 'front'}
-            initial={{ rotateX: -90, opacity: 0 }}
-            animate={{ rotateX: 0, opacity: 1 }}
-            exit={{ rotateX: 90, opacity: 0 }}
-            transition={{ duration: 0.32, ease: [0.16, 1, 0.3, 1] }}
-            style={{ transformOrigin: 'center top' }}
+            initial={{ rotateX: -92, opacity: 0, scale: 0.97 }}
+            animate={{ rotateX: 0, opacity: 1, scale: 1 }}
+            exit={{ rotateX: 92, opacity: 0, scale: 0.97 }}
+            transition={{ duration: 0.38, ease: [0.16, 1, 0.3, 1] }}
+            style={{ transformOrigin: 'center center' }}
             className={
-              'rounded-3xl border bg-surface px-8 py-12 shadow-xl shadow-black/5 ' +
-              (revealed ? 'border-accent/40' : 'border-line')
+              'rounded-3xl border bg-surface px-8 py-12 ' +
+              (revealed
+                ? 'border-accent/40 shadow-2xl shadow-accent/10'
+                : 'border-line shadow-xl shadow-black/5')
             }
           >
-            <div
+            <motion.div
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.25, delay: 0.12, ease: [0.16, 1, 0.3, 1] }}
               className={
                 'mb-4 text-center text-[11px] uppercase tracking-[0.2em] ' +
                 (revealed ? 'text-accent' : 'text-ink-faint')
               }
             >
               {revealed ? 'Answer' : isCloze ? 'Fill the gap' : 'Question'}
-            </div>
-            <div className="mx-auto max-w-prose text-center text-lg">
+            </motion.div>
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.3, delay: 0.18, ease: [0.16, 1, 0.3, 1] }}
+              className="mx-auto max-w-prose text-center text-lg"
+            >
               <CardContent card={card} side={revealed ? 'back' : 'front'} />
-            </div>
+            </motion.div>
           </motion.div>
         </AnimatePresence>
       </div>
