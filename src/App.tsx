@@ -29,8 +29,13 @@ const DeckSettings = lazy(() => import('./pages/DeckSettings').then((m) => ({ de
 
 function RouteFallback() {
   return (
-    <div className="grid h-[60vh] place-items-center text-ink-faint">
-      <span className="animate-pulse font-display text-xl">Loading…</span>
+    <div className="flex h-[60vh] flex-col items-center justify-center gap-4 p-8">
+      <div className="w-full max-w-xs space-y-3">
+        <div className="h-8 w-3/4 animate-pulse rounded-lg bg-ink/5" />
+        <div className="h-4 w-full animate-pulse rounded-lg bg-ink/5" />
+        <div className="h-4 w-5/6 animate-pulse rounded-lg bg-ink/5" />
+        <div className="h-32 w-full animate-pulse rounded-xl bg-ink/5" />
+      </div>
     </div>
   );
 }

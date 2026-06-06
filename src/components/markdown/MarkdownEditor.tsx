@@ -1,4 +1,5 @@
 import { useRef, useState, type DragEvent, type Ref } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import { MarkdownView } from './MarkdownView';
 import { imageFileToAssetUrl, imageMarkdown } from './image';
 import { nextClozeIndex } from './cloze';
@@ -277,11 +278,30 @@ export function MarkdownEditor({
             mobileTab === 'write' && 'hidden md:block',
           )}
         >
-          {value.trim() ? (
-            <MarkdownView source={value} clozeMode={clozePreview} />
-          ) : (
-            <p className="text-sm text-ink-faint">Preview appears here.</p>
-          )}
+          <AnimatePresence mode="sync">
+            {value.trim() ? (
+              <motion.div
+                key="preview"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.15 }}
+              >
+                <MarkdownView source={value} clozeMode={clozePreview} />
+              </motion.div>
+            ) : (
+              <motion.p
+                key="placeholder"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.15 }}
+                className="text-sm text-ink-faint"
+              >
+                Preview appears here.
+              </motion.p>
+            )}
+          </AnimatePresence>
         </div>
       </div>
     </div>
