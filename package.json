@@ -17,8 +17,8 @@
     "format": "prettier --write \"src/**/*.{ts,tsx,json,css}\" \"*.cjs\" \".prettierrc\" \".eslintignore\""
   },
   "dependencies": {
-    "@open-spaced-repetition/binding": "^0.4.0",
     "@napi-rs/wasm-runtime": "1.1.0",
+    "@open-spaced-repetition/binding": "^0.4.0",
     "dexie": "^4.0.10",
     "dexie-react-hooks": "^1.1.7",
     "katex": "^0.16.11",
@@ -29,13 +29,13 @@
     "react-router-dom": "^6.28.0",
     "recharts": "^2.13.3",
     "rehype-highlight": "^7.0.1",
-    "zod": "^3.23.8",
     "rehype-katex": "^7.0.1",
     "rehype-raw": "^7.0.0",
     "rehype-sanitize": "^6.0.0",
     "remark-gfm": "^4.0.0",
     "remark-math": "^6.0.0",
-    "ts-fsrs": "^5.2.3"
+    "ts-fsrs": "^5.2.3",
+    "zod": "^3.23.8"
   },
   "overrides": {
     "nanoid": "3.3.11",
@@ -47,19 +47,21 @@
     "@tailwindcss/vite": "4.1.18",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
-    "@vitejs/plugin-react-swc": "^4.3.1",
-    "fake-indexeddb": "^6.2.5",
-    "highlight.js": "^11.10.0",
-    "tailwindcss": "4.1.18",
-    "typescript": "^5.6.3",
-    "vite": "^6.0.3",
-    "vitest": "^2.1.9",
     "@typescript-eslint/eslint-plugin": "^8.0.0",
     "@typescript-eslint/parser": "^8.0.0",
+    "@vitejs/plugin-react-swc": "^4.3.1",
+    "electron": "^42.3.3",
+    "electron-builder": "^24.13.3",
     "eslint": "^8.57.0",
     "eslint-config-prettier": "^9.0.0",
     "eslint-plugin-react": "^7.35.0",
     "eslint-plugin-react-hooks": "^5.0.0",
-    "prettier": "^3.3.0"
+    "fake-indexeddb": "^6.2.5",
+    "highlight.js": "^11.10.0",
+    "prettier": "^3.3.0",
+    "tailwindcss": "4.1.18",
+    "typescript": "^5.6.3",
+    "vite": "^6.0.3",
+    "vitest": "^2.1.9"
   }
 }
