@@ -7,6 +7,8 @@ import {
   useState,
   type ReactNode,
 } from 'react';
+
+let toastIdCounter = 0;
 import { AnimatePresence, motion } from 'motion/react';
 import { cn } from './cn';
 import { CheckIcon, CloseIcon, InfoIcon } from './icons';
@@ -49,7 +51,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
 
   const notify = useCallback(
     (message: string, tone: ToastTone = 'neutral', options?: ToastOptions) => {
-      const id = Date.now() + Math.random();
+      const id = ++toastIdCounter;
       const duration = options?.duration ?? (options?.actionLabel ? 6000 : 3500);
       setToasts((prev) => [
         ...prev,

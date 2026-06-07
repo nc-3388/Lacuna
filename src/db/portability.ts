@@ -79,13 +79,6 @@ export function validateBackup(data: unknown): data is BackupFile {
 
 export type ImportMode = 'replace' | 'merge';
 
-/** The more recent of two records wins a merge conflict, using a timestamp field. */
-function newerWins<T>(existing: T, incoming: T, key: keyof T): T {
-  const a = (existing[key] as unknown as number) ?? 0;
-  const b = (incoming[key] as unknown as number) ?? 0;
-  return b >= a ? incoming : existing;
-}
-
 /**
  * Import a backup. In "replace" mode the database is cleared first; in "merge" mode
  * records are matched by id and the most recently touched copy wins each conflict.

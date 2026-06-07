@@ -144,7 +144,6 @@ export interface StudyTimePoint {
 /** Daily study time (minutes) over the past `days` days. */
 export function studyTimeSeries(cards: Card[], days = 30, now = Date.now()): StudyTimePoint[] {
   const today = startOfDay(now);
-  const dayMs = 86_400_000;
   const counts = new Map<number, number>();
   for (const card of cards) {
     for (const log of card.history) {

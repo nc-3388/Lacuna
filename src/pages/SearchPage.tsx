@@ -138,7 +138,7 @@ export function SearchPage() {
             {results.length} result{results.length === 1 ? '' : 's'}
           </p>
           <div className="grid gap-2">
-            {results.map((hit, i) => (
+            {results.map((hit) => (
               <motion.button
                 key={hit.card.id}
                 type="button"

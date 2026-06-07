@@ -132,7 +132,7 @@ export function DateTimePicker({ value, onChange, label }: DateTimePickerProps) 
   // Close on Escape / click outside.
   useEffect(() => {
     if (!open) return;
-    const onClick = (e: MouseEvent) => {
+    const onPointerDown = (e: PointerEvent) => {
       if (
         containerRef.current &&
         !containerRef.current.contains(e.target as Node)
@@ -140,8 +140,8 @@ export function DateTimePicker({ value, onChange, label }: DateTimePickerProps) 
         setOpen(false);
       }
     };
-    window.addEventListener('mousedown', onClick);
-    return () => window.removeEventListener('mousedown', onClick);
+    window.addEventListener('pointerdown', onPointerDown);
+    return () => window.removeEventListener('pointerdown', onPointerDown);
   }, [open]);
 
   // Keyboard handler for the calendar
@@ -353,10 +353,10 @@ export function DateTimePicker({ value, onChange, label }: DateTimePickerProps) 
     };
     compute();
     window.addEventListener('resize', compute);
-    window.addEventListener('scroll', compute, { passive: true });
+    window.addEventListener('scroll', compute, { passive: true } as AddEventListenerOptions);
     return () => {
       window.removeEventListener('resize', compute);
-      window.removeEventListener('scroll', compute, { passive: true });
+      window.removeEventListener('scroll', compute, { passive: true } as AddEventListenerOptions);
     };
   }, [open]);
 

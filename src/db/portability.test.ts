@@ -54,15 +54,19 @@ describe('importBackup', () => {
     expect(cards[0].front).toBe('Q1');
   });
 
-  it('merges decks by examDate in merge mode', async () => {
+  it('merges decks by interaction time in merge mode', async () => {
     const deck = await createDeck('Biology');
     const backup = await exportDatabase();
 
-    await db.decks.update(deck.id, { examDate: deck.examDate + 1000 });
+    // Simulate local activity so lastInteractedAt is newer than the backup's.
+    await db.decks.update(deck.id, {
+      examDate: deck.examDate + 1000,
+      lastInteractedAt: Date.now(),
+    });
     await importBackup(backup, 'merge');
 
     const updated = await db.decks.get(deck.id);
-    expect(updated!.examDate).toBe(deck.examDate + 1000); // local wins because newer
+    expect(updated!.examDate).toBe(deck.examDate + 1000); // local wins because more recently interacted
   });
 
   it('adds missing cards in merge mode', async () => {

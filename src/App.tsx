@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { motion } from 'motion/react';
 import { createHashRouter, RouterProvider } from 'react-router-dom';
 import { ThemeProvider } from './state/ThemeContext';
@@ -112,8 +112,12 @@ const router = createHashRouter([
 
 export function App() {
   const [ready, setReady] = useState(false);
+  const initStarted = useRef(false);
 
   useEffect(() => {
+    if (initStarted.current) return;
+    initStarted.current = true;
+
     (async () => {
       try {
         // Detect any pending schema upgrade and capture a committed snapshot before

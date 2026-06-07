@@ -106,7 +106,7 @@ export class LacunaDatabase extends Dexie {
         // Process cards with a cursor so we never load the whole table into memory
         // at once. Async extraction happens per-card, keeping the upgrade safe.
         const table = tx.table('cards');
-        let cursor = await table.openCursor();
+        let cursor = await (table as unknown as { openCursor: () => Promise<IDBCursorWithValue | null> }).openCursor();
         while (cursor) {
           const card = cursor.value;
           const front = await extractMarkdownAssets(card.front ?? '', (asset) =>
@@ -118,7 +118,8 @@ export class LacunaDatabase extends Dexie {
           const migrated = { ...card, front, back };
           Object.assign(migrated, migrateCardRecord(migrated as LegacyCard));
           await cursor.update(migrated);
-          cursor = await cursor.continue();
+          const next = await cursor.continue();
+          cursor = next;
         }
       });
   }
@@ -146,7 +147,10 @@ async function getCurrentDbVersion(name: string): Promise<number> {
   return 0;
 }
 
-export async function readAllDataFromVersion(name: string): Promise<BackupFile> {
+export async function readAllDataFromVersion(
+  name: string,
+  expectedVersion?: number,
+): Promise<BackupFile> {
   const raw = await new Promise<{
     version: number;
     data: Record<string, unknown[]>;
@@ -197,6 +201,12 @@ export async function readAllDataFromVersion(name: string): Promise<BackupFile> 
     req.onblocked = () => reject(new Error('Database is blocked by another connection'));
   });
 
+  if (expectedVersion !== undefined && raw.version !== expectedVersion) {
+    throw new Error(
+      `Database version mismatch: expected ${expectedVersion}, found ${raw.version}`,
+    );
+  }
+
   const assetsRaw = (raw.data['assets'] ?? []) as ImageAsset[];
   const assets = await Promise.all(
     assetsRaw.map(async (a) => {
@@ -224,7 +234,7 @@ export async function readAllDataFromVersion(name: string): Promise<BackupFile> 
   };
 }
 
-let preMigrationSnapshotTaken = false;
+const snapshottedDbNames = new Set<string>();
 
 /**
  * Detect a pending schema upgrade and, if one is pending, capture a full
@@ -233,19 +243,19 @@ let preMigrationSnapshotTaken = false;
  * `lacuna-pre-migration` database so it survives even if the main upgrade
  * aborts and rolls back.
  */
-export async function ensurePreMigrationSnapshot(): Promise<void> {
-  if (preMigrationSnapshotTaken) return;
-  preMigrationSnapshotTaken = true;
+export async function ensurePreMigrationSnapshot(dbName: string = 'lacuna'): Promise<void> {
+  if (snapshottedDbNames.has(dbName)) return;
+  snapshottedDbNames.add(dbName);
 
   const targetVersion = CURRENT_SCHEMA_VERSION;
-  const currentVersion = await getCurrentDbVersion('lacuna');
+  const currentVersion = await getCurrentDbVersion(dbName);
 
   if (currentVersion > 0 && currentVersion < targetVersion) {
     try {
-      const payload = await readAllDataFromVersion('lacuna');
+      const payload = await readAllDataFromVersion(dbName, currentVersion);
       await savePreMigrationSnapshot(targetVersion, payload);
     } catch {
-      preMigrationSnapshotTaken = false;
+      snapshottedDbNames.delete(dbName);
     }
   }
 }

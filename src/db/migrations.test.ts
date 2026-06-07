@@ -298,14 +298,11 @@ describe('pre-migration snapshot ordering', () => {
     });
     v4.close();
 
-    // readAllDataFromVersion returns the current version (4). If the current
-    // version is not less than the target, no snapshot should be written.
-    const { readAllDataFromVersion } = await import('./schema');
-    const payload = await readAllDataFromVersion(dbName);
-    expect(payload.decks).toHaveLength(1);
-    expect(payload.version).toBe(4);
-    // Because the on-disk version (4) is not less than the target (4), the
-    // snapshot function should skip writing.
+    // Call the actual production helper: it should skip writing because
+    // currentVersion (4) is not less than targetVersion (4).
+    const { ensurePreMigrationSnapshot } = await import('./schema');
+    await ensurePreMigrationSnapshot(dbName);
+
     const snapshot = await getPreMigrationSnapshot(4);
     expect(snapshot).toBeUndefined();
 

@@ -4,7 +4,6 @@
 // user expects from an Anki-style heatmap.
 
 import { startOfDay } from '../utils/datetime';
-import { MS_PER_DAY } from './params';
 import type { Card } from '../db/types';
 
 export interface HeatmapDay {

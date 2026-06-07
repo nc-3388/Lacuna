@@ -339,7 +339,7 @@ export function LearnMode() {
       events.current = [...events.current, { grade, correct, responseTimeSec: t, distracted }];
 
       lastAnswer.current = {
-        undo: { cardBefore: current, perfBefore, sessionHistoryId },
+        undo: { cardBefore: current, perfBefore, sessionHistoryId, deckId: deck.id },
         cooldowns: cooldownsSnapshot,
         progressBefore: progressSnapshot,
         eventsLen,

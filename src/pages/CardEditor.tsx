@@ -37,6 +37,13 @@ export function CardEditor() {
   // When set (new front/back cards only), saving also creates an independent reverse card.
   const [alsoReverse, setAlsoReverse] = useState(false);
   const [loaded, setLoaded] = useState(false);
+
+  // Re-arm the loaded latch whenever the card being edited changes so direct
+  // navigation between cards (same route, different param) re-seeds the form.
+  useEffect(() => {
+    setLoaded(false);
+  }, [cardId]);
+
   // Quick-capture bookkeeping: how many cards added without leaving the page, and a
   // remount key that refocuses the first field after each "Save & add another".
   const [addedCount, setAddedCount] = useState(0);

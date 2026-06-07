@@ -64,16 +64,16 @@ export function PomodoroTimer() {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') setOpen(false);
     };
-    const onClick = (e: MouseEvent) => {
+    const onPointerDown = (e: PointerEvent) => {
       if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
         setOpen(false);
       }
     };
     window.addEventListener('keydown', onKey);
-    window.addEventListener('mousedown', onClick);
+    window.addEventListener('pointerdown', onPointerDown);
     return () => {
       window.removeEventListener('keydown', onKey);
-      window.removeEventListener('mousedown', onClick);
+      window.removeEventListener('pointerdown', onPointerDown);
     };
   }, [open]);
 

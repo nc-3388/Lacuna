@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'motion/react';
-import { useAllCards, useDecks, useDeckSummaries, useStudyStats } from '../state/useData';
+import { useDashboardData } from '../state/useData';
 import { useDashboardSort, type DashboardSort } from '../state/dashboardSort';
 import { StudySignals } from '../components/dashboard/StudySignals';
 import { ReviewHeatmap } from '../components/dashboard/ReviewHeatmap';
@@ -28,10 +28,11 @@ import { useMotionSpeed, speedMultiplier } from '../state/motionSpeed';
 import type { Deck } from '../db/types';
 
 export function Dashboard() {
-  const decks = useDecks();
-  const summaries = useDeckSummaries();
-  const stats = useStudyStats();
-  const allCards = useAllCards();
+  const dashboardData = useDashboardData();
+  const decks = dashboardData?.decks;
+  const summaries = dashboardData?.summaries;
+  const stats = dashboardData?.stats;
+  const allCards = dashboardData?.allCards;
   const navigate = useNavigate();
   const { notify } = useToast();
   const [dashboardSort] = useDashboardSort();
@@ -422,11 +423,10 @@ export function Dashboard() {
       ) : (
         <>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {activeDecks.slice(0, 3).map((deck, i) => (
+            {activeDecks.slice(0, 3).map((deck) => (
               <DeckCard
                 key={deck.id}
                 deck={deck}
-                index={i}
                 summary={summaries?.[deck.id]}
                 selectMode={selectMode}
                 selected={selected.has(deck.id)}
@@ -456,11 +456,10 @@ export function Dashboard() {
                 Archived
               </h2>
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {archivedDecks.map((deck, i) => (
+                {archivedDecks.map((deck) => (
                   <DeckCard
                     key={deck.id}
                     deck={deck}
-                    index={i}
                     summary={summaries?.[deck.id]}
                     selectMode={selectMode}
                     selected={selected.has(deck.id)}
@@ -487,7 +486,6 @@ export function Dashboard() {
 function DeckCard({
   deck,
   summary,
-  index,
   selectMode,
   selected,
   onToggleSelected,
@@ -495,7 +493,6 @@ function DeckCard({
 }: {
   deck: Deck;
   summary: { count: number; mastery: number; unreviewed: number } | undefined;
-  index: number;
   selectMode: boolean;
   selected: boolean;
   onToggleSelected: () => void;

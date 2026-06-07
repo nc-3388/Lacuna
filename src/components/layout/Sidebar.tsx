@@ -198,6 +198,7 @@ export function Sidebar({ collapsed, onToggleCollapsed }: SidebarProps) {
         )}
       >
         <button
+          type="button"
           onClick={toggleTheme}
           title="Toggle colour theme"
           aria-label="Toggle colour theme"
@@ -211,6 +212,7 @@ export function Sidebar({ collapsed, onToggleCollapsed }: SidebarProps) {
           </span>
         )}
         <button
+          type="button"
           onClick={onToggleCollapsed}
           title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
           aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}

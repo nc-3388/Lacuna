@@ -104,7 +104,7 @@ export interface ShareSummary {
 }
 
 // ---------------------------------------------------------------------------
-// Base64 and DEFLATE helpers
+// Base64 and DEFLATE helpers (direct fallback when Worker is unavailable)
 // ---------------------------------------------------------------------------
 
 function bytesToBase64(bytes: Uint8Array): string {
@@ -137,11 +137,7 @@ async function pipeThrough(
 const canCompress = typeof CompressionStream !== 'undefined';
 const canDecompress = typeof DecompressionStream !== 'undefined';
 
-// ---------------------------------------------------------------------------
-// Encode / decode
-// ---------------------------------------------------------------------------
-
-async function encodeShare(payload: SharePayload): Promise<string> {
+async function encodeShareDirect(payload: SharePayload): Promise<string> {
   const bytes = new TextEncoder().encode(JSON.stringify(payload));
   if (canCompress) {
     const deflated = await pipeThrough(bytes, new CompressionStream('deflate-raw'));
@@ -150,8 +146,7 @@ async function encodeShare(payload: SharePayload): Promise<string> {
   return PREFIX_PLAIN + bytesToBase64(bytes);
 }
 
-/** Decode a share code into its payload, throwing a readable error if it is invalid. */
-export async function decodeShare(code: string): Promise<SharePayload> {
+async function decodeShareDirect(code: string): Promise<SharePayload> {
   const trimmed = code.trim().replace(/\s+/g, '');
   let bytes: Uint8Array;
   if (trimmed.startsWith(PREFIX_COMPRESSED)) {
@@ -187,6 +182,76 @@ export async function decodeShare(code: string): Promise<SharePayload> {
     throw new Error('This share code is from an unsupported version of Lacuna.');
   }
   return parse.data;
+}
+
+// ---------------------------------------------------------------------------
+// Worker offload for encode / decode
+// ---------------------------------------------------------------------------
+
+const canUseShareWorker = typeof Worker !== 'undefined';
+
+let shareWorker: Worker | null = null;
+let shareJobId = 0;
+
+function getShareWorker(): Worker {
+  if (!shareWorker) {
+    shareWorker = new Worker(
+      new URL('../workers/share.worker.ts', import.meta.url),
+      { type: 'module' },
+    );
+  }
+  return shareWorker;
+}
+
+function runShareWorker<T>(
+  message:
+    | { type: 'encode'; payload: SharePayload }
+    | { type: 'decode'; code: string },
+): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const id = ++shareJobId;
+    const w = getShareWorker();
+    const handler = (event: MessageEvent) => {
+      const data = event.data as {
+        type: string;
+        result?: T;
+        error?: string;
+        id?: number;
+      };
+      if (data.id !== id) return;
+      w.removeEventListener('message', handler);
+      if (data.type === 'error') {
+        reject(new Error(data.error ?? 'Share worker failed.'));
+      } else {
+        resolve(data.result as T);
+      }
+    };
+    w.addEventListener('message', handler);
+    w.postMessage({ ...message, id });
+  });
+}
+
+async function encodeShare(payload: SharePayload): Promise<string> {
+  if (canUseShareWorker) {
+    try {
+      return await runShareWorker<string>({ type: 'encode', payload });
+    } catch {
+      // Fall through to direct path if the worker fails.
+    }
+  }
+  return encodeShareDirect(payload);
+}
+
+/** Decode a share code into its payload, throwing a readable error if it is invalid. */
+export async function decodeShare(code: string): Promise<SharePayload> {
+  if (canUseShareWorker) {
+    try {
+      return await runShareWorker<SharePayload>({ type: 'decode', code });
+    } catch {
+      // Fall through to direct path if the worker fails.
+    }
+  }
+  return decodeShareDirect(code);
 }
 
 /** Count the cards a payload would create (reversible pairs count as two). */

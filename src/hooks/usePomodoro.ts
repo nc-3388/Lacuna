@@ -36,6 +36,19 @@ export function loadPomodoroSettings(): PomodoroSettings {
   return { ...DEFAULT_SETTINGS };
 }
 
+function phaseDuration(p: PomodoroPhase, s: PomodoroSettings): number {
+  switch (p) {
+    case 'focus':
+      return s.workMinutes * 60;
+    case 'shortBreak':
+      return s.shortBreakMinutes * 60;
+    case 'longBreak':
+      return s.longBreakMinutes * 60;
+    default:
+      return 0;
+  }
+}
+
 export function savePomodoroSettings(settings: Partial<PomodoroSettings>): void {
   try {
     const current = loadPomodoroSettings();
@@ -47,28 +60,33 @@ export function savePomodoroSettings(settings: Partial<PomodoroSettings>): void 
 }
 
 export function usePomodoro() {
-  const [settings] = useState(loadPomodoroSettings);
+  const [settings, setSettings] = useState<PomodoroSettings>(loadPomodoroSettings);
   const [phase, setPhase] = useState<PomodoroPhase>('idle');
   const [secondsLeft, setSecondsLeft] = useState(0);
   const [sessionsCompleted, setSessionsCompleted] = useState(0);
   const [isRunning, setIsRunning] = useState(false);
   const intervalRef = useRef<number | null>(null);
+  const secondsLeftRef = useRef(secondsLeft);
 
   const durationForPhase = useCallback(
     (p: PomodoroPhase) => {
-      switch (p) {
-        case 'focus':
-          return settings.workMinutes * 60;
-        case 'shortBreak':
-          return settings.shortBreakMinutes * 60;
-        case 'longBreak':
-          return settings.longBreakMinutes * 60;
-        default:
-          return 0;
-      }
+      return phaseDuration(p, settings);
     },
     [settings],
   );
+
+  useEffect(() => {
+    secondsLeftRef.current = secondsLeft;
+  }, [secondsLeft]);
+
+  // Sync settings when they change in another tab.
+  useEffect(() => {
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === STORAGE_KEY) setSettings(loadPomodoroSettings());
+    };
+    window.addEventListener('storage', onStorage);
+    return () => window.removeEventListener('storage', onStorage);
+  }, []);
 
   const clearTick = useCallback(() => {
     if (intervalRef.current) {
@@ -79,7 +97,7 @@ export function usePomodoro() {
 
   // Tick down every second while running.
   useEffect(() => {
-    if (!isRunning || secondsLeft <= 0) {
+    if (!isRunning || secondsLeftRef.current <= 0) {
       clearTick();
       return;
     }
@@ -87,7 +105,7 @@ export function usePomodoro() {
       setSecondsLeft((s) => (s > 0 ? s - 1 : 0));
     }, 1000);
     return () => clearTick();
-  }, [isRunning, secondsLeft, clearTick]);
+  }, [isRunning, clearTick]);
 
   // Handle completion when timer hits zero.
   useEffect(() => {
@@ -113,10 +131,12 @@ export function usePomodoro() {
 
   const startFocus = useCallback(() => {
     clearTick();
+    const fresh = loadPomodoroSettings();
+    setSettings(fresh);
     setPhase('focus');
-    setSecondsLeft(durationForPhase('focus'));
+    setSecondsLeft(phaseDuration('focus', fresh));
     setIsRunning(true);
-  }, [clearTick, durationForPhase]);
+  }, [clearTick]);
 
   const pause = useCallback(() => {
     clearTick();
@@ -124,10 +144,13 @@ export function usePomodoro() {
   }, [clearTick]);
 
   const resume = useCallback(() => {
-    if (secondsLeft > 0 && phase !== 'idle') {
-      setIsRunning(true);
+    if (phase === 'idle') return;
+    if (secondsLeft === 0) {
+      // Phase completed while paused; restart the same phase.
+      setSecondsLeft(phaseDuration(phase, settings));
     }
-  }, [secondsLeft, phase]);
+    setIsRunning(true);
+  }, [secondsLeft, phase, settings]);
 
   const reset = useCallback(() => {
     clearTick();

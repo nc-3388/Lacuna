@@ -10,14 +10,24 @@ import { assetUrl, referencedAssetHashes } from './assets';
 const MAX_SIZE = 200;
 
 const cache = new Map<string, string>();
+const accessOrder = new Map<string, number>();
+let accessCounter = 0;
 const pending = new Map<string, Promise<string | null>>();
 
 function evictOldest(): void {
-  const first = cache.keys().next().value as string | undefined;
-  if (first === undefined) return;
-  const url = cache.get(first);
+  let oldestKey: string | undefined;
+  let oldestTime = Infinity;
+  for (const [key, time] of accessOrder) {
+    if (time < oldestTime) {
+      oldestTime = time;
+      oldestKey = key;
+    }
+  }
+  if (oldestKey === undefined) return;
+  const url = cache.get(oldestKey);
   if (url) URL.revokeObjectURL(url);
-  cache.delete(first);
+  cache.delete(oldestKey);
+  accessOrder.delete(oldestKey);
 }
 
 /**
@@ -27,9 +37,8 @@ function evictOldest(): void {
 export async function resolveAssetUrl(hash: string): Promise<string | null> {
   const cached = cache.get(hash);
   if (cached) {
-    // Touch: move to the back of the LRU queue.
-    cache.delete(hash);
-    cache.set(hash, cached);
+    // Touch: update access order so this item is not evicted.
+    accessOrder.set(hash, ++accessCounter);
     return cached;
   }
 
@@ -43,6 +52,7 @@ export async function resolveAssetUrl(hash: string): Promise<string | null> {
       const url = URL.createObjectURL(asset.blob);
       if (cache.size >= MAX_SIZE) evictOldest();
       cache.set(hash, url);
+      accessOrder.set(hash, ++accessCounter);
       return url;
     } finally {
       pending.delete(hash);
@@ -76,6 +86,7 @@ export function revokeAllCachedUrls(): void {
     URL.revokeObjectURL(url);
   }
   cache.clear();
+  accessOrder.clear();
 }
 
 /** Number of cached object URLs. */

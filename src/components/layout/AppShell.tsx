@@ -14,6 +14,17 @@ export function AppShell() {
   const [collapsed, setCollapsed] = useState(
     () => localStorage.getItem(COLLAPSE_KEY) === '1',
   );
+
+  // Sync sidebar collapsed state across tabs.
+  useEffect(() => {
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === COLLAPSE_KEY) {
+        setCollapsed(e.newValue === '1');
+      }
+    };
+    window.addEventListener('storage', onStorage);
+    return () => window.removeEventListener('storage', onStorage);
+  }, []);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [hintsOpen, setHintsOpen] = useState(false);
@@ -24,8 +35,12 @@ export function AppShell() {
   const [motionSpeed] = useMotionSpeed();
   const m = speedMultiplier(motionSpeed);
 
+  // Debounce sidebar collapse writes so rapid toggles / drag-resize don't hammer localStorage.
   useEffect(() => {
-    localStorage.setItem(COLLAPSE_KEY, collapsed ? '1' : '0');
+    const id = window.setTimeout(() => {
+      localStorage.setItem(COLLAPSE_KEY, collapsed ? '1' : '0');
+    }, 150);
+    return () => window.clearTimeout(id);
   }, [collapsed]);
 
   // Each page change starts at the top, so the entrance animation reveals the new
@@ -50,7 +65,7 @@ export function AppShell() {
       }
       if (e.ctrlKey || e.metaKey || e.altKey || e.repeat) return;
       const el = e.target as HTMLElement | null;
-      if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable))
+      if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT' || el.isContentEditable))
         return;
       if (e.key === '?') {
         e.preventDefault();

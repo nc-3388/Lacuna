@@ -30,6 +30,8 @@ function useCountUp(target: number, durationMs = 1200, delayMs = 0) {
   const startTime = useRef<number | null>(null);
 
   useEffect(() => {
+    setValue(0);
+    startTime.current = null;
     const delayId = window.setTimeout(() => {
       const tick = (now: number) => {
         if (startTime.current === null) startTime.current = now;

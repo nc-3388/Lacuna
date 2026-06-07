@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { useAllCards, useDecks } from '../state/useData';
 import { Button } from '../components/ui/Button';
@@ -33,7 +33,15 @@ export function SharePage() {
   const [input, setInput] = useState('');
   const [pending, setPending] = useState<{ summary: ShareSummary; raw: string } | null>(null);
   const [importing, setImporting] = useState(false);
+  const copyTimeoutRef = useRef<number | null>(null);
   const [motionSpeed] = useMotionSpeed();
+
+  // Clear pending copy timeout on unmount to avoid setState on unmounted component.
+  useEffect(() => {
+    return () => {
+      if (copyTimeoutRef.current) window.clearTimeout(copyTimeoutRef.current);
+    };
+  }, []);
   const m = speedMultiplier(motionSpeed);
 
   // Card counts per deck, for the selection labels.
@@ -91,7 +99,8 @@ export function SharePage() {
       await navigator.clipboard.writeText(code);
       setCopied(true);
       notify('Share code copied to the clipboard.', 'positive');
-      window.setTimeout(() => setCopied(false), 2000);
+      if (copyTimeoutRef.current) window.clearTimeout(copyTimeoutRef.current);
+      copyTimeoutRef.current = window.setTimeout(() => setCopied(false), 2000);
     } catch {
       notify('Copy failed — select the code and copy it manually.', 'negative');
     }

@@ -3,7 +3,13 @@
 import 'fake-indexeddb/auto';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { db } from './schema';
-import { deleteBackup, restoreBackup, takeAutoBackup, autoBackupIfStale } from './backups';
+import {
+  deleteBackup,
+  restoreBackup,
+  takeAutoBackup,
+  autoBackupIfStale,
+  __resetBackupThrottleForTests,
+} from './backups';
 import { createDeck } from './repository';
 
 describe('backups', () => {
@@ -11,6 +17,7 @@ describe('backups', () => {
     // Wipe everything between tests so prior runs do not pollute state.
     await db.delete();
     await db.open();
+    __resetBackupThrottleForTests();
   });
 
   it('takeAutoBackup stores a snapshot in the backups table', async () => {

@@ -42,9 +42,56 @@ function canvasToBlob(canvas: HTMLCanvasElement, mimeType: string): Promise<Blob
   });
 }
 
+/** Whether OffscreenCanvas is available and the compression worker can be used. */
+const canUseWorker =
+  typeof Worker !== 'undefined' && typeof OffscreenCanvas !== 'undefined';
+
+let worker: Worker | null = null;
+let workerJobId = 0;
+
+function getWorker(): Worker {
+  if (!worker) {
+    worker = new Worker(
+      new URL('../workers/compressImage.worker.ts', import.meta.url),
+      { type: 'module' },
+    );
+  }
+  return worker;
+}
+
+function compressInWorker(blob: Blob): Promise<{ blob: Blob; width: number; height: number }> {
+  return new Promise((resolve, reject) => {
+    const id = `job-${++workerJobId}`;
+    const w = getWorker();
+    const handler = (event: MessageEvent) => {
+      const data = event.data as { id: string; blob?: Blob; width?: number; height?: number; error?: string };
+      if (data.id !== id) return;
+      w.removeEventListener('message', handler);
+      if (data.error) {
+        reject(new Error(data.error));
+      } else if (data.blob) {
+        resolve({ blob: data.blob, width: data.width ?? 0, height: data.height ?? 0 });
+      } else {
+        reject(new Error('Could not process the image.'));
+      }
+    };
+    w.addEventListener('message', handler);
+    w.postMessage({ blob, id });
+  });
+}
+
+/** Compress an image blob, offloading to a Web Worker when possible. */
 export async function compressImageBlob(
   blob: Blob,
 ): Promise<{ blob: Blob; width: number; height: number }> {
+  if (canUseWorker) {
+    try {
+      return await compressInWorker(blob);
+    } catch {
+      // Fall through to main-thread path if the worker fails.
+    }
+  }
+
   const bitmap = await loadImageFromBlob(blob);
   const { width, height } = scaleToFit(bitmap.width, bitmap.height, MAX_DIMENSION);
 

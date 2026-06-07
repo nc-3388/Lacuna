@@ -32,7 +32,10 @@ export async function savePreMigrationSnapshot(
   // Also mirror to the configured folder so the snapshot survives browser data clearing.
   // Fire-and-forget so the snapshot is committed immediately; the mirror is best-effort.
   const { mirrorToFolder } = await import('./backups');
-  void mirrorToFolder(payload).catch(() => {});
+  void mirrorToFolder(payload).catch((e: unknown) => {
+    // eslint-disable-next-line no-console
+    console.warn('Pre-migration folder mirror failed:', e);
+  });
 }
 
 export async function getPreMigrationSnapshot(

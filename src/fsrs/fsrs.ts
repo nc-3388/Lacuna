@@ -42,18 +42,17 @@ export function decayOf(params: FsrsParameters): number {
  * the correct initial-stability/difficulty path.
  */
 export function toTsCard(card: Card, now: number): TsCard {
-  if (
-    card.lastReviewed === null ||
-    card.stability === null ||
-    card.difficulty === null ||
-    card.due == null
-  ) {
+  if (card.lastReviewed === null) {
     return createEmptyCard(new Date(now));
   }
+  // A card that was reviewed before FSRS-6 but has missing memory fields should
+  // be back-filled with sensible defaults rather than treated as brand-new.
+  const stability = card.stability ?? 0.1;
+  const difficulty = card.difficulty ?? 5.0;
   return {
-    due: new Date(card.due),
-    stability: card.stability,
-    difficulty: card.difficulty,
+    due: new Date(card.due ?? card.lastReviewed),
+    stability,
+    difficulty,
     elapsed_days: 0,
     scheduled_days: card.scheduledDays,
     learning_steps: card.learningSteps,

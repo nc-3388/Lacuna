@@ -6,8 +6,7 @@ import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
 import rehypeHighlight from 'rehype-highlight';
 import rehypeRaw from 'rehype-raw';
-import rehypeSanitize from 'rehype-sanitize';
-import { defaultSchema } from 'hast-util-sanitize';
+import rehypeSanitize, { defaultSchema } from 'rehype-sanitize';
 import { renderClozeBack, renderClozeFront } from './cloze';
 import { cn } from '../ui/cn';
 import { ASSET_PROTOCOL } from '../../db/assets';
@@ -25,23 +24,26 @@ interface MarkdownViewProps {
 // Stable plugin references so the unified pipeline isn't rebuilt on every call.
 type MarkdownProps = ComponentProps<typeof ReactMarkdown>;
 const REMARK_PLUGINS: MarkdownProps['remarkPlugins'] = [remarkGfm, remarkMath];
-/** Custom sanitiser schema that preserves the class attributes KaTeX and highlight.js need. */
-const sanitizeSchema = {
+
+/** Restricted schema that only allows the specific className patterns needed by
+ *  remark-math ($...$ markers) and fenced code blocks. KaTeX and highlight.js
+ *  run *after* sanitisation so their generated markup is not stripped.
+ */
+const RESTRICTED_SCHEMA = {
   ...defaultSchema,
   attributes: {
     ...defaultSchema.attributes,
-    span: [...(defaultSchema.attributes?.span ?? []), 'className'],
-    code: [...(defaultSchema.attributes?.code ?? []), 'className'],
-    pre: [...(defaultSchema.attributes?.pre ?? []), 'className'],
-    div: [...(defaultSchema.attributes?.div ?? []), 'className'],
+    span: [...(defaultSchema.attributes?.span ?? []), ['className', 'math', 'math-inline']],
+    div: [...(defaultSchema.attributes?.div ?? []), ['className', 'math', 'math-display']],
+    code: [...(defaultSchema.attributes?.code ?? []), ['className', /^language-/]],
   },
 };
 
 const REHYPE_PLUGINS: MarkdownProps['rehypePlugins'] = [
   rehypeRaw,
+  [rehypeSanitize, RESTRICTED_SCHEMA],
   rehypeKatex,
   [rehypeHighlight, { detect: true, ignoreMissing: true }],
-  [rehypeSanitize, sanitizeSchema],
 ];
 
 /**

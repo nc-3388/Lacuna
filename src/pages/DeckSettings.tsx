@@ -67,6 +67,12 @@ export function DeckSettings() {
   const [colour, setColour] = useState<string | undefined>(undefined);
   const [loaded, setLoaded] = useState(false);
 
+  // Re-arm the loaded latch whenever the deck changes so back/forward navigation
+  // between different deck settings routes re-seeds the form.
+  useEffect(() => {
+    setLoaded(false);
+  }, [deckId]);
+
   useEffect(() => {
     if (loaded || !deck) return;
     setName(deck.name);
@@ -330,6 +336,13 @@ function OptimisationPanel({ deck, cards }: { deck: Deck; cards: Card[] }) {
   const [globalDefault] = useAutoOptimiseDefault();
   const optimiser = useOptimiser();
 
+  // Cancel an in-flight optimisation if the user navigates to a different deck.
+  useEffect(() => {
+    return () => {
+      optimiser.reset();
+    };
+  }, [deck?.id]);
+
   const reviews = countReviews(cards);
   const enabled = optimiseEnabledForDeck(deck.autoOptimise, globalDefault);
   const enoughData = reviews >= MIN_OPTIMISE_REVIEWS;
@@ -337,7 +350,13 @@ function OptimisationPanel({ deck, cards }: { deck: Deck; cards: Card[] }) {
   async function applyWeights() {
     if (!optimiser.result || !optimiser.result.isOutOfSampleWin) return;
     // Restore point before touching scheduling weights (reuses the backup mechanism).
-    await takeAutoBackup().catch(() => {});
+    try {
+      await takeAutoBackup();
+    } catch (e) {
+      console.warn('Auto-backup before applying weights failed:', e);
+      notify('Could not create a restore point before applying weights.', 'negative');
+      return;
+    }
     await updateDeck(deck.id, {
       fsrsParameters: { ...deck.fsrsParameters, w: optimiser.result.w },
     });
@@ -346,7 +365,13 @@ function OptimisationPanel({ deck, cards }: { deck: Deck; cards: Card[] }) {
   }
 
   async function resetToDefaults() {
-    await takeAutoBackup().catch(() => {});
+    try {
+      await takeAutoBackup();
+    } catch (e) {
+      console.warn('Auto-backup before resetting weights failed:', e);
+      notify('Could not create a restore point before resetting weights.', 'negative');
+      return;
+    }
     await updateDeck(deck.id, {
       fsrsParameters: {
         ...deck.fsrsParameters,

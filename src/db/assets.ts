@@ -96,6 +96,7 @@ export async function storeImageBlob(
 }
 
 async function getImageDimensions(blob: Blob): Promise<{ width: number; height: number } | null> {
+  if (typeof Image === 'undefined' || typeof URL.createObjectURL !== 'function') return null;
   return new Promise((resolve) => {
     const img = new Image();
     img.onload = () => {
