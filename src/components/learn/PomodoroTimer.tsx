@@ -99,7 +99,7 @@ export function PomodoroTimer() {
         type="button"
         onClick={() => setOpen((v) => !v)}
         title={active ? `${phaseLabel(phase)} · ${formattedTime}` : 'Pomodoro timer'}
-        className="relative flex h-9 w-9 items-center justify-center rounded-lg text-ink-soft transition-colors hover:bg-ink/5 hover:text-ink"
+        className="relative grid h-9 w-9 place-items-center overflow-hidden rounded-lg text-ink-soft transition-colors hover:bg-ink/5 hover:text-ink"
       >
         <svg width="36" height="36" viewBox="0 0 36 36" className="absolute inset-0">
           <circle
@@ -119,7 +119,6 @@ export function PomodoroTimer() {
               fill="none"
               className={phaseStroke(phase)}
               strokeWidth="2.5"
-              strokeLinecap="round"
               strokeDasharray={CIRCUMFERENCE}
               initial={{ strokeDashoffset: CIRCUMFERENCE }}
               animate={{ strokeDashoffset: strokeDashoffset }}
@@ -130,7 +129,7 @@ export function PomodoroTimer() {
         </svg>
         <span className="relative z-10">
           {active ? (
-            <span className={`text-[10px] font-medium tabular ${phaseColour(phase)}`}>
+            <span className={`whitespace-nowrap text-[10px] font-medium tabular leading-none ${phaseColour(phase)}`}>
               {formattedTime}
             </span>
           ) : (

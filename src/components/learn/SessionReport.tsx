@@ -225,7 +225,7 @@ export function SessionReport({
           <h3 className="mb-4 font-display text-xl">How you rated</h3>
           <div className="h-48">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={gradeData} margin={{ top: 8, right: 8, bottom: 0, left: -20 }}>
+              <BarChart data={gradeData} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
                 <XAxis
                   dataKey="grade"
                   stroke={c.inkFaint}

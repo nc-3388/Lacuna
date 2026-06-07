@@ -50,7 +50,6 @@ import {
   MenuIcon,
   MoreIcon,
   PauseIcon,
-  UndoIcon,
 } from '../components/ui/icons';
 import { PomodoroTimer } from '../components/learn/PomodoroTimer';
 
@@ -554,34 +553,47 @@ export function LearnMode() {
     return <LearnSkeleton />;
   }
 
-  if (phase === 'finished' && summary) {
-    return (
-      <div className="min-h-screen">
-        <SessionReport
-          summary={summary}
-          onReturn={backOut}
-          onContinue={
-            summary.reachedGoal
-              ? undefined
-              : () => {
-                  const ctx = ctxRef.current;
-                  if (!ctx) return;
-                  events.current = [];
-                  progressBefore.current = sessionProgress(cardsRef.current, ctx);
-                  setSummary(null);
-                  serveNext();
-                }
-          }
-        />
-      </div>
-    );
-  }
-
   const headerTitle = singleDeck ? singleDeck.name : 'Today · all decks';
   const noun = singleDeck ? progressNoun(singleDeck) : 'ready';
 
   return (
-    <div className="flex min-h-screen flex-col bg-paper">
+    <div className="min-h-screen bg-paper">
+      <AnimatePresence mode="wait">
+        {phase === 'finished' && summary ? (
+          <motion.div
+            key="finished"
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -16 }}
+            transition={{ duration: 0.32 * m, ease: [0.16, 1, 0.3, 1] }}
+            className="min-h-screen"
+          >
+            <SessionReport
+              summary={summary}
+              onReturn={backOut}
+              onContinue={
+                summary.reachedGoal
+                  ? undefined
+                  : () => {
+                      const ctx = ctxRef.current;
+                      if (!ctx) return;
+                      events.current = [];
+                      progressBefore.current = sessionProgress(cardsRef.current, ctx);
+                      setSummary(null);
+                      serveNext();
+                    }
+              }
+            />
+          </motion.div>
+        ) : (
+          <motion.div
+            key="study"
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -16 }}
+            transition={{ duration: 0.32 * m, ease: [0.16, 1, 0.3, 1] }}
+            className="flex min-h-screen flex-col"
+          >
       {/* Grading feedback: a soft glow rising from the foot of the screen plus a
           radial ring that pulses outward from the card centre — green for correct,
           muted red for missed. Purely decorative and never intercepts input. */}
@@ -840,27 +852,12 @@ export function LearnMode() {
             )}
           </AnimatePresence>
 
-          {/* Undo affordance: appears only while the last answer can be reversed. */}
-          <div className="mt-4 flex h-6 justify-center">
-            <AnimatePresence>
-              {canUndo && (
-                <motion.button
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  type="button"
-                  onClick={undoLast}
-                  title="Undo last answer"
-                  className="inline-flex items-center gap-1.5 text-xs text-ink-faint transition-colors hover:text-ink"
-                >
-                  <UndoIcon width={14} height={14} />
-                  Undo last answer
-                </motion.button>
-              )}
-            </AnimatePresence>
-          </div>
+
         </div>
       </main>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
