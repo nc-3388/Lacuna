@@ -26,6 +26,15 @@ export function speedMultiplier(speed?: MotionSpeed): number {
   return MULTIPLIERS[speed ?? readMotionSpeed()];
 }
 
+/** Read the current motion multiplier directly from localStorage (for class components / pre-provider). */
+export function getMotionMultiplier(): number {
+  try {
+    return speedMultiplier();
+  } catch {
+    return 1;
+  }
+}
+
 export function useMotionSpeed(): [
   MotionSpeed,
   (speed: MotionSpeed) => void,

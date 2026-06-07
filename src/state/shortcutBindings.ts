@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 const STORAGE_KEY = 'lacuna-shortcut-bindings';
 
@@ -119,9 +119,16 @@ export function formatBinding(binding: string): string {
 /** React hook that keeps bindings in state and persists changes to localStorage. */
 export function useShortcutBindings() {
   const [bindings, setBindingsState] = useState<ShortcutBindings>(loadBindings);
+  const debounceRef = useRef<number | null>(null);
 
   useEffect(() => {
-    saveBindings(bindings);
+    if (debounceRef.current) window.clearTimeout(debounceRef.current);
+    debounceRef.current = window.setTimeout(() => {
+      saveBindings(bindings);
+    }, 300);
+    return () => {
+      if (debounceRef.current) window.clearTimeout(debounceRef.current);
+    };
   }, [bindings]);
 
   const setBinding = useCallback((action: LearnAction, key: string) => {

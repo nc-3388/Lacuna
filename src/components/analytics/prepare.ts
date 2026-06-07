@@ -4,6 +4,13 @@ import { startOfDay } from '../../utils/datetime';
 import { isLeech } from '../../fsrs/leech';
 import type { Card, SessionHistoryEntry } from '../../db/types';
 
+/** DST-safe day offset: add/subtract whole days from a local-midnight epoch. */
+function addDays(dayStart: number, days: number): number {
+  const d = new Date(dayStart);
+  d.setDate(d.getDate() + days);
+  return startOfDay(d.getTime());
+}
+
 export interface TrajectoryPoint {
   day: number;
   label: string;
@@ -31,7 +38,9 @@ export function trajectorySeries(history: SessionHistoryEntry[]): TrajectoryPoin
         day: 'numeric',
         month: 'short',
       }),
-      retrievability: Math.round(entry.averagePredictedRetrievability * 100),
+      retrievability: Number.isFinite(entry.averagePredictedRetrievability)
+        ? Math.round(entry.averagePredictedRetrievability * 100)
+        : 0,
     }));
 }
 
@@ -51,7 +60,7 @@ export function stabilityProfile(cards: Card[]): StabilityBucket[] {
   ];
   for (const card of cards) {
     const s = card.stability;
-    if (s === null) buckets[0].count++;
+    if (s === null || !Number.isFinite(s)) buckets[0].count++;
     else if (s < 1) buckets[1].count++;
     else if (s < 7) buckets[2].count++;
     else if (s < 30) buckets[3].count++;
@@ -77,16 +86,15 @@ export function reviewVolume(cards: Card[], days = 30, now = Date.now()): Volume
     }
   }
   const points: VolumePoint[] = [];
-  const dayMs = 86_400_000;
   for (let i = days - 1; i >= 0; i--) {
-    const day = today - i * dayMs;
+    const day = addDays(today, -i);
     points.push({
       day,
       label: new Date(day).toLocaleDateString('en-GB', {
         day: 'numeric',
         month: 'short',
       }),
-      reviews: counts.get(day) ?? 0,
+      reviews: Number.isFinite(counts.get(day) ?? 0) ? (counts.get(day) ?? 0) : 0,
     });
   }
   return points;
@@ -102,10 +110,9 @@ export interface ForecastPoint {
 /** Cards due per day for the next `days` days (forecast). */
 export function forecastSeries(cards: Card[], days = 30, now = Date.now()): ForecastPoint[] {
   const today = startOfDay(now);
-  const dayMs = 86_400_000;
   const buckets = new Map<number, { due: number; newCards: number }>();
   for (let i = 0; i < days; i++) {
-    buckets.set(today + i * dayMs, { due: 0, newCards: 0 });
+    buckets.set(addDays(today, i), { due: 0, newCards: 0 });
   }
   for (const card of cards) {
     if (card.suspended) continue;
@@ -123,8 +130,8 @@ export function forecastSeries(cards: Card[], days = 30, now = Date.now()): Fore
     .map(([day, bucket]) => ({
       day,
       label: new Date(day).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }),
-      due: bucket.due,
-      newCards: bucket.newCards,
+      due: Number.isFinite(bucket.due) ? bucket.due : 0,
+      newCards: Number.isFinite(bucket.newCards) ? bucket.newCards : 0,
     }));
 }
 
@@ -137,7 +144,6 @@ export interface StudyTimePoint {
 /** Daily study time (minutes) over the past `days` days. */
 export function studyTimeSeries(cards: Card[], days = 30, now = Date.now()): StudyTimePoint[] {
   const today = startOfDay(now);
-  const dayMs = 86_400_000;
   const counts = new Map<number, number>();
   for (const card of cards) {
     for (const log of card.history) {
@@ -147,12 +153,12 @@ export function studyTimeSeries(cards: Card[], days = 30, now = Date.now()): Stu
   }
   const points: StudyTimePoint[] = [];
   for (let i = days - 1; i >= 0; i--) {
-    const day = today - i * dayMs;
+    const day = addDays(today, -i);
     const seconds = counts.get(day) ?? 0;
     points.push({
       day,
       label: new Date(day).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }),
-      minutes: Math.round(seconds / 60),
+      minutes: Number.isFinite(seconds) ? Math.round(seconds / 60) : 0,
     });
   }
   return points;

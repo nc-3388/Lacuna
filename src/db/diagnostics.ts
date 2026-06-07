@@ -98,13 +98,12 @@ export function formatDiagnostics(bundle: DiagnosticBundle): string {
 
 /** Read non-sensitive record counts from the database for a bundle. */
 export async function gatherCounts(): Promise<DiagnosticBundle['data']> {
-  const [decks, cards, backups, cardRows] = await Promise.all([
+  const [decks, cards, backups, reviews] = await Promise.all([
     db.decks.count(),
     db.cards.count(),
     db.backups.count(),
-    db.cards.toArray(),
+    db.sessionHistory.count(),
   ]);
-  const reviews = cardRows.reduce((sum, c) => sum + c.history.length, 0);
   return { decks, cards, reviews, backups };
 }
 

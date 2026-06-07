@@ -4,6 +4,7 @@ import type { StudyStats, DayForecast } from '../../fsrs/stats';
 import type { Deck } from '../../db/types';
 import { FlameIcon, CalendarIcon } from '../ui/icons';
 import { cn } from '../ui/cn';
+import { useMotionSpeed, speedMultiplier } from '../../state/motionSpeed';
 
 /** A thin horizontal animated bar used for streak and reviewed-today metrics. */
 function MetricBar({
@@ -11,12 +12,15 @@ function MetricBar({
   max,
   colourClass,
   title,
+  motionMultiplier,
 }: {
   value: number;
   max: number;
   colourClass: string;
   title: string;
+  motionMultiplier?: number;
 }) {
+  const m = motionMultiplier ?? 1;
   const pct = Math.min((value / max) * 100, 100);
   return (
     <div
@@ -31,7 +35,7 @@ function MetricBar({
         className={cn('h-full rounded-full', colourClass)}
         initial={{ width: 0 }}
         animate={{ width: `${pct}%` }}
-        transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+        transition={{ duration: 0.6 * m, ease: [0.16, 1, 0.3, 1] }}
       />
     </div>
   );
@@ -47,7 +51,6 @@ function minutesLabel(minutes: number): string {
 /** Short weekday for a day, with today and tomorrow named. */
 function dayLabel(dayStart: number, index: number): string {
   if (index === 0) return 'Today';
-  if (index === 1) return 'Tom';
   return new Date(dayStart).toLocaleDateString('en-GB', { weekday: 'short' });
 }
 
@@ -62,6 +65,8 @@ interface StudySignalsProps {
  * pace). All values are read-only aggregates over data already stored.
  */
 export function StudySignals({ stats, decks }: StudySignalsProps) {
+  const [motionSpeed] = useMotionSpeed();
+  const m = speedMultiplier(motionSpeed);
   const { streak, reviewedToday, forecast } = stats;
   const totalMinutes = forecast.reduce((sum, d) => sum + d.minutes, 0);
   const totalCards = forecast.reduce((sum, d) => sum + d.dueCount + d.newCount, 0);
@@ -102,7 +107,7 @@ export function StudySignals({ stats, decks }: StudySignalsProps) {
     <motion.div
       initial={{ opacity: 0, y: -8 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.24 }}
+      transition={{ duration: 0.24 * m }}
       className="mb-6 grid gap-4 rounded-2xl border border-line bg-surface p-5 sm:grid-cols-[180px_1fr] sm:items-stretch"
     >
       {/* Left column: streak + reviewed today */}
@@ -120,7 +125,7 @@ export function StudySignals({ stats, decks }: StudySignalsProps) {
                   ? { scale: [1, 1.08, 1], rotate: [0, -3, 3, 0] }
                   : { scale: 1, rotate: 0 }
               }
-              transition={lit ? { duration: 2.0, repeat: Infinity, ease: 'easeInOut' } : undefined}
+              transition={lit ? { duration: 2.0 * m, repeat: Infinity, ease: 'easeInOut' } : undefined}
             >
               <FlameIcon width={18} height={18} />
             </motion.span>
@@ -137,7 +142,7 @@ export function StudySignals({ stats, decks }: StudySignalsProps) {
               <span className="text-xs text-ink-soft">day{streak === 1 ? '' : 's'}</span>
             </div>
           </div>
-          <MetricBar value={streak} max={14} colourClass="bg-amber-400/60" title={`${streak} day streak`} />
+          <MetricBar value={streak} max={14} colourClass="bg-amber-400/60" title={`${streak} day streak`} motionMultiplier={m} />
           <div className="mt-1 text-[11px] text-ink-faint">study streak</div>
         </div>
 
@@ -147,13 +152,13 @@ export function StudySignals({ stats, decks }: StudySignalsProps) {
             <span className="font-display text-xl tabular leading-none">{reviewedToday}</span>
             <span className="text-xs text-ink-soft">card{reviewedToday === 1 ? '' : 's'}</span>
           </div>
-          <MetricBar value={reviewedToday} max={100} colourClass="bg-accent/50" title={`${reviewedToday} cards reviewed today`} />
+          <MetricBar value={reviewedToday} max={100} colourClass="bg-accent/50" title={`${reviewedToday} cards reviewed today`} motionMultiplier={m} />
           <div className="mt-1 text-[11px] text-ink-faint">reviewed today</div>
         </div>
       </div>
 
       {/* Seven-day time forecast */}
-      <div className="sm:border-l sm:border-line sm:pl-5">
+      <div className="sm:border-l sm:border-line sm:pl-5" onMouseLeave={resetDetail}>
         <div className="mb-2 flex items-baseline justify-between">
           <span className="text-xs uppercase tracking-[0.14em] text-ink-faint">
             Next 7 days
@@ -166,7 +171,7 @@ export function StudySignals({ stats, decks }: StudySignalsProps) {
         </div>
 
         {allClear ? (
-          <EmptyForecast />
+          <EmptyForecast motionMultiplier={m} />
         ) : (
           <>
             <div className="flex h-20 items-end gap-1.5">
@@ -181,19 +186,19 @@ export function StudySignals({ stats, decks }: StudySignalsProps) {
 
                 return (
                   <div key={day.dayStart} className="flex flex-1 flex-col items-center">
-                    <div
-                      className="group flex flex-col items-center gap-1 py-3 px-1 w-full cursor-default"
-                      onMouseEnter={() => setDetailDay(i)}
-                      onMouseLeave={resetDetail}
-                    >
+                <div
+                  className="group flex flex-col items-center gap-1 py-3 px-1 w-full cursor-default"
+                  onMouseEnter={() => setDetailDay(i)}
+                >
                       {/* Card count label */}
                     <AnimatePresence>
                       {dayTotal > 0 && (
                         <motion.span
+                          key={day.dayStart}
                           initial={{ opacity: 0, y: 4 }}
                           animate={{ opacity: 1, y: 0 }}
                           exit={{ opacity: 0, y: 4 }}
-                          transition={{ duration: 0.2, delay: 0.1 + i * 0.04 }}
+                          transition={{ duration: 0.2 * m, delay: (0.1 + i * 0.04) * m }}
                           className={cn(
                             'text-[10px] tabular font-medium transition-colors',
                             isToday ? 'text-accent' : 'text-ink-soft',
@@ -215,8 +220,8 @@ export function StudySignals({ stats, decks }: StudySignalsProps) {
                           initial={{ height: 0 }}
                           animate={{ height: `${heightPct}%` }}
                           transition={{
-                            duration: 0.5,
-                            delay: 0.1 + i * 0.06,
+                            duration: 0.5 * m,
+                            delay: (0.1 + i * 0.06) * m,
                             ease: [0.16, 1, 0.3, 1],
                           }}
                           className="w-full rounded-md bg-ink/10"
@@ -237,8 +242,8 @@ export function StudySignals({ stats, decks }: StudySignalsProps) {
                                 initial={{ height: 0 }}
                                 animate={{ height: `${pct}%` }}
                                 transition={{
-                                  duration: 0.5,
-                                  delay: 0.1 + i * 0.06 + si * 0.03,
+                                  duration: 0.5 * m,
+                                  delay: (0.1 + i * 0.06 + si * 0.03) * m,
                                   ease: [0.16, 1, 0.3, 1],
                                 }}
                                 className={cn('w-full', !colour && 'bg-accent/70')}
@@ -281,15 +286,15 @@ export function StudySignals({ stats, decks }: StudySignalsProps) {
             </div>
 
             {/* Detail panel — always visible, defaults to today so touch users see it */}
-            <AnimatePresence mode="wait">
+            <AnimatePresence mode="popLayout">
               <motion.div
                 key={forecast[detailDay].dayStart}
-                initial={{ opacity: 0, y: 6 }}
+                initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -4 }}
-                transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+                exit={{ opacity: 0, y: -8 }}
+                transition={{ duration: 0.35 * m, ease: [0.4, 0, 0.2, 1] }}
               >
-                <DayDetail day={forecast[detailDay]} deckMap={deckMap} index={detailDay} />
+                <DayDetail day={forecast[detailDay]} deckMap={deckMap} index={detailDay} motionMultiplier={m} />
               </motion.div>
             </AnimatePresence>
           </>
@@ -299,18 +304,19 @@ export function StudySignals({ stats, decks }: StudySignalsProps) {
   );
 }
 
-function EmptyForecast() {
+function EmptyForecast({ motionMultiplier }: { motionMultiplier?: number }) {
+  const m = motionMultiplier ?? 1;
   return (
     <motion.div
       initial={{ opacity: 0, y: 4 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+      transition={{ duration: 0.3 * m, ease: [0.16, 1, 0.3, 1] }}
       className="flex h-20 items-center gap-4 rounded-xl border border-dashed border-line-strong bg-accent-soft/20 px-5"
     >
       <motion.div
         initial={{ scale: 0.8, rotate: -10 }}
         animate={{ scale: 1, rotate: 0 }}
-        transition={{ type: 'spring', stiffness: 400, damping: 15, delay: 0.1 }}
+        transition={{ type: 'spring', stiffness: 400, damping: 15, delay: 0.1 * m }}
         className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-accent-soft text-accent"
       >
         <CalendarIcon width={20} height={20} />
@@ -329,11 +335,14 @@ function DayDetail({
   day,
   deckMap,
   index,
+  motionMultiplier,
 }: {
   day: DayForecast;
   deckMap: Map<string, Deck>;
   index: number;
+  motionMultiplier?: number;
 }) {
+  const m = motionMultiplier ?? 1;
   const label = dayLabel(day.dayStart, index);
   const total = day.dueCount + day.newCount;
 
@@ -380,8 +389,8 @@ function DayDetail({
                     initial={{ width: 0 }}
                     animate={{ width: `${barPct}%` }}
                     transition={{
-                      duration: 0.5,
-                      delay: 0.08 + si * 0.04,
+                      duration: 0.5 * m,
+                      delay: (0.08 + si * 0.04) * m,
                       ease: [0.16, 1, 0.3, 1],
                     }}
                   />

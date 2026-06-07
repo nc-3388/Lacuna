@@ -31,7 +31,7 @@ export function curveFactor(decay: number): number {
  * construction R = 0.90 exactly when t = S, for any decay.
  */
 export function forgettingCurve(t: number, S: number, decay: number): number {
-  if (S <= 0) return 0;
+  if (!Number.isFinite(S) || S <= 0 || !Number.isFinite(t) || !Number.isFinite(decay)) return 0;
   const elapsed = Math.max(t, 0);
   return Math.pow(1 + curveFactor(decay) * (elapsed / S), decay);
 }
@@ -93,7 +93,6 @@ export function rAtExamIfReviewedNow(
   ctx: SimContext,
 ): number {
   const daysRemaining = Math.max(examDate - now, 0) / MS_PER_DAY;
-  if (daysRemaining === 0) return 1.0;
   const item = ctx.fsrs.next(toTsCard(card, now), new Date(now), grade as TsGrade);
   return forgettingCurve(daysRemaining, item.card.stability, ctx.decay);
 }

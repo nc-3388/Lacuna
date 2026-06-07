@@ -7,9 +7,12 @@ import {
   useState,
   type ReactNode,
 } from 'react';
+
+let toastIdCounter = 0;
 import { AnimatePresence, motion } from 'motion/react';
 import { cn } from './cn';
 import { CheckIcon, CloseIcon, InfoIcon } from './icons';
+import { useMotionSpeed, speedMultiplier } from '../../state/motionSpeed';
 
 type ToastTone = 'neutral' | 'positive' | 'negative';
 
@@ -39,6 +42,8 @@ const ToastContext = createContext<ToastContextValue | null>(null);
 
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<ToastItem[]>([]);
+  const [motionSpeed] = useMotionSpeed();
+  const m = speedMultiplier(motionSpeed);
 
   const dismiss = useCallback((id: number) => {
     setToasts((prev) => prev.filter((t) => t.id !== id));
@@ -46,7 +51,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
 
   const notify = useCallback(
     (message: string, tone: ToastTone = 'neutral', options?: ToastOptions) => {
-      const id = Date.now() + Math.random();
+      const id = ++toastIdCounter;
       const duration = options?.duration ?? (options?.actionLabel ? 6000 : 3500);
       setToasts((prev) => [
         ...prev,
@@ -70,7 +75,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       <div className="fixed bottom-6 right-6 z-[60] flex flex-col gap-2">
         <AnimatePresence>
           {toasts.map((t) => (
-            <ToastBar key={t.id} toast={t} onDismiss={() => dismiss(t.id)} />
+            <ToastBar key={t.id} toast={t} onDismiss={() => dismiss(t.id)} motionMultiplier={m} />
           ))}
         </AnimatePresence>
       </div>
@@ -78,7 +83,8 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   );
 }
 
-function ToastBar({ toast, onDismiss }: { toast: ToastItem; onDismiss: () => void }) {
+function ToastBar({ toast, onDismiss, motionMultiplier }: { toast: ToastItem; onDismiss: () => void; motionMultiplier?: number }) {
+  const m = motionMultiplier ?? 1;
   const [progress, setProgress] = useState(1);
   const rafRef = useRef<number>(0);
   const startRef = useRef<number>(0);
@@ -138,7 +144,7 @@ function ToastBar({ toast, onDismiss }: { toast: ToastItem; onDismiss: () => voi
       initial={{ opacity: 0, x: 24, scale: 0.96 }}
       animate={{ opacity: 1, x: 0, scale: 1 }}
       exit={{ opacity: 0, x: 24, scale: 0.96 }}
-      transition={{ duration: 0.16, ease: [0.16, 1, 0.3, 1] }}
+      transition={{ duration: 0.16 * m, ease: [0.16, 1, 0.3, 1] }}
       className={cn(
         'relative flex items-center gap-3 rounded-xl border px-4 py-3 text-sm shadow-lg backdrop-blur bg-surface-raised/95 max-w-xs overflow-hidden',
         toneClasses[toast.tone],

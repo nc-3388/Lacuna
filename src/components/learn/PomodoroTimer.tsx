@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { usePomodoro } from '../../hooks/usePomodoro';
+import { useMotionSpeed, speedMultiplier } from '../../state/motionSpeed';
 import {
   ClockIcon,
   PlayIcon,
@@ -51,6 +52,8 @@ function phaseStroke(phase: string) {
 }
 
 export function PomodoroTimer() {
+  const [motionSpeed] = useMotionSpeed();
+  const m = speedMultiplier(motionSpeed);
   const pomodoro = usePomodoro();
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -61,16 +64,16 @@ export function PomodoroTimer() {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') setOpen(false);
     };
-    const onClick = (e: MouseEvent) => {
+    const onPointerDown = (e: PointerEvent) => {
       if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
         setOpen(false);
       }
     };
     window.addEventListener('keydown', onKey);
-    window.addEventListener('mousedown', onClick);
+    window.addEventListener('pointerdown', onPointerDown);
     return () => {
       window.removeEventListener('keydown', onKey);
-      window.removeEventListener('mousedown', onClick);
+      window.removeEventListener('pointerdown', onPointerDown);
     };
   }, [open]);
 
@@ -143,7 +146,7 @@ export function PomodoroTimer() {
             initial={{ opacity: 0, y: -6, scale: 0.96 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -6, scale: 0.96 }}
-            transition={{ duration: 0.12, ease: [0.16, 1, 0.3, 1] }}
+            transition={{ duration: 0.12 * m, ease: [0.16, 1, 0.3, 1] }}
             className="absolute right-0 top-11 z-30 w-56 overflow-hidden rounded-xl border border-line-strong bg-surface shadow-xl shadow-black/10"
           >
             <div className="px-4 py-3">

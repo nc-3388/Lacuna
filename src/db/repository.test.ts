@@ -44,7 +44,7 @@ describe('undoReview', () => {
     expect(await db.sessionHistory.count()).toBe(1);
     expect((await db.userPerformance.get(deck.id))!.totalCorrectReviews).toBe(1);
 
-    await undoReview({ cardBefore, perfBefore, sessionHistoryId });
+    await undoReview({ cardBefore, perfBefore, sessionHistoryId, deckId: deck.id });
 
     const restored = (await db.cards.get(card.id))!;
     expect(restored.reps).toBe(0);

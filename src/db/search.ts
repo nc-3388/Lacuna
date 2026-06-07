@@ -155,8 +155,10 @@ export function searchCards(
       if (idx === -1) continue;
 
       const frontIdx = normalise(card.front).indexOf(q);
-      // Front matches rank first; ties broken by earliest match position.
-      score = (frontIdx === -1 ? 1_000_000 : frontIdx) + idx;
+      // Front matches always rank above non-front matches, regardless of how
+      // far into the front text they appear. Ties are broken by earliest
+      // overall match position (idx).
+      score = frontIdx === -1 ? Number.MAX_SAFE_INTEGER / 2 + idx : frontIdx;
     }
     ranked.push({ card, deck, score });
   }

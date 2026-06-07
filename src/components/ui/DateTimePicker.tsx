@@ -1,6 +1,7 @@
 import {
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -13,6 +14,7 @@ import {
   CalendarIcon,
 } from './icons';
 import { cn } from './cn';
+import { useMotionSpeed, speedMultiplier } from '../../state/motionSpeed';
 
 interface DateTimePickerProps {
   value: number;
@@ -71,8 +73,11 @@ function resolveAdjacentMonth(
 
 export function DateTimePicker({ value, onChange, label }: DateTimePickerProps) {
   const [open, setOpen] = useState(false);
+  const [placement, setPlacement] = useState<'bottom' | 'top'>('bottom');
   const containerRef = useRef<HTMLDivElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const [motionSpeed] = useMotionSpeed();
+  const m = speedMultiplier(motionSpeed);
 
   // View state: which month the calendar is displaying
   const [viewDate, setViewDate] = useState(() => new Date(value));
@@ -127,7 +132,7 @@ export function DateTimePicker({ value, onChange, label }: DateTimePickerProps) 
   // Close on Escape / click outside.
   useEffect(() => {
     if (!open) return;
-    const onClick = (e: MouseEvent) => {
+    const onPointerDown = (e: PointerEvent) => {
       if (
         containerRef.current &&
         !containerRef.current.contains(e.target as Node)
@@ -135,8 +140,8 @@ export function DateTimePicker({ value, onChange, label }: DateTimePickerProps) 
         setOpen(false);
       }
     };
-    window.addEventListener('mousedown', onClick);
-    return () => window.removeEventListener('mousedown', onClick);
+    window.addEventListener('pointerdown', onPointerDown);
+    return () => window.removeEventListener('pointerdown', onPointerDown);
   }, [open]);
 
   // Keyboard handler for the calendar
@@ -331,6 +336,30 @@ export function DateTimePicker({ value, onChange, label }: DateTimePickerProps) 
     }
   }, [open, initialFocusIndex]);
 
+  // Measure available space and flip the dropdown if it would be clipped.
+  useLayoutEffect(() => {
+    if (!open || !containerRef.current) return;
+    const compute = () => {
+      if (!containerRef.current) return;
+      const rect = containerRef.current.getBoundingClientRect();
+      const dropdownHeight = dropdownRef.current?.getBoundingClientRect().height ?? 420;
+      const spaceBelow = window.innerHeight - rect.bottom;
+      const spaceAbove = rect.top;
+      if (spaceBelow < dropdownHeight && spaceAbove > spaceBelow) {
+        setPlacement('top');
+      } else {
+        setPlacement('bottom');
+      }
+    };
+    compute();
+    window.addEventListener('resize', compute);
+    window.addEventListener('scroll', compute, { passive: true } as AddEventListenerOptions);
+    return () => {
+      window.removeEventListener('resize', compute);
+      window.removeEventListener('scroll', compute, { passive: true } as AddEventListenerOptions);
+    };
+  }, [open]);
+
   // Reset slide direction after animation completes
   useEffect(() => {
     if (slideDir !== 0) {
@@ -376,11 +405,14 @@ export function DateTimePicker({ value, onChange, label }: DateTimePickerProps) 
             ref={dropdownRef}
             role="dialog"
             aria-label="Choose date and time"
-            initial={{ opacity: 0, y: -6, scale: 0.97 }}
+            initial={{ opacity: 0, y: placement === 'bottom' ? -6 : 6, scale: 0.97 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -6, scale: 0.97 }}
-            transition={{ duration: 0.12, ease: [0.16, 1, 0.3, 1] }}
-            className="absolute left-0 top-full z-30 mt-2 w-80 overflow-hidden rounded-2xl border border-line-strong bg-surface shadow-xl shadow-black/10"
+            exit={{ opacity: 0, y: placement === 'bottom' ? -6 : 6, scale: 0.97 }}
+            transition={{ duration: 0.12 * m, ease: [0.16, 1, 0.3, 1] }}
+            className={cn(
+              'absolute left-0 z-50 w-80 overflow-hidden rounded-2xl border border-line-strong bg-surface shadow-xl shadow-black/10',
+              placement === 'bottom' ? 'top-full mt-2' : 'bottom-full mb-2',
+            )}
             onKeyDown={handleKeyDown}
           >
             {/* Header: month navigation */}
@@ -430,7 +462,7 @@ export function DateTimePicker({ value, onChange, label }: DateTimePickerProps) 
                   }
                   animate={{ x: 0, opacity: 1 }}
                   exit={{ x: slideDir * -40, opacity: 0 }}
-                  transition={{ duration: 0.12, ease: [0.16, 1, 0.3, 1] }}
+                  transition={{ duration: 0.12 * m, ease: [0.16, 1, 0.3, 1] }}
                 >
                   {/* Day-of-week headers */}
                   <div className="grid grid-cols-7 px-3 pb-1">
@@ -501,7 +533,7 @@ export function DateTimePicker({ value, onChange, label }: DateTimePickerProps) 
                   initial={{ opacity: 0, scale: 0.97 }}
                   animate={{ opacity: 1, scale: 1 }}
                   exit={{ opacity: 0, scale: 0.97 }}
-                  transition={{ duration: 0.12 }}
+                  transition={{ duration: 0.12 * m }}
                   className="px-3 pb-3"
                 >
                   <div className="mb-2 flex items-center justify-center gap-2">
@@ -550,7 +582,7 @@ export function DateTimePicker({ value, onChange, label }: DateTimePickerProps) 
                   initial={{ opacity: 0, scale: 0.97 }}
                   animate={{ opacity: 1, scale: 1 }}
                   exit={{ opacity: 0, scale: 0.97 }}
-                  transition={{ duration: 0.12 }}
+                  transition={{ duration: 0.12 * m }}
                   className="px-3 pb-3"
                 >
                   <div className="grid grid-cols-3 gap-2">

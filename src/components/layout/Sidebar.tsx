@@ -3,6 +3,7 @@ import { AnimatePresence, motion } from 'motion/react';
 import { useTheme } from '../../state/ThemeContext';
 import { useDecks } from '../../state/useData';
 import { cn } from '../ui/cn';
+import { useMotionSpeed, speedMultiplier } from '../../state/motionSpeed';
 import {
   ChartIcon,
   ChevronLeftIcon,
@@ -35,6 +36,8 @@ function NavItem({
   collapsed: boolean;
   end?: boolean;
 }) {
+  const [motionSpeed] = useMotionSpeed();
+  const m = speedMultiplier(motionSpeed);
   return (
     <NavLink
       to={to}
@@ -55,6 +58,7 @@ function NavItem({
           {isActive && (
             <motion.span
               layoutId="nav-active"
+              transition={{ duration: 0.2 * m, ease: [0.16, 1, 0.3, 1] }}
               className="absolute left-0 top-1/2 h-5 w-1 -translate-y-1/2 rounded-r-full bg-accent"
             />
           )}
@@ -194,6 +198,7 @@ export function Sidebar({ collapsed, onToggleCollapsed }: SidebarProps) {
         )}
       >
         <button
+          type="button"
           onClick={toggleTheme}
           title="Toggle colour theme"
           aria-label="Toggle colour theme"
@@ -207,6 +212,7 @@ export function Sidebar({ collapsed, onToggleCollapsed }: SidebarProps) {
           </span>
         )}
         <button
+          type="button"
           onClick={onToggleCollapsed}
           title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
           aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}

@@ -14,7 +14,7 @@ export type ResolvedTheme = 'dark' | 'light';
 const STORAGE_KEY = 'lacuna-theme';
 
 function systemPrefersDark(): boolean {
-  return window.matchMedia?.('(prefers-color-scheme: dark)').matches ?? true;
+  return window.matchMedia?.('(prefers-color-scheme: dark)').matches ?? false;
 }
 
 interface ThemeContextValue {

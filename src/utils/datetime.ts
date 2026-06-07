@@ -61,7 +61,9 @@ export function startOfDay(ms: number): number {
 
 /** A short relative description of a future exam date, e.g. "in 7 days" or "today". */
 export function relativeExam(targetMs: number, nowMs: number = Date.now()): string {
-  const days = Math.ceil((targetMs - nowMs) / MS_PER_DAY);
+  const targetDay = startOfDay(targetMs);
+  const today = startOfDay(nowMs);
+  const days = Math.round((targetDay - today) / MS_PER_DAY);
   if (days < 0) return 'past';
   if (days === 0) return 'today';
   if (days === 1) return 'tomorrow';

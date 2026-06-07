@@ -8,6 +8,7 @@ import {
   gatherContentSample,
   type DiagnosticBundle,
 } from '../../db/diagnostics';
+import { getMotionMultiplier } from '../../state/motionSpeed';
 
 interface Props {
   children: ReactNode;
@@ -122,12 +123,13 @@ export class ErrorBoundary extends Component<Props, State> {
   };
 
   render() {
+    const m = getMotionMultiplier();
     if (this.state.error) {
       return (
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          transition={{ duration: 0.24 }}
+          transition={{ duration: 0.24 * m }}
           className="flex min-h-[50vh] flex-col items-center justify-center gap-4 p-8 text-center"
         >
           <motion.div
@@ -146,7 +148,7 @@ export class ErrorBoundary extends Component<Props, State> {
           <motion.h2
             initial={{ y: 8, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
-            transition={{ duration: 0.24, delay: 0.1 }}
+            transition={{ duration: 0.24 * m, delay: 0.1 * m }}
             className="font-display text-2xl"
           >
             Something went wrong
@@ -154,7 +156,7 @@ export class ErrorBoundary extends Component<Props, State> {
           <motion.p
             initial={{ y: 8, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
-            transition={{ duration: 0.24, delay: 0.15 }}
+            transition={{ duration: 0.24 * m, delay: 0.15 * m }}
             className="max-w-md text-ink-soft"
           >
             {this.props.label
@@ -166,7 +168,7 @@ export class ErrorBoundary extends Component<Props, State> {
           <motion.pre
             initial={{ y: 8, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
-            transition={{ duration: 0.24, delay: 0.2 }}
+            transition={{ duration: 0.24 * m, delay: 0.2 * m }}
             className="max-w-md overflow-x-auto rounded-lg border border-line bg-ink/5 px-3 py-2 text-left text-xs text-ink-faint"
           >
             {this.state.error.message}
@@ -175,7 +177,7 @@ export class ErrorBoundary extends Component<Props, State> {
           <motion.div
             initial={{ y: 8, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
-            transition={{ duration: 0.24, delay: 0.25 }}
+            transition={{ duration: 0.24 * m, delay: 0.25 * m }}
             className="flex flex-wrap items-center justify-center gap-2"
           >
             <Button variant="primary" onClick={this.handleReset}>
@@ -192,7 +194,7 @@ export class ErrorBoundary extends Component<Props, State> {
           <motion.label
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            transition={{ duration: 0.24, delay: 0.35 }}
+            transition={{ duration: 0.24 * m, delay: 0.35 * m }}
             className="flex items-center gap-2 text-xs text-ink-faint"
           >
             <input
@@ -206,7 +208,7 @@ export class ErrorBoundary extends Component<Props, State> {
           <motion.p
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            transition={{ duration: 0.24, delay: 0.4 }}
+            transition={{ duration: 0.24 * m, delay: 0.4 * m }}
             className="max-w-md text-xs text-ink-faint"
           >
             Diagnostics stay on your device. Nothing is sent anywhere; the bundle is yours

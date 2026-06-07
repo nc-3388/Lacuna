@@ -23,8 +23,6 @@ export function useDistraction(): DistractionTracker {
   const distractedThisCard = useRef(false);
 
   useEffect(() => {
-    sessionStart.current = Date.now();
-
     const onLeave = () => {
       if (blurStartedAt.current === null) {
         blurStartedAt.current = Date.now();

@@ -7,6 +7,8 @@ interface ProgressBarProps {
   className?: string;
   showLabel?: boolean;
   height?: number;
+  /** Accessible name for screen readers. */
+  label?: string;
 }
 
 export function ProgressBar({
@@ -14,6 +16,7 @@ export function ProgressBar({
   className,
   showLabel = false,
   height = 10,
+  label = 'Progress',
 }: ProgressBarProps) {
   const pct = Math.round(Math.min(Math.max(value, 0), 1) * 100);
   return (
@@ -22,6 +25,7 @@ export function ProgressBar({
         className="relative flex-1 overflow-hidden rounded-full bg-ink/10"
         style={{ height }}
         role="progressbar"
+        aria-label={label}
         aria-valuenow={pct}
         aria-valuemin={0}
         aria-valuemax={100}

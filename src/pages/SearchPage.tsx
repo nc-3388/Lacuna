@@ -5,6 +5,7 @@ import { useAllCards, useDecks } from '../state/useData';
 import { plainPreview, searchCards, type CardFilter } from '../db/search';
 import { cn } from '../components/ui/cn';
 import { FlagIcon, SearchIcon, TagIcon, CardsIcon } from '../components/ui/icons';
+import { useMotionSpeed, speedMultiplier } from '../state/motionSpeed';
 
 /** The structured filters offered as quick chips, in display order. */
 const FILTER_CHIPS: { value: CardFilter; label: string }[] = [
@@ -17,6 +18,8 @@ const FILTER_CHIPS: { value: CardFilter; label: string }[] = [
 
 /** Full-page search across every card in every deck. Shares the search core with the palette. */
 export function SearchPage() {
+  const [motionSpeed] = useMotionSpeed();
+  const m = speedMultiplier(motionSpeed);
   const decks = useDecks();
   const cards = useAllCards();
   const navigate = useNavigate();
@@ -101,7 +104,7 @@ export function SearchPage() {
         <motion.div
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.24 }}
+          transition={{ duration: 0.24 * m }}
           className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-line-strong bg-surface/50 py-16 text-center"
         >
           <div className="mb-4 grid h-12 w-12 place-items-center rounded-xl bg-accent-soft text-accent">
@@ -117,7 +120,7 @@ export function SearchPage() {
         <motion.div
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.24 }}
+          transition={{ duration: 0.24 * m }}
           className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-line-strong bg-surface/50 py-16 text-center"
         >
           <div className="mb-4 grid h-12 w-12 place-items-center rounded-xl bg-accent-soft text-accent">
@@ -135,17 +138,17 @@ export function SearchPage() {
             {results.length} result{results.length === 1 ? '' : 's'}
           </p>
           <div className="grid gap-2">
-            {results.map((hit, i) => (
+            {results.map((hit) => (
               <motion.button
                 key={hit.card.id}
                 type="button"
                 initial={{ opacity: 0, y: 6 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.16, delay: Math.min(i * 0.015, 0.15) }}
+                transition={{ duration: 0.16 * m }}
                 onClick={() =>
                   navigate(`/deck/${hit.card.deckId}/cards/${hit.card.id}/edit`)
                 }
-                whileHover={{ y: -2, transition: { duration: 0.12 } }}
+                whileHover={{ y: -2, transition: { duration: 0.12 * m } }}
                 className="flex flex-col gap-1 rounded-xl border border-line bg-surface p-4 text-left transition-colors duration-200 hover:border-line-strong hover:shadow-md hover:shadow-black/[0.03]"
               >
                 <span className="text-sm text-ink">

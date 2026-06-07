@@ -77,7 +77,22 @@ export async function deleteDeck(id: string): Promise<void> {
 }
 
 export async function deleteDecks(ids: string[]): Promise<void> {
-  for (const id of ids) await deleteDeck(id);
+  await db.transaction(
+    'rw',
+    db.decks,
+    db.cards,
+    db.sessionHistory,
+    db.userPerformance,
+    async () => {
+      for (const id of ids) {
+        await db.cards.where('deckId').equals(id).delete();
+        await db.sessionHistory.where('deckId').equals(id).delete();
+        await db.userPerformance.delete(id);
+        await db.decks.delete(id);
+      }
+    },
+  );
+  scheduleAssetGc();
 }
 
 /** A complete copy of one or more decks and everything that hangs off them. */
@@ -344,6 +359,8 @@ export interface RecordReviewArgs {
   /** Whether the answer was correct (grade > 1); drives per-deck calibration stats. */
   correct: boolean;
   now?: number;
+  /** Pre-computed deck cards to avoid re-reading the database on every review. */
+  deckCards?: Card[];
 }
 
 /** The result of recording a review: the updated card plus undo bookkeeping. */
@@ -394,6 +411,11 @@ export async function recordReview(args: RecordReviewArgs): Promise<RecordReview
     history: [...card.history, log],
   };
 
+  // Snapshot the deck's average predicted exam-day retrievability after this card.
+  // If the caller already has the deck cards, pass them to avoid re-reading the deck.
+  const deckCards = args.deckCards ?? (await db.cards.where('deckId').equals(deck.id).toArray());
+  const avgRetrievability = averagePredictedRetrievability(deckCards, deck);
+
   const sessionHistoryId = await db.transaction(
     'rw',
     db.cards,
@@ -410,15 +432,10 @@ export async function recordReview(args: RecordReviewArgs): Promise<RecordReview
         await db.userPerformance.put(updatePerformance(perf, responseTimeSec));
       }
 
-      // Snapshot the deck's average predicted exam-day retrievability after this card.
-      const deckCards = await db.cards.where('deckId').equals(deck.id).toArray();
       return db.sessionHistory.add({
         timestamp: now,
         deckId: deck.id,
-        averagePredictedRetrievability: averagePredictedRetrievability(
-          deckCards,
-          deck,
-        ),
+        averagePredictedRetrievability: avgRetrievability,
       });
     },
   );
@@ -434,6 +451,8 @@ export interface ReviewUndo {
   perfBefore: UserPerformance | null;
   /** The SessionHistory row id written by the review. */
   sessionHistoryId: number;
+  /** The deck that was reviewed (in case the card was moved since). */
+  deckId: string;
 }
 
 /**
@@ -452,7 +471,7 @@ export async function undoReview(undo: ReviewUndo): Promise<void> {
       if (undo.perfBefore) {
         await db.userPerformance.put(undo.perfBefore);
       } else {
-        await db.userPerformance.delete(undo.cardBefore.deckId);
+        await db.userPerformance.delete(undo.deckId);
       }
       await db.sessionHistory.delete(undo.sessionHistoryId);
     },

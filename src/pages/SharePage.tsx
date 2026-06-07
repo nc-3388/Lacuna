@@ -1,9 +1,10 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { useAllCards, useDecks } from '../state/useData';
 import { Button } from '../components/ui/Button';
 import { useToast } from '../components/ui/Toast';
 import { cn } from '../components/ui/cn';
+import { useMotionSpeed, speedMultiplier } from '../state/motionSpeed';
 import {
   buildShareCode,
   decodeShare,
@@ -32,6 +33,16 @@ export function SharePage() {
   const [input, setInput] = useState('');
   const [pending, setPending] = useState<{ summary: ShareSummary; raw: string } | null>(null);
   const [importing, setImporting] = useState(false);
+  const copyTimeoutRef = useRef<number | null>(null);
+  const [motionSpeed] = useMotionSpeed();
+
+  // Clear pending copy timeout on unmount to avoid setState on unmounted component.
+  useEffect(() => {
+    return () => {
+      if (copyTimeoutRef.current) window.clearTimeout(copyTimeoutRef.current);
+    };
+  }, []);
+  const m = speedMultiplier(motionSpeed);
 
   // Card counts per deck, for the selection labels.
   const cardCounts = useMemo(() => {
@@ -88,7 +99,8 @@ export function SharePage() {
       await navigator.clipboard.writeText(code);
       setCopied(true);
       notify('Share code copied to the clipboard.', 'positive');
-      window.setTimeout(() => setCopied(false), 2000);
+      if (copyTimeoutRef.current) window.clearTimeout(copyTimeoutRef.current);
+      copyTimeoutRef.current = window.setTimeout(() => setCopied(false), 2000);
     } catch {
       notify('Copy failed — select the code and copy it manually.', 'negative');
     }
@@ -156,7 +168,7 @@ export function SharePage() {
           <motion.div
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.24 }}
+            transition={{ duration: 0.24 * m, ease: [0.16, 1, 0.3, 1] }}
             className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-line-strong bg-surface/50 py-16 text-center"
           >
             <div className="mb-4 grid h-12 w-12 place-items-center rounded-xl bg-accent-soft text-accent">
@@ -170,13 +182,24 @@ export function SharePage() {
         ) : (
           <>
             <div className="mb-3 flex items-center justify-between">
-              <button
-                type="button"
-                onClick={toggleAll}
-                className="text-sm text-accent underline-offset-2 hover:underline"
+            <button
+              type="button"
+              onClick={toggleAll}
+              aria-pressed={allSelected}
+              className="flex items-center gap-2 text-sm text-ink-soft transition-colors hover:text-ink"
+            >
+              <span
+                className={cn(
+                  'grid h-5 w-5 place-items-center rounded-md border transition-colors',
+                  allSelected
+                    ? 'border-accent bg-accent text-accent-fg'
+                    : 'border-line-strong',
+                )}
               >
-                {allSelected ? 'Clear selection' : 'Select all'}
-              </button>
+                {allSelected && <CheckIcon width={12} height={12} />}
+              </span>
+              {allSelected ? 'Deselect all' : 'Select all'}
+            </button>
               <span className="text-sm text-ink-faint">
                 {selectedCount} deck{selectedCount === 1 ? '' : 's'} · {selectedCards} card
                 {selectedCards === 1 ? '' : 's'}
@@ -252,7 +275,7 @@ export function SharePage() {
                   initial={{ opacity: 0, height: 0, marginTop: 0 }}
                   animate={{ opacity: 1, height: 'auto', marginTop: 20 }}
                   exit={{ opacity: 0, height: 0, marginTop: 0 }}
-                  transition={{ duration: 0.16, ease: [0.16, 1, 0.3, 1] }}
+                  transition={{ duration: 0.16 * m, ease: [0.16, 1, 0.3, 1] }}
                   className="overflow-hidden"
                 >
                   <div className="rounded-xl border border-line-strong bg-surface-raised p-4">
@@ -322,7 +345,7 @@ export function SharePage() {
               initial={{ opacity: 0, height: 0, marginTop: 0 }}
               animate={{ opacity: 1, height: 'auto', marginTop: 20 }}
               exit={{ opacity: 0, height: 0, marginTop: 0 }}
-              transition={{ duration: 0.16, ease: [0.16, 1, 0.3, 1] }}
+                  transition={{ duration: 0.16 * m, ease: [0.16, 1, 0.3, 1] }}
               className="overflow-hidden"
             >
               <div className="rounded-xl border border-accent/40 bg-accent-soft/40 p-5">

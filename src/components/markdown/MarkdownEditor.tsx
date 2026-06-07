@@ -5,6 +5,7 @@ import { imageFileToAssetUrl, imageMarkdown } from './image';
 import { nextClozeIndex } from './cloze';
 import { cn } from '../ui/cn';
 import { ImageIcon } from '../ui/icons';
+import { useMotionSpeed, speedMultiplier } from '../../state/motionSpeed';
 
 interface MarkdownEditorProps {
   value: string;
@@ -90,6 +91,8 @@ export function MarkdownEditor({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [dragOver, setDragOver] = useState(false);
   const [mobileTab, setMobileTab] = useState<'write' | 'preview'>('write');
+  const [motionSpeed] = useMotionSpeed();
+  const m = speedMultiplier(motionSpeed);
 
   function currentSelection(): Selection {
     const el = textareaRef.current!;
@@ -285,7 +288,7 @@ export function MarkdownEditor({
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                transition={{ duration: 0.12 }}
+                transition={{ duration: 0.12 * m }}
               >
                 <MarkdownView source={value} clozeMode={clozePreview} />
               </motion.div>
@@ -295,7 +298,7 @@ export function MarkdownEditor({
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                transition={{ duration: 0.12 }}
+                transition={{ duration: 0.12 * m }}
                 className="text-sm text-ink-faint"
               >
                 Preview appears here.

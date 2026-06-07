@@ -79,13 +79,6 @@ export function validateBackup(data: unknown): data is BackupFile {
 
 export type ImportMode = 'replace' | 'merge';
 
-/** The more recent of two records wins a merge conflict, using a timestamp field. */
-function newerWins<T>(existing: T, incoming: T, key: keyof T): T {
-  const a = (existing[key] as unknown as number) ?? 0;
-  const b = (incoming[key] as unknown as number) ?? 0;
-  return b >= a ? incoming : existing;
-}
-
 /**
  * Import a backup. In "replace" mode the database is cleared first; in "merge" mode
  * records are matched by id and the most recently touched copy wins each conflict.
@@ -95,33 +88,38 @@ export async function importBackup(
   backup: BackupFile,
   mode: ImportMode,
 ): Promise<void> {
+  if (!validateBackup(backup)) {
+    throw new Error('Invalid backup file.');
+  }
+
+  // Pre-process markdown assets outside the IndexedDB transaction so long-running
+  // canvas compressions cannot auto-abort the import transaction.
+  const decks = backup.decks.map((d) => migrateDeckRecord(d as LegacyDeck));
+  const assets = backup.assets ?? [];
+  const extractedAssets: ImageAsset[] = [];
+  const cards = await Promise.all(
+    backup.cards.map(async (c) => {
+      const migrated = migrateCardRecord(c as LegacyCard);
+      return {
+        ...migrated,
+        front: await extractMarkdownAssets(migrated.front, (asset) =>
+          Promise.resolve(extractedAssets.push(asset)),
+        ),
+        back: await extractMarkdownAssets(migrated.back, (asset) =>
+          Promise.resolve(extractedAssets.push(asset)),
+        ),
+      };
+    }),
+  );
+  const importedAssets = [
+    ...assets.map(backupAssetToImageAsset),
+    ...extractedAssets,
+  ];
+
   await db.transaction(
     'rw',
     [db.decks, db.cards, db.sessionHistory, db.userPerformance, db.assets],
     async () => {
-      // Normalise incoming records to the current (FSRS-6) schema so backups exported
-      // by older versions of Lacuna import without losing or corrupting data.
-      const decks = backup.decks.map((d) => migrateDeckRecord(d as LegacyDeck));
-      const assets = backup.assets ?? [];
-      const extractedAssets: ImageAsset[] = [];
-      const cards = await Promise.all(
-        backup.cards.map(async (c) => {
-          const migrated = migrateCardRecord(c as LegacyCard);
-          return {
-            ...migrated,
-            front: await extractMarkdownAssets(migrated.front, (asset) =>
-              Promise.resolve(extractedAssets.push(asset)),
-            ),
-            back: await extractMarkdownAssets(migrated.back, (asset) =>
-              Promise.resolve(extractedAssets.push(asset)),
-            ),
-          };
-        }),
-      );
-      const importedAssets = [
-        ...assets.map(backupAssetToImageAsset),
-        ...extractedAssets,
-      ];
       // Deduplicate by hash so bulkPut never encounters a constraint conflict.
       const dedupedAssets = Array.from(
         new Map(importedAssets.map((a) => [a.hash, a])).values(),
@@ -145,17 +143,32 @@ export async function importBackup(
         return;
       }
 
-      // Merge decks (newest createdAt/examDate touch wins).
+      // Merge decks field-by-field so local name/colour edits are not clobbered
+      // by an incoming backup whose examDate happens to be newer.
       const existingDecks = new Map((await db.decks.toArray()).map((d) => [d.id, d]));
       const mergedDecks: Deck[] = [];
       for (const incoming of decks) {
         const existing = existingDecks.get(incoming.id);
-        mergedDecks.push(existing ? newerWins(existing, incoming, 'examDate') : incoming);
+        if (!existing) {
+          mergedDecks.push(incoming);
+        } else {
+          const a = existing.lastInteractedAt ?? existing.createdAt;
+          const b = incoming.lastInteractedAt ?? incoming.createdAt;
+          const newer = b >= a ? incoming : existing;
+          const older = b >= a ? existing : incoming;
+          // Preserve local edits to name/colour while adopting newer scheduling state.
+          mergedDecks.push({
+            ...older,
+            ...newer,
+            name: newer.name || older.name,
+            colour: newer.colour ?? older.colour,
+          });
+        }
       }
       await db.decks.bulkPut(mergedDecks);
       if (dedupedAssets.length) await db.assets.bulkPut(dedupedAssets);
 
-      // Merge cards (most recent lastReviewed wins; new cards added as-is).
+      // Merge cards (most recent lastReviewed wins, falling back to createdAt).
       const existingCards = new Map((await db.cards.toArray()).map((c) => [c.id, c]));
       const mergedCards: Card[] = [];
       for (const incoming of cards) {
@@ -165,23 +178,32 @@ export async function importBackup(
         } else {
           const a = existing.lastReviewed ?? existing.createdAt;
           const b = incoming.lastReviewed ?? incoming.createdAt;
-          mergedCards.push(b >= a ? incoming : existing);
+          // On a tie, prefer the local copy so the user's latest edits are not
+          // silently overwritten by an older backup.
+          mergedCards.push(b > a ? incoming : existing);
         }
       }
       await db.cards.bulkPut(mergedCards);
 
-      // Merge performance (most correct reviews wins, as a reasonable proxy for freshness).
+      // Merge performance: prefer the profile whose deck has been studied most
+      // recently (lastInteractedAt), so a local deck reset (totalCorrectReviews = 0)
+      // is not overwritten by a stale backup with high review counts.
       const existingPerf = new Map(
         (await db.userPerformance.toArray()).map((p) => [p.deckId, p]),
       );
       const mergedPerf: UserPerformance[] = [];
       for (const incoming of backup.userPerformance) {
         const existing = existingPerf.get(incoming.deckId);
-        mergedPerf.push(
-          existing
-            ? newerWins(existing, incoming, 'totalCorrectReviews')
-            : incoming,
-        );
+        if (!existing) {
+          mergedPerf.push(incoming);
+        } else {
+          const deck = existingDecks.get(incoming.deckId);
+          const localInteracted = deck?.lastInteractedAt ?? deck?.createdAt ?? 0;
+          const remoteDeck = decks.find((d) => d.id === incoming.deckId);
+          const remoteInteracted = remoteDeck?.lastInteractedAt ?? remoteDeck?.createdAt ?? 0;
+          // Prefer whichever side has the more recent deck interaction.
+          mergedPerf.push(remoteInteracted >= localInteracted ? incoming : existing);
+        }
       }
       await db.userPerformance.bulkPut(mergedPerf);
 

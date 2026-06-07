@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { motion } from 'motion/react';
 import { useCards, useDeck } from '../state/useData';
+import { useMotionSpeed, speedMultiplier } from '../state/motionSpeed';
 import { Button } from '../components/ui/Button';
 import { Toggle } from '../components/ui/Toggle';
 import { ProgressBar } from '../components/ui/ProgressBar';
@@ -49,6 +50,8 @@ const RETENTION_PRESETS = [
  * rather than a blocking confirmation dialog.
  */
 export function DeckSettings() {
+  const [motionSpeed] = useMotionSpeed();
+  const m = speedMultiplier(motionSpeed);
   const { deckId } = useParams<{ deckId: string }>();
   const navigate = useNavigate();
   const { notify } = useToast();
@@ -63,6 +66,12 @@ export function DeckSettings() {
   const [retention, setRetention] = useState(DEFAULT_REQUEST_RETENTION);
   const [colour, setColour] = useState<string | undefined>(undefined);
   const [loaded, setLoaded] = useState(false);
+
+  // Re-arm the loaded latch whenever the deck changes so back/forward navigation
+  // between different deck settings routes re-seeds the form.
+  useEffect(() => {
+    setLoaded(false);
+  }, [deckId]);
 
   useEffect(() => {
     if (loaded || !deck) return;
@@ -140,7 +149,7 @@ export function DeckSettings() {
       <motion.div
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.25 }}
+        transition={{ duration: 0.25 * m }}
       >
         <header className="mb-8">
           <p className="mb-1 text-sm uppercase tracking-[0.18em] text-ink-faint">
@@ -327,6 +336,13 @@ function OptimisationPanel({ deck, cards }: { deck: Deck; cards: Card[] }) {
   const [globalDefault] = useAutoOptimiseDefault();
   const optimiser = useOptimiser();
 
+  // Cancel an in-flight optimisation if the user navigates to a different deck.
+  useEffect(() => {
+    return () => {
+      optimiser.reset();
+    };
+  }, [deck?.id]);
+
   const reviews = countReviews(cards);
   const enabled = optimiseEnabledForDeck(deck.autoOptimise, globalDefault);
   const enoughData = reviews >= MIN_OPTIMISE_REVIEWS;
@@ -334,7 +350,13 @@ function OptimisationPanel({ deck, cards }: { deck: Deck; cards: Card[] }) {
   async function applyWeights() {
     if (!optimiser.result || !optimiser.result.isOutOfSampleWin) return;
     // Restore point before touching scheduling weights (reuses the backup mechanism).
-    await takeAutoBackup().catch(() => {});
+    try {
+      await takeAutoBackup();
+    } catch (e) {
+      console.warn('Auto-backup before applying weights failed:', e);
+      notify('Could not create a restore point before applying weights.', 'negative');
+      return;
+    }
     await updateDeck(deck.id, {
       fsrsParameters: { ...deck.fsrsParameters, w: optimiser.result.w },
     });
@@ -343,7 +365,13 @@ function OptimisationPanel({ deck, cards }: { deck: Deck; cards: Card[] }) {
   }
 
   async function resetToDefaults() {
-    await takeAutoBackup().catch(() => {});
+    try {
+      await takeAutoBackup();
+    } catch (e) {
+      console.warn('Auto-backup before resetting weights failed:', e);
+      notify('Could not create a restore point before resetting weights.', 'negative');
+      return;
+    }
     await updateDeck(deck.id, {
       fsrsParameters: {
         ...deck.fsrsParameters,

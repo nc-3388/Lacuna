@@ -63,7 +63,8 @@ function cardsOfDeck(cards: Card[], deckId: string): Card[] {
   return cards.filter((c) => c.deckId === deckId);
 }
 
-/** The cards a session may serve right now (studyPool per deck, unioned). */
+/** The cards a session may serve right now (studyPool per deck, unioned).
+ *  In cram mode the new-card cap is bypassed so every card is available. */
 export function sessionServePool(
   cards: Card[],
   ctx: SessionContext,
@@ -71,7 +72,15 @@ export function sessionServePool(
 ): Card[] {
   const pool: Card[] = [];
   for (const { deck } of ctx.decks.values()) {
-    pool.push(...studyPool(cardsOfDeck(cards, deck.id), deck, now));
+    // Archived decks are excluded from all study modes.
+    if (deck.archived) continue;
+    const deckCards = cardsOfDeck(cards, deck.id);
+    if (ctx.mode === 'cram') {
+      // Cram serves every available card, ignoring the daily new-card cap.
+      pool.push(...deckCards.filter((c) => !c.suspended && !(c.buriedUntil != null && c.buriedUntil > now)));
+    } else {
+      pool.push(...studyPool(deckCards, deck, now));
+    }
   }
   return pool;
 }
@@ -119,8 +128,8 @@ export function selectNext(
     const deckCards = pool.filter((c) => c.deckId === deck.id);
     if (deckCards.length === 0) continue;
     const scores = deckCards.map((c) => scoreCard(c, oc, now));
-    const min = Math.min(...scores);
-    const max = Math.max(...scores);
+    const min = scores.reduce((a, b) => Math.min(a, b), Infinity);
+    const max = scores.reduce((a, b) => Math.max(a, b), -Infinity);
     const w = urgency(deck, now);
     const span = max - min;
     const degenerate = Math.abs(span) < 1e-9;
@@ -156,11 +165,13 @@ export function sessionComplete(
   ctx: SessionContext,
   now: number = Date.now(),
 ): boolean {
+  let anyPoolNonEmpty = false;
   for (const { deck, oc } of ctx.decks.values()) {
     const served = studyPool(cardsOfDeck(cards, deck.id), deck, now);
+    if (served.length > 0) anyPoolNonEmpty = true;
     if (!isObjectiveComplete(served, oc, now)) return false;
   }
-  return true;
+  return anyPoolNonEmpty;
 }
 
 /**

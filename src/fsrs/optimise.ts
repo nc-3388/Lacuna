@@ -213,7 +213,7 @@ export function evaluateParameters(
       const when = new Date(seq.timestamps[i]);
       if (
         hasPrior &&
-        (!options?.scoreAfterTimestamp || seq.timestamps[i] > options.scoreAfterTimestamp)
+        (options?.scoreAfterTimestamp === undefined || seq.timestamps[i] > options.scoreAfterTimestamp)
       ) {
         const r = engine.get_retrievability(card, when, false);
         const p = Math.min(1 - EPS, Math.max(EPS, r));
@@ -225,7 +225,7 @@ export function evaluateParameters(
       hasPrior = true;
     }
   }
-  return { logLoss: scored > 0 ? loss / scored : Infinity, scored };
+  return { logLoss: scored > 0 ? loss / scored : NaN, scored };
 }
 
 export interface ComputeParametersOptions {

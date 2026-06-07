@@ -13,6 +13,7 @@ import { Button } from '../ui/Button';
 import { ProgressBar } from '../ui/ProgressBar';
 import { useChartColours } from '../analytics/useChartColours';
 import { CheckIcon } from '../ui/icons';
+import { useMotionSpeed, speedMultiplier } from '../../state/motionSpeed';
 import type { SessionSummary } from './types';
 
 const GRADE_LABELS: Record<number, string> = {
@@ -29,6 +30,8 @@ function useCountUp(target: number, durationMs = 1200, delayMs = 0) {
   const startTime = useRef<number | null>(null);
 
   useEffect(() => {
+    setValue(0);
+    startTime.current = null;
     const delayId = window.setTimeout(() => {
       const tick = (now: number) => {
         if (startTime.current === null) startTime.current = now;
@@ -55,7 +58,7 @@ function useCountUp(target: number, durationMs = 1200, delayMs = 0) {
 }
 
 /** Small burst of confetti particles that celebrate a reached goal. */
-function ConfettiBurst() {
+function ConfettiBurst({ multiplier }: { multiplier: number }) {
   const particles = useMemo(() => {
     const colours = ['#34d399', '#fbbf24', '#60a5fa', '#f87171', '#a78bfa', '#f472b6'];
     return Array.from({ length: 30 }).map((_, i) => ({
@@ -76,7 +79,7 @@ function ConfettiBurst() {
       aria-hidden
       initial={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      transition={{ duration: 0.32 }}
+      transition={{ duration: 0.32 * multiplier }}
     >
       {particles.map((p) => (
         <motion.div
@@ -92,8 +95,8 @@ function ConfettiBurst() {
             rotate: p.rotation,
           }}
           transition={{
-            duration: p.duration,
-            delay: p.delay,
+            duration: p.duration * multiplier,
+            delay: p.delay * multiplier,
             ease: [0.16, 1, 0.3, 1],
           }}
         />
@@ -112,6 +115,8 @@ export function SessionReport({
   /** Offered only when the user can keep studying (goal not yet reached). */
   onContinue?: () => void;
 }) {
+  const [motionSpeed] = useMotionSpeed();
+  const m = speedMultiplier(motionSpeed);
   const c = useChartColours();
   const { events } = summary;
 
@@ -156,13 +161,13 @@ export function SessionReport({
   return (
     <div className="mx-auto max-w-3xl px-6 py-12">
       <AnimatePresence>
-        {summary.reachedGoal && <ConfettiBurst key="confetti" />}
+        {summary.reachedGoal && <ConfettiBurst key="confetti" multiplier={m} />}
       </AnimatePresence>
 
       <motion.div
         initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.32, ease: [0.16, 1, 0.3, 1] }}
+        transition={{ duration: 0.32 * m, ease: [0.16, 1, 0.3, 1] }}
       >
         {/* Reaching the goal earns a badge that springs in — the moment worth savouring. */}
         {summary.reachedGoal && (
@@ -192,7 +197,7 @@ export function SessionReport({
                 className="font-medium text-accent"
                 initial={{ opacity: 0, y: 4 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 1.2, duration: 0.24 }}
+                transition={{ delay: 1.2 * m, duration: 0.24 * m }}
               >
                 {Math.round(summary.masteryAfter * 100)}%
               </motion.span>
@@ -201,7 +206,7 @@ export function SessionReport({
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            transition={{ delay: 0.2, duration: 0.24 }}
+            transition={{ delay: 0.2 * m, duration: 0.24 * m }}
           >
             <ProgressBar value={animatedProgress} />
           </motion.div>
@@ -209,10 +214,10 @@ export function SessionReport({
 
         {/* Stat tiles — revealed one after another with count-up numbers. */}
         <div className="mb-6 grid grid-cols-2 gap-4 sm:grid-cols-4">
-          <Stat index={0} label="Cards reviewed" value={String(countTotal)} />
-          <Stat index={1} label="Accuracy" value={`${countAccuracy}%`} />
-          <Stat index={2} label="Mean time" value={`${(countMean / 10).toFixed(1)}s`} />
-          <Stat index={3} label="Focus" value={`${countFocus}%`} />
+          <Stat index={0} label="Cards reviewed" value={String(countTotal)} motionMultiplier={m} />
+          <Stat index={1} label="Accuracy" value={`${countAccuracy}%`} motionMultiplier={m} />
+          <Stat index={2} label="Mean time" value={`${(countMean / 10).toFixed(1)}s`} motionMultiplier={m} />
+          <Stat index={3} label="Focus" value={`${countFocus}%`} motionMultiplier={m} />
         </div>
 
         {/* Grade distribution */}
@@ -282,23 +287,26 @@ function Stat({
   label,
   value,
   index,
+  motionMultiplier,
 }: {
   label: string;
   value: string;
   index: number;
+  motionMultiplier?: number;
 }) {
+  const m = motionMultiplier ?? 1;
   return (
     <motion.div
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.24, delay: 0.2 + index * 0.07, ease: [0.16, 1, 0.3, 1] }}
+      transition={{ duration: 0.24 * m, delay: (0.2 + index * 0.07) * m, ease: [0.16, 1, 0.3, 1] }}
       className="rounded-xl border border-line bg-surface p-4"
     >
       <motion.div
         className="font-display text-3xl tabular tracking-tight"
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
-        transition={{ duration: 0.16, ease: [0.16, 1, 0.3, 1] }}
+        transition={{ duration: 0.16 * m, ease: [0.16, 1, 0.3, 1] }}
       >
         {value}
       </motion.div>

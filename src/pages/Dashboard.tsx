@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'motion/react';
-import { useAllCards, useDecks, useDeckSummaries, useStudyStats } from '../state/useData';
+import { useDashboardData } from '../state/useData';
 import { useDashboardSort, type DashboardSort } from '../state/dashboardSort';
 import { StudySignals } from '../components/dashboard/StudySignals';
 import { ReviewHeatmap } from '../components/dashboard/ReviewHeatmap';
@@ -24,13 +24,15 @@ import type { ParsedCard } from '../db/import';
 import { relativeExam } from '../utils/datetime';
 import { progressNoun } from '../fsrs/objective';
 import { cn } from '../components/ui/cn';
+import { useMotionSpeed, speedMultiplier } from '../state/motionSpeed';
 import type { Deck } from '../db/types';
 
 export function Dashboard() {
-  const decks = useDecks();
-  const summaries = useDeckSummaries();
-  const stats = useStudyStats();
-  const allCards = useAllCards();
+  const dashboardData = useDashboardData();
+  const decks = dashboardData?.decks;
+  const summaries = dashboardData?.summaries;
+  const stats = dashboardData?.stats;
+  const allCards = dashboardData?.allCards;
   const navigate = useNavigate();
   const { notify } = useToast();
   const [dashboardSort] = useDashboardSort();
@@ -43,6 +45,10 @@ export function Dashboard() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [merging, setMerging] = useState(false);
   const [mergeTarget, setMergeTarget] = useState<string | null>(null);
+  const [motionSpeed] = useMotionSpeed();
+  const m = speedMultiplier(motionSpeed);
+
+  const allSelected = decks ? decks.length > 0 && decks.every((d) => selected.has(d.id)) : false;
 
   const selectedDecks = useMemo(
     () => (decks ?? []).filter((d) => selected.has(d.id)),
@@ -58,8 +64,8 @@ export function Dashboard() {
 
   // Total cards a global session would serve today, across all decks.
   const totalEligible = useMemo(
-    () => Object.values(summaries ?? {}).reduce((sum, s) => sum + s.eligible, 0),
-    [summaries],
+    () => activeDecks.reduce((sum, d) => sum + (summaries?.[d.id]?.eligible ?? 0), 0),
+    [activeDecks, summaries],
   );
 
   function toggleSelected(id: string) {
@@ -67,6 +73,14 @@ export function Dashboard() {
       const next = new Set(prev);
       next.has(id) ? next.delete(id) : next.add(id);
       return next;
+    });
+  }
+
+  function toggleAll() {
+    const allIds = (decks ?? []).map((d) => d.id);
+    setSelected((prev) => {
+      if (allIds.length > 0 && allIds.every((id) => prev.has(id))) return new Set();
+      return new Set(allIds);
     });
   }
 
@@ -124,9 +138,16 @@ export function Dashboard() {
 
   async function handleMerge() {
     if (!mergeTarget) return;
-    await mergeDecks([...selected], mergeTarget);
+    const ids = [...selected];
+    const snapshot = await snapshotDecks(ids);
+    await mergeDecks(ids, mergeTarget);
     exitSelectMode();
-    notify('Decks merged.', 'positive');
+    notify('Decks merged.', 'positive', {
+      actionLabel: 'Undo',
+      onAction: () => {
+        void restoreDecks(snapshot);
+      },
+    });
   }
 
   return (
@@ -162,6 +183,7 @@ export function Dashboard() {
         <motion.div
           initial={{ opacity: 0, y: -8 }}
           animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.18 * m, ease: [0.16, 1, 0.3, 1] }}
           className="mb-6 flex flex-wrap items-center gap-4 rounded-2xl border border-accent/40 bg-accent-soft/40 p-5"
         >
           <div className="min-w-0 flex-1">
@@ -185,7 +207,7 @@ export function Dashboard() {
             initial={{ opacity: 0, height: 0, marginBottom: 0 }}
             animate={{ opacity: 1, height: 'auto', marginBottom: 24 }}
             exit={{ opacity: 0, height: 0, marginBottom: 0 }}
-            transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+            transition={{ duration: 0.2 * m, ease: [0.16, 1, 0.3, 1] }}
             className="overflow-hidden"
           >
             <div className="rounded-2xl border border-line-strong bg-surface p-5">
@@ -284,10 +306,31 @@ export function Dashboard() {
         <motion.div
           initial={{ opacity: 0, y: -8 }}
           animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.16 * m, ease: [0.16, 1, 0.3, 1] }}
           className="mb-6 rounded-xl border border-line-strong bg-surface px-4 py-3"
         >
           <div className="flex flex-wrap items-center gap-3">
-            <span className="text-sm text-ink-soft">{selected.size} selected</span>
+            <button
+              type="button"
+              onClick={toggleAll}
+              aria-pressed={allSelected}
+              className="flex items-center gap-2 text-sm text-ink-soft transition-colors hover:text-ink"
+            >
+              <span
+                className={cn(
+                  'grid h-6 w-6 place-items-center rounded-full border transition-colors',
+                  allSelected
+                    ? 'border-accent bg-accent text-accent-fg'
+                    : 'border-line-strong',
+                )}
+              >
+                {allSelected && (
+                  <CheckIcon width={14} height={14} />
+                )}
+              </span>
+              {allSelected ? 'Deselect all' : 'Select all'}
+            </button>
+            <span className="text-sm text-ink-faint">{selected.size} selected</span>
             <div className="ml-auto flex gap-2">
               <Button
                 size="sm"
@@ -317,7 +360,7 @@ export function Dashboard() {
                 initial={{ opacity: 0, height: 0, marginTop: 0 }}
                 animate={{ opacity: 1, height: 'auto', marginTop: 12 }}
                 exit={{ opacity: 0, height: 0, marginTop: 0 }}
-                transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+                transition={{ duration: 0.22 * m, ease: [0.16, 1, 0.3, 1] }}
                 className="overflow-hidden"
               >
                 <div className="border-t border-line pt-3">
@@ -374,21 +417,21 @@ export function Dashboard() {
 
       {/* Deck grid */}
       {!decks ? (
-        <DeckSkeleton />
+        <DeckSkeleton motionMultiplier={m} />
       ) : decks.length === 0 ? (
-        <EmptyState onCreate={startCreating} />
+        <EmptyState onCreate={startCreating} motionMultiplier={m} />
       ) : (
         <>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {activeDecks.slice(0, 3).map((deck, i) => (
+            {activeDecks.slice(0, 3).map((deck) => (
               <DeckCard
                 key={deck.id}
                 deck={deck}
-                index={i}
                 summary={summaries?.[deck.id]}
                 selectMode={selectMode}
                 selected={selected.has(deck.id)}
                 onToggleSelected={() => toggleSelected(deck.id)}
+                motionMultiplier={m}
               />
             ))}
             {activeDecks.length > 3 && (
@@ -413,15 +456,15 @@ export function Dashboard() {
                 Archived
               </h2>
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {archivedDecks.map((deck, i) => (
+                {archivedDecks.map((deck) => (
                   <DeckCard
                     key={deck.id}
                     deck={deck}
-                    index={i}
                     summary={summaries?.[deck.id]}
                     selectMode={selectMode}
                     selected={selected.has(deck.id)}
                     onToggleSelected={() => toggleSelected(deck.id)}
+                    motionMultiplier={m}
                   />
                 ))}
               </div>
@@ -443,21 +486,22 @@ export function Dashboard() {
 function DeckCard({
   deck,
   summary,
-  index,
   selectMode,
   selected,
   onToggleSelected,
+  motionMultiplier,
 }: {
   deck: Deck;
   summary: { count: number; mastery: number; unreviewed: number } | undefined;
-  index: number;
   selectMode: boolean;
   selected: boolean;
   onToggleSelected: () => void;
+  motionMultiplier?: number;
 }) {
+  const m = motionMultiplier ?? 1;
   const colourBar = deck.colour ? (
     <span
-      className="absolute inset-x-0 top-0 h-1 rounded-t-2xl"
+      className="absolute inset-x-0 top-0 h-1"
       style={{ backgroundColor: deck.colour }}
     />
   ) : null;
@@ -466,11 +510,11 @@ function DeckCard({
     <motion.div
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
-      whileHover={{ y: -4 }}
-      whileTap={{ scale: 0.98 }}
-      transition={{ duration: 0.24, delay: Math.min(index * 0.03, 0.24) }}
+      whileHover={{ y: -4, transition: { duration: 0.12 * m } }}
+      whileTap={{ scale: 0.98, transition: { duration: 0.08 * m } }}
+      transition={{ duration: 0.24 * m }}
       className={cn(
-        'group relative flex h-full flex-col rounded-2xl border bg-surface p-5 transition-all duration-200',
+        'group relative flex h-full flex-col overflow-hidden rounded-2xl border bg-surface p-5 transition-colors duration-200',
         selected
           ? 'border-accent ring-2 ring-accent/30'
           : 'border-line hover:border-line-strong hover:shadow-xl hover:shadow-black/[0.04]',
@@ -542,7 +586,8 @@ function DeckCard({
   );
 }
 
-function DeckSkeleton() {
+function DeckSkeleton({ motionMultiplier }: { motionMultiplier?: number }) {
+  const m = motionMultiplier ?? 1;
   return (
     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
       {Array.from({ length: 6 }).map((_, i) => (
@@ -550,7 +595,7 @@ function DeckSkeleton() {
           key={i}
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.24, delay: Math.min(i * 0.04, 0.2) }}
+          transition={{ duration: 0.24 * m, delay: Math.min(i * 0.04, 0.2) * m }}
           className="flex h-full flex-col rounded-2xl border border-line bg-surface p-5"
         >
           <div className="mb-1 h-3 w-20 animate-pulse rounded bg-ink/10" />
@@ -597,12 +642,13 @@ function sortDecks(
   return list;
 }
 
-function EmptyState({ onCreate }: { onCreate: () => void }) {
+function EmptyState({ onCreate, motionMultiplier }: { onCreate: () => void; motionMultiplier?: number }) {
+  const m = motionMultiplier ?? 1;
   return (
     <motion.div
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.32, ease: [0.16, 1, 0.3, 1] }}
+      transition={{ duration: 0.32 * m, ease: [0.16, 1, 0.3, 1] }}
       className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-line-strong bg-surface/50 py-20 text-center"
     >
       <div className="mb-4 grid h-14 w-14 place-items-center rounded-2xl bg-accent-soft text-accent">

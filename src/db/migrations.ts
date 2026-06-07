@@ -59,7 +59,13 @@ export function migrateCardRecord(card: LegacyCard): Card {
     reps,
     lapses,
     state,
-    due: card.due ?? card.lastReviewed,
+    // If a pre-FSRS-6 card has no due date, estimate it from stability rather than
+    // defaulting to lastReviewed (which would make it immediately due).
+    due:
+      card.due ??
+      (card.lastReviewed != null && card.stability != null
+        ? card.lastReviewed + Math.round(card.stability * 86_400_000)
+        : card.lastReviewed),
     scheduledDays: card.scheduledDays ?? 0,
     learningSteps: card.learningSteps ?? 0,
     // Fields added after FSRS-6; default so older records and imports stay valid.

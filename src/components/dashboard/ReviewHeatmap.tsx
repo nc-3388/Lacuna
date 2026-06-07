@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { motion } from 'motion/react';
 import { bucketReviewsByDay, reviewTimestamps } from '../../fsrs/heatmap';
+import { useMotionSpeed, speedMultiplier } from '../../state/motionSpeed';
 import { formatDate, startOfDay } from '../../utils/datetime';
 import { MS_PER_DAY } from '../../fsrs/params';
 import type { Card } from '../../db/types';
@@ -20,13 +21,24 @@ interface Cell {
  * accent colour. Built entirely from existing review logs; nothing is persisted.
  */
 export function ReviewHeatmap({ cards }: { cards: Card[] }) {
+  const [motionSpeed] = useMotionSpeed();
+  const m = speedMultiplier(motionSpeed);
   const { columns, total, max } = useMemo(() => {
     const buckets = bucketReviewsByDay(reviewTimestamps(cards));
     const today = startOfDay(Date.now());
     // Monday-indexed weekday so weeks read left-to-right, Monday at the top.
     const weekday = (new Date(today).getDay() + 6) % 7;
-    const gridEnd = today + (6 - weekday) * MS_PER_DAY; // Sunday of the current week
-    const gridStart = gridEnd - (WEEKS * 7 - 1) * MS_PER_DAY;
+    // DST-safe: use date arithmetic instead of raw ms subtraction.
+    const gridEnd = (() => {
+      const d = new Date(today);
+      d.setDate(d.getDate() + (6 - weekday));
+      return startOfDay(d.getTime());
+    })();
+    const gridStart = (() => {
+      const d = new Date(gridEnd);
+      d.setDate(d.getDate() - (WEEKS * 7 - 1));
+      return startOfDay(d.getTime());
+    })();
 
     const cols: Cell[][] = [];
     let maxCount = 0;
@@ -59,7 +71,7 @@ export function ReviewHeatmap({ cards }: { cards: Card[] }) {
     <motion.section
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.28, ease: [0.25, 0.1, 0.25, 1] }}
+      transition={{ duration: 0.28 * m, ease: [0.25, 0.1, 0.25, 1] }}
       className="rounded-2xl border border-line bg-surface p-5"
     >
       <div className="mb-3 flex items-baseline justify-between">
@@ -83,8 +95,8 @@ export function ReviewHeatmap({ cards }: { cards: Card[] }) {
               initial={{ opacity: 0, scaleY: 0.8 }}
               animate={{ opacity: 1, scaleY: 1 }}
               transition={{
-                duration: 0.16,
-                delay: Math.min(w * 0.015, 0.3),
+                duration: 0.16 * m,
+                delay: Math.min(w * 0.015, 0.3) * m,
                 ease: [0.25, 0.1, 0.25, 1],
               }}
               className="flex flex-col gap-[3px] origin-top"

@@ -40,6 +40,7 @@ import {
 } from '../components/ui/icons';
 import { searchCards, type CardFilter } from '../db/search';
 import { cn } from '../components/ui/cn';
+import { useMotionSpeed, speedMultiplier } from '../state/motionSpeed';
 import type { Card, Deck } from '../db/types';
 
 type Tab = 'cards' | 'analytics';
@@ -60,6 +61,8 @@ export function DeckView() {
   const [searchQuery, setSearchQuery] = useState('');
   const [sortMode, setSortMode] = useState<'due' | 'created' | 'stability' | 'alpha'>('due');
   const [filters, setFilters] = useState<Set<CardFilter>>(new Set());
+  const [motionSpeed] = useMotionSpeed();
+  const m = speedMultiplier(motionSpeed);
 
   // Distinct tags across the deck, for the filter row.
   const allTags = useMemo(() => {
@@ -138,6 +141,7 @@ export function DeckView() {
       <motion.div
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.16 * m, ease: [0.16, 1, 0.3, 1] }}
         className="p-10"
       >
         <p className="mb-4 text-ink-soft">This deck could not be found.</p>
@@ -228,7 +232,7 @@ export function DeckView() {
       {/* Passed-exam / archived state: surfaced before study can resume */}
       <AnimatePresence>
         {deck.archived ? (
-          <PassedExamBanner key="archived" tone="archived">
+          <PassedExamBanner key="archived" tone="archived" motionMultiplier={m}>
             <h2 className="mb-1 font-display text-xl">This deck is archived</h2>
             <p className="mb-4 text-sm text-ink-soft">
               It is kept in full but hidden from active study and from your totals on the
@@ -245,7 +249,7 @@ export function DeckView() {
             </Button>
           </PassedExamBanner>
         ) : examHasPassed(deck) && !postExamDismissed ? (
-          <PassedExamBanner key="passed" tone="passed">
+          <PassedExamBanner key="passed" tone="passed" motionMultiplier={m}>
             <h2 className="mb-1 font-display text-xl">This exam date has passed</h2>
             <p className="mb-4 text-sm text-ink-soft">
               Scheduling no longer has a deadline to aim at. Choose what to do next. If you
@@ -280,6 +284,7 @@ export function DeckView() {
             deck={deck}
             onProceed={() => navigate(studyPath)}
             onClose={() => setExamBannerOpen(false)}
+            motionMultiplier={m}
           />
         )}
       </AnimatePresence>
@@ -307,24 +312,25 @@ export function DeckView() {
       )}
 
       {/* Tabs */}
-      <div className="mb-6 flex gap-1 border-b border-line">
-        <TabButton active={tab === 'cards'} onClick={() => setTab('cards')} icon={<CardsIcon width={16} height={16} />}>
+      <motion.div layout transition={{ layout: { duration: 0.18 * m, ease: [0.16, 1, 0.3, 1] } }} className="mb-6 flex gap-1 border-b border-line">
+        <TabButton active={tab === 'cards'} onClick={() => setTab('cards')} icon={<CardsIcon width={16} height={16} />} motionMultiplier={m}>
           Cards
         </TabButton>
         <TabButton
           active={tab === 'analytics'}
           onClick={() => setTab('analytics')}
           icon={<ChartIcon width={16} height={16} />}
+          motionMultiplier={m}
         >
           Analytics
         </TabButton>
-      </div>
+      </motion.div>
 
       <motion.div
         key={tab}
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.16 }}
+        transition={{ duration: 0.16 * m, ease: [0.16, 1, 0.3, 1] }}
       >
         {tab === 'cards' ? (
           <>
@@ -431,6 +437,7 @@ export function DeckView() {
               <EmptyCardState
                 hasQuery={searchQuery.trim().length > 0 || filters.size > 0}
                 onNewCard={() => navigate(`/deck/${deck.id}/cards/new`)}
+                motionMultiplier={m}
               />
             ) : (
               <CardList
@@ -456,16 +463,19 @@ export function DeckView() {
 function PassedExamBanner({
   tone,
   children,
+  motionMultiplier,
 }: {
   tone: 'passed' | 'archived';
   children: React.ReactNode;
+  motionMultiplier?: number;
 }) {
+  const m = motionMultiplier ?? 1;
   return (
     <motion.section
       initial={{ opacity: 0, height: 0, marginBottom: 0 }}
       animate={{ opacity: 1, height: 'auto', marginBottom: 24 }}
       exit={{ opacity: 0, height: 0, marginBottom: 0 }}
-      transition={{ duration: 0.16, ease: [0.16, 1, 0.3, 1] }}
+      transition={{ duration: 0.16 * m, ease: [0.16, 1, 0.3, 1] }}
       className="overflow-hidden"
     >
       <div
@@ -490,11 +500,14 @@ function ExamDateBanner({
   deck,
   onProceed,
   onClose,
+  motionMultiplier,
 }: {
   deck: Deck;
   onProceed: () => void;
   onClose: () => void;
+  motionMultiplier?: number;
 }) {
+  const m = motionMultiplier ?? 1;
   const [value, setValue] = useState(() => toDateTimeLocalValue(deck.examDate));
   const [dontAsk, setDontAsk] = useState(false);
 
@@ -518,11 +531,11 @@ function ExamDateBanner({
 
   return (
     <motion.section
-      initial={{ opacity: 0, height: 0, marginBottom: 0 }}
-      animate={{ opacity: 1, height: 'auto', marginBottom: 24 }}
-      exit={{ opacity: 0, height: 0, marginBottom: 0 }}
-      transition={{ duration: 0.16, ease: [0.16, 1, 0.3, 1] }}
-      className="overflow-hidden"
+      initial={{ opacity: 0, y: -12 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -12 }}
+      transition={{ duration: 0.2 * m, ease: [0.16, 1, 0.3, 1] }}
+      className="mb-6"
     >
       <div className="rounded-2xl border border-accent/40 bg-accent-soft/40 p-5">
         <h2 className="mb-1 font-display text-xl">When is your exam?</h2>
@@ -603,12 +616,15 @@ function TabButton({
   onClick,
   icon,
   children,
+  motionMultiplier,
 }: {
   active: boolean;
   onClick: () => void;
   icon: React.ReactNode;
   children: React.ReactNode;
+  motionMultiplier?: number;
 }) {
+  const m = motionMultiplier ?? 1;
   return (
     <button
       onClick={onClick}
@@ -622,6 +638,7 @@ function TabButton({
       {active && (
         <motion.span
           layoutId="deck-tab"
+          transition={{ duration: 0.25 * m, ease: [0.16, 1, 0.3, 1] }}
           className="absolute inset-x-0 -bottom-px h-0.5 rounded-full bg-accent"
         />
       )}
@@ -632,15 +649,18 @@ function TabButton({
 function EmptyCardState({
   hasQuery,
   onNewCard,
+  motionMultiplier,
 }: {
   hasQuery: boolean;
   onNewCard: () => void;
+  motionMultiplier?: number;
 }) {
+  const m = motionMultiplier ?? 1;
   return (
     <motion.div
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
+      transition={{ duration: 0.28 * m, ease: [0.16, 1, 0.3, 1] }}
       className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-line-strong bg-surface/50 py-16 text-center"
     >
       <div className="mb-4 grid h-12 w-12 place-items-center rounded-xl bg-accent-soft text-accent">

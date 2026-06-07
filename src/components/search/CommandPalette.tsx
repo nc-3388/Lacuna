@@ -4,6 +4,7 @@ import { AnimatePresence, motion } from 'motion/react';
 import { useAllCards, useDecks } from '../../state/useData';
 import { plainPreview, searchCards } from '../../db/search';
 import { SearchIcon } from '../ui/icons';
+import { useMotionSpeed, speedMultiplier } from '../../state/motionSpeed';
 
 const MAX_RESULTS = 40;
 
@@ -32,6 +33,8 @@ function escapeRegExp(s: string) {
 
 /** A keyboard-summoned (Ctrl/Cmd+K) overlay for searching every card. */
 export function CommandPalette({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const [motionSpeed] = useMotionSpeed();
+  const m = speedMultiplier(motionSpeed);
   const decks = useDecks();
   const cards = useAllCards();
   const navigate = useNavigate();
@@ -54,7 +57,7 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
     }
   }, [open]);
 
-  useEffect(() => setActive(0), [query]);
+  useEffect(() => setActive(results.length > 0 ? 0 : -1), [results.length, query]);
 
   function go(index: number) {
     const hit = results[index];
@@ -68,10 +71,10 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
       onClose();
     } else if (e.key === 'ArrowDown') {
       e.preventDefault();
-      setActive((a) => Math.min(a + 1, results.length - 1));
+      setActive((a) => (results.length > 0 ? Math.min(a + 1, results.length - 1) : -1));
     } else if (e.key === 'ArrowUp') {
       e.preventDefault();
-      setActive((a) => Math.max(a - 1, 0));
+      setActive((a) => (results.length > 0 ? Math.max(a - 1, 0) : -1));
     } else if (e.key === 'Enter') {
       e.preventDefault();
       go(active);
@@ -95,7 +98,7 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
             initial={{ opacity: 0, y: -12, scale: 0.98 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -12, scale: 0.98 }}
-            transition={{ duration: 0.16, ease: [0.16, 1, 0.3, 1] }}
+            transition={{ duration: 0.16 * m, ease: [0.16, 1, 0.3, 1] }}
             className="relative w-full max-w-xl overflow-hidden rounded-2xl border border-line-strong bg-surface shadow-2xl shadow-black/20"
             onKeyDown={onKeyDown}
           >
@@ -121,7 +124,7 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
-                    transition={{ duration: 0.12 }}
+                    transition={{ duration: 0.12 * m }}
                     className="px-4 py-6 text-center text-sm text-ink-faint"
                   >
                     Type to search across every deck.
@@ -132,7 +135,7 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
-                    transition={{ duration: 0.12 }}
+                    transition={{ duration: 0.12 * m }}
                     className="px-4 py-6 text-center text-sm text-ink-faint"
                   >
                     No cards match "{query}".
@@ -143,7 +146,7 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
-                    transition={{ duration: 0.12 }}
+                    transition={{ duration: 0.12 * m }}
                     className="py-1"
                   >
                     {results.map((hit, i) => (
@@ -151,7 +154,7 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
                         key={hit.card.id}
                         initial={{ opacity: 0, x: -8 }}
                         animate={{ opacity: 1, x: 0 }}
-                        transition={{ duration: 0.12, delay: Math.min(i * 0.015, 0.15) }}
+                        transition={{ duration: 0.12 * m, delay: Math.min(i * 0.015, 0.15) * m }}
                       >
                         <button
                           type="button"

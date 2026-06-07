@@ -21,7 +21,6 @@
     "@open-spaced-repetition/binding-wasm32-wasi": "^0.4.0",
     "dexie": "^4.0.10",
     "dexie-react-hooks": "^1.1.7",
-    "hast-util-sanitize": "^5.0.2",
     "katex": "^0.16.11",
     "motion": "^11.15.0",
     "react": "^18.3.1",

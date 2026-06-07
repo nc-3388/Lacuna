@@ -74,7 +74,9 @@ export function gradeQualitySummary(cards: Card[]): GradeQualitySummary {
   for (const card of cards) {
     for (let i = 0; i < card.history.length; i += 1) {
       const log = card.history[i];
-      gradeCounts[log.grade] += 1;
+      if ((log.grade as number) >= 1 && (log.grade as number) <= 4) {
+        gradeCounts[log.grade] += 1;
+      }
       totalReviews += 1;
       const next = card.history[i + 1];
       if (log.grade > 1 && next) {

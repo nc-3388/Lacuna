@@ -103,11 +103,12 @@ export class LacunaDatabase extends Dexie {
       })
       .upgrade(async (tx) => {
         const { extractMarkdownAssets } = await import('./assets');
-        // Read, transform (async, extracting images into the asset store), then write
-        // back explicitly. We avoid an async `.modify()` callback because mutating the
-        // record after an await is not reliably persisted by Dexie.
-        const cards = await tx.table('cards').toArray();
-        for (const card of cards) {
+        // Process cards with a cursor so we never load the whole table into memory
+        // at once. Async extraction happens per-card, keeping the upgrade safe.
+        const table = tx.table('cards');
+        let cursor = await (table as unknown as { openCursor: () => Promise<IDBCursorWithValue | null> }).openCursor();
+        while (cursor) {
+          const card = cursor.value;
           const front = await extractMarkdownAssets(card.front ?? '', (asset) =>
             tx.table('assets').put(asset),
           );
@@ -116,7 +117,9 @@ export class LacunaDatabase extends Dexie {
           );
           const migrated = { ...card, front, back };
           Object.assign(migrated, migrateCardRecord(migrated as LegacyCard));
-          await tx.table('cards').put(migrated);
+          await cursor.update(migrated);
+          const next = await cursor.continue();
+          cursor = next;
         }
       });
   }
@@ -144,7 +147,10 @@ async function getCurrentDbVersion(name: string): Promise<number> {
   return 0;
 }
 
-export async function readAllDataFromVersion(name: string): Promise<BackupFile> {
+export async function readAllDataFromVersion(
+  name: string,
+  expectedVersion?: number,
+): Promise<BackupFile> {
   const raw = await new Promise<{
     version: number;
     data: Record<string, unknown[]>;
@@ -195,6 +201,12 @@ export async function readAllDataFromVersion(name: string): Promise<BackupFile> 
     req.onblocked = () => reject(new Error('Database is blocked by another connection'));
   });
 
+  if (expectedVersion !== undefined && raw.version !== expectedVersion) {
+    throw new Error(
+      `Database version mismatch: expected ${expectedVersion}, found ${raw.version}`,
+    );
+  }
+
   const assetsRaw = (raw.data['assets'] ?? []) as ImageAsset[];
   const assets = await Promise.all(
     assetsRaw.map(async (a) => {
@@ -212,7 +224,7 @@ export async function readAllDataFromVersion(name: string): Promise<BackupFile> 
 
   return {
     app: 'lacuna',
-    version: Math.floor(raw.version / 10),
+    version: raw.version,
     exportedAt: Date.now(),
     decks: (raw.data['decks'] ?? []) as Deck[],
     cards: (raw.data['cards'] ?? []) as Card[],
@@ -222,7 +234,7 @@ export async function readAllDataFromVersion(name: string): Promise<BackupFile> 
   };
 }
 
-let preMigrationSnapshotTaken = false;
+const snapshottedDbNames = new Set<string>();
 
 /**
  * Detect a pending schema upgrade and, if one is pending, capture a full
@@ -231,16 +243,20 @@ let preMigrationSnapshotTaken = false;
  * `lacuna-pre-migration` database so it survives even if the main upgrade
  * aborts and rolls back.
  */
-export async function ensurePreMigrationSnapshot(): Promise<void> {
-  if (preMigrationSnapshotTaken) return;
-  preMigrationSnapshotTaken = true;
+export async function ensurePreMigrationSnapshot(dbName: string = 'lacuna'): Promise<void> {
+  if (snapshottedDbNames.has(dbName)) return;
+  snapshottedDbNames.add(dbName);
 
   const targetVersion = CURRENT_SCHEMA_VERSION;
-  const currentVersion = Math.floor((await getCurrentDbVersion('lacuna')) / 10);
+  const currentVersion = await getCurrentDbVersion(dbName);
 
   if (currentVersion > 0 && currentVersion < targetVersion) {
-    const payload = await readAllDataFromVersion('lacuna');
-    await savePreMigrationSnapshot(targetVersion, payload);
+    try {
+      const payload = await readAllDataFromVersion(dbName, currentVersion);
+      await savePreMigrationSnapshot(targetVersion, payload);
+    } catch {
+      snapshottedDbNames.delete(dbName);
+    }
   }
 }
 

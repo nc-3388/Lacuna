@@ -13,13 +13,14 @@ let bindingPromise: Promise<BindingModule> | null = null;
 /** Initialise (or return) the WASM-backed FSRS trainer module. */
 export function getBindingOptimiser(): Promise<BindingModule> {
   if (!bindingPromise) {
-    bindingPromise = initOptimizer({
+    const p = initOptimizer({
       wasm: wasmUrl,
       worker: () => new WasiWorker(),
     }).catch((err: unknown) => {
       bindingPromise = null;
       throw err;
     });
+    bindingPromise = p;
   }
-  return bindingPromise!;
+  return bindingPromise;
 }

@@ -16,10 +16,14 @@ export function bytesToBase64(bytes: Uint8Array): string {
 }
 
 function base64ToBytes(base64: string): Uint8Array {
-  const binary = atob(base64);
-  const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
-  return bytes;
+  try {
+    const binary = atob(base64);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+    return bytes;
+  } catch {
+    throw new Error('Invalid base64 data in image asset.');
+  }
 }
 
 /**
@@ -91,6 +95,22 @@ export async function storeImageBlob(
   return asset;
 }
 
+async function getImageDimensions(blob: Blob): Promise<{ width: number; height: number } | null> {
+  if (typeof Image === 'undefined' || typeof URL.createObjectURL !== 'function') return null;
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      URL.revokeObjectURL(img.src);
+      resolve({ width: img.naturalWidth, height: img.naturalHeight });
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(img.src);
+      resolve(null);
+    };
+    img.src = URL.createObjectURL(blob);
+  });
+}
+
 async function assetFromDataUri(uri: string, mimeType: string): Promise<ImageAsset> {
   const base64 = uri.slice(uri.indexOf(',') + 1);
   const bytes = base64ToBytes(base64);
@@ -110,7 +130,12 @@ async function assetFromDataUri(uri: string, mimeType: string): Promise<ImageAss
         createdAt: Date.now(),
       };
     } catch {
-      // If compression fails, store the original uncompressed blob.
+      // If compression fails, try to read dimensions from the original blob.
+      const dims = await getImageDimensions(blob);
+      if (dims) {
+        const hash = await sha256Blob(blob);
+        return { hash, blob, mimeType, width: dims.width, height: dims.height, createdAt: Date.now() };
+      }
     }
   }
 
@@ -137,6 +162,8 @@ export async function extractMarkdownAssets(
   return replacements.reduce((text, r) => text.replaceAll(r.from, r.to), markdown);
 }
 
+const MISSING_ASSET_SVG = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCI+PHJlY3Qgd2lkdGg9IjI0IiBoZWlnaHQ9IjI0IiBmaWxsPSIjZWVlIi8+PHRleHQgeD0iMTIiIHk9IjE2IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmb250LXNpemU9IjEwIiBmaWxsPSIjOTk5Ij5Mb3N0IGltYWdlPC90ZXh0Pjwvc3ZnPg==';
+
 export async function resolveAssetMarkdown(markdown: string): Promise<{
   markdown: string;
   objectUrls: string[];
@@ -145,7 +172,10 @@ export async function resolveAssetMarkdown(markdown: string): Promise<{
   const objectUrls: string[] = [];
   for (const hash of referencedAssetHashes(markdown)) {
     const asset = await db.assets.get(hash);
-    if (!asset) continue;
+    if (!asset) {
+      replacements.push({ from: assetUrl(hash), to: MISSING_ASSET_SVG });
+      continue;
+    }
     const url = URL.createObjectURL(asset.blob);
     objectUrls.push(url);
     replacements.push({ from: assetUrl(hash), to: url });
@@ -223,4 +253,13 @@ export function scheduleAssetGc(delayMs = 3000): void {
   gcTimeout = setTimeout(() => {
     void collectOrphanedAssets();
   }, delayMs);
+}
+
+/** Wait for any pending scheduled GC to complete. Exposed for tests. */
+export async function flushAssetGc(): Promise<void> {
+  if (gcTimeout) {
+    clearTimeout(gcTimeout);
+    gcTimeout = null;
+    await collectOrphanedAssets();
+  }
 }

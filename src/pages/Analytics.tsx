@@ -15,6 +15,7 @@ import {
   YAxis,
 } from 'recharts';
 import { useDecks, useAllCards, useAllSessionHistory } from '../state/useData';
+import { useMotionSpeed, speedMultiplier } from '../state/motionSpeed';
 import { ChartCard } from '../components/analytics/ChartCard';
 import { useChartColours } from '../components/analytics/useChartColours';
 import {
@@ -60,6 +61,8 @@ function AnalyticsSkeleton() {
 }
 
 export function Analytics() {
+  const [motionSpeed] = useMotionSpeed();
+  const m = speedMultiplier(motionSpeed);
   const decks = useDecks();
   const allCards = useAllCards();
   const history = useAllSessionHistory();
@@ -113,7 +116,7 @@ export function Analytics() {
       <motion.header
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.28, ease: [0.25, 0.1, 0.25, 1] }}
+        transition={{ duration: 0.28 * m, ease: [0.25, 0.1, 0.25, 1] }}
       >
         <h1 className="font-display text-3xl tracking-tight">Analytics</h1>
         <p className="mt-1 text-sm text-ink-soft">

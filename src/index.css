@@ -194,6 +194,8 @@
 /* Markdown / KaTeX rendered content sits inside `.prose-lacuna`. */
 .prose-lacuna {
   line-height: 1.65;
+  caret-color: transparent;
+  cursor: text;
 }
 .prose-lacuna > :first-child { margin-top: 0; }
 .prose-lacuna > :last-child { margin-bottom: 0; }

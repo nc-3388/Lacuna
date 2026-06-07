@@ -11,7 +11,7 @@ export type DashboardSort =
 const KEY = 'lacuna.dashboardSort';
 
 export function readDashboardSort(): DashboardSort {
-  const raw = localStorage.getItem(KEY) as DashboardSort | null;
+  const raw = localStorage.getItem(KEY);
   const valid: DashboardSort[] = [
     'recent',
     'ready',
@@ -20,7 +20,7 @@ export function readDashboardSort(): DashboardSort {
     'name',
     'created',
   ];
-  return valid.includes(raw!) ? raw! : 'recent';
+  return raw && (valid as string[]).includes(raw) ? (raw as DashboardSort) : 'recent';
 }
 
 export function writeDashboardSort(sort: DashboardSort): void {

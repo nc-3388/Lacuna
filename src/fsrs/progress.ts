@@ -46,7 +46,7 @@ export function averagePredictedRetrievability(
   deck: Deck,
   now: number = Date.now(),
 ): number {
-  if (cards.length === 0) return 0;
+  if (cards.length === 0) return 1;
   const decay = deckDecay(deck);
   const horizon = schedulingHorizon(deck, now);
   const total = cards.reduce(

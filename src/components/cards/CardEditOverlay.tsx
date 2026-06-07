@@ -74,6 +74,7 @@ export function CardEditOverlay({
       // but stop bubbling here too so nothing behind the overlay reacts to typing.
       onKeyDown={(e) => {
         e.stopPropagation();
+        e.nativeEvent.stopImmediatePropagation();
         if (e.key === 'Escape') {
           e.preventDefault();
           onCancel();

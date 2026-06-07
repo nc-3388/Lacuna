@@ -71,16 +71,20 @@ function cardToRow(
   ];
 }
 
+const CSV_WARNING = '# WARNING: This is a human-readable export, not a full backup. Re-importing will lose review history, image assets, and FSRS parameters. Use JSON backup for a complete snapshot.\n';
+
 export async function exportCardsCsv(): Promise<string> {
   const { deckMap, colourMap, cards } = await fetchDecksAndCards();
   const rows = [formatRow(EXPORT_HEADERS, ','), ...cards.map((c) => formatRow(cardToRow(c, deckMap, colourMap), ','))];
-  return rows.join('\r\n');
+  return CSV_WARNING + rows.join('\r\n');
 }
+
+const TSV_WARNING = '# WARNING: This is a human-readable export, not a full backup. Re-importing will lose review history, image assets, and FSRS parameters. Use JSON backup for a complete snapshot.\n';
 
 export async function exportCardsTsv(): Promise<string> {
   const { deckMap, colourMap, cards } = await fetchDecksAndCards();
   const rows = [formatRow(EXPORT_HEADERS, '\t'), ...cards.map((c) => formatRow(cardToRow(c, deckMap, colourMap), '\t'))];
-  return rows.join('\r\n');
+  return TSV_WARNING + rows.join('\r\n');
 }
 
 export async function exportCardsPlainText(): Promise<string> {

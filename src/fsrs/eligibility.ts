@@ -28,9 +28,11 @@ export function availableCards(cards: Card[], now: number = Date.now()): Card[] 
 /** How many brand-new cards a card-set has already introduced today (first review today). */
 export function newCardsIntroducedToday(cards: Card[], now: number = Date.now()): number {
   const today = startOfDay(now);
-  return cards.filter(
-    (c) => c.history.length > 0 && startOfDay(c.history[0].timestamp) === today,
-  ).length;
+  return cards.filter((c) => {
+    if (c.history.length === 0) return false;
+    const firstReview = c.history.reduce((min, h) => Math.min(min, h.timestamp), Infinity);
+    return firstReview !== Infinity && startOfDay(firstReview) === today;
+  }).length;
 }
 
 /**
@@ -44,8 +46,8 @@ export function studyPool(cards: Card[], deck: Deck, now: number = Date.now()): 
   // still counted in progress/objective denominators (which use availableCards).
   if (deck.archived) return [];
   const available = availableCards(cards, now);
-  const cap = deck.newCardsPerDay;
-  if (!cap || cap <= 0) return available; // unlimited
+  const cap = Math.floor(deck.newCardsPerDay ?? 0);
+  if (cap <= 0) return available; // unlimited
 
   const budget = Math.max(cap - newCardsIntroducedToday(available, now), 0);
   const newAllowed = new Set(

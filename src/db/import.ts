@@ -126,10 +126,10 @@ export function parseImport(
     const tags = tagField ? tagField.split(/\s+/).filter(Boolean) : [];
     const withTags = tags.length > 0 ? { tags } : {};
 
-    if (back) {
+    if (hasCloze(front)) {
+      cards.push({ type: 'cloze', front, back: back || '', ...withTags });
+    } else if (back) {
       cards.push({ type: 'front_back', front, back, ...withTags });
-    } else if (hasCloze(front)) {
-      cards.push({ type: 'cloze', front, back: '', ...withTags });
     } else {
       // A single column with no cloze has no answer side; nothing to study.
       skipped++;

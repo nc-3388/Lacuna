@@ -116,32 +116,72 @@ export function useDeckSummaries(): Record<string, DeckSummary> | undefined {
       db.decks.toArray(),
       db.cards.toArray(),
     ]);
-    const deckById = new Map(decks.map((d) => [d.id, d]));
-    const byDeck: Record<string, Card[]> = {};
-    for (const card of cards) (byDeck[card.deckId] ??= []).push(card);
+    return computeDeckSummaries(decks, cards);
+  }, []);
+}
 
-    const summaries: Record<string, DeckSummary> = {};
-    for (const deck of decks) {
-      const deckCards = byDeck[deck.id] ?? [];
-      // Suspended/buried cards are excluded entirely from the objective denominator.
-      const available = availableCards(deckCards);
-      summaries[deck.id] = {
-        count: deckCards.length,
-        mastery: progressValue(available, deck),
-        unreviewed: available.filter((c) => c.lastReviewed === null).length,
-        eligible: studyPool(deckCards, deck).length,
-      };
+/** Pure computation behind useDeckSummaries so it can be reused by combined hooks. */
+export function computeDeckSummaries(
+  decks: Deck[],
+  cards: Card[],
+): Record<string, DeckSummary> {
+  const deckById = new Map(decks.map((d) => [d.id, d]));
+  const byDeck: Record<string, Card[]> = {};
+  for (const card of cards) (byDeck[card.deckId] ??= []).push(card);
+
+  const summaries: Record<string, DeckSummary> = {};
+  for (const deck of decks) {
+    const deckCards = byDeck[deck.id] ?? [];
+    // Suspended/buried cards are excluded entirely from the objective denominator.
+    const available = availableCards(deckCards);
+    summaries[deck.id] = {
+      count: deckCards.length,
+      mastery: progressValue(available, deck),
+      unreviewed: available.filter((c) => c.lastReviewed === null).length,
+      eligible: studyPool(deckCards, deck).length,
+    };
+  }
+  // Skip orphaned card sets whose deck was removed mid-transaction.
+  for (const [deckId, deckCards] of Object.entries(byDeck)) {
+    if (!deckById.has(deckId)) continue;
+    summaries[deckId] ??= {
+      count: deckCards.length,
+      mastery: 0,
+      unreviewed: deckCards.length,
+      eligible: 0,
+    };
+  }
+  return summaries;
+}
+
+/**
+ * Single aggregated live query for the Dashboard. Returns decks, all cards,
+ * per-deck summaries and global study stats in one reactive read so a shared
+ * transaction (e.g. a review that touches cards + performance) triggers only one
+ * re-render instead of four.
+ */
+export function useDashboardData():
+  | {
+      decks: Deck[];
+      allCards: Card[];
+      summaries: Record<string, DeckSummary>;
+      stats: StudyStats;
     }
-    // Account for any orphaned card sets whose deck was removed mid-transaction.
-    for (const [deckId, deckCards] of Object.entries(byDeck)) {
-      if (!deckById.has(deckId)) continue;
-      summaries[deckId] ??= {
-        count: deckCards.length,
-        mastery: 0,
-        unreviewed: deckCards.length,
-        eligible: 0,
-      };
+  | undefined {
+  return useLiveQuery(async () => {
+    const [decks, cards, perf] = await Promise.all([
+      db.decks.toArray(),
+      db.cards.toArray(),
+      db.userPerformance.toArray(),
+    ]);
+    const summaries = computeDeckSummaries(decks, cards);
+    const deckSeconds = new Map<string, number>();
+    for (const p of perf) {
+      if (p.totalCorrectReviews > 0 && p.runningMeanResponseTime > 0) {
+        deckSeconds.set(p.deckId, p.runningMeanResponseTime);
+      }
     }
-    return summaries;
+    const stats = computeStudyStats(cards, deckSeconds);
+    return { decks, allCards: cards, summaries, stats };
   }, []);
 }

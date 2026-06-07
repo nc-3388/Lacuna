@@ -4,7 +4,6 @@
 // user expects from an Anki-style heatmap.
 
 import { startOfDay } from '../utils/datetime';
-import { MS_PER_DAY } from './params';
 import type { Card } from '../db/types';
 
 export interface HeatmapDay {
@@ -31,6 +30,13 @@ export function bucketReviewsByDay(timestamps: number[]): Map<number, number> {
   return buckets;
 }
 
+/** DST-safe helper: add/subtract days from a local-midnight epoch. */
+function addDays(dayStart: number, days: number): number {
+  const d = new Date(dayStart);
+  d.setDate(d.getDate() + days);
+  return startOfDay(d.getTime());
+}
+
 /**
  * A contiguous run of daily buckets ending today (oldest first), so the calendar
  * always shows the recent window even on days with no reviews.
@@ -44,7 +50,7 @@ export function reviewHeatmap(
   const today = startOfDay(now);
   const out: HeatmapDay[] = [];
   for (let i = days - 1; i >= 0; i -= 1) {
-    const day = today - i * MS_PER_DAY;
+    const day = addDays(today, -i);
     out.push({ day, count: buckets.get(day) ?? 0 });
   }
   return out;

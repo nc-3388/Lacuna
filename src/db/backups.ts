@@ -65,7 +65,7 @@ export async function mirrorToFolder(payload: BackupFile): Promise<void> {
   const handle = await getFolderHandle();
   if (!handle) return;
   if (!(await ensurePermission(handle))) return;
-  const stamp = new Date(payload.exportedAt).toISOString().slice(0, 10);
+  const stamp = new Date(payload.exportedAt).toISOString().slice(0, 19).replace(/:/g, '-');
   const fileHandle = await handle.getFileHandle(`lacuna-backup-${stamp}.json`, {
     create: true,
   });
@@ -74,8 +74,21 @@ export async function mirrorToFolder(payload: BackupFile): Promise<void> {
   await writable.close();
 }
 
-/** Capture a full snapshot as a restore point, prune to the cap, and mirror if configured. */
-export async function takeAutoBackup(): Promise<void> {
+let lastBackupAt = 0;
+const MIN_BACKUP_INTERVAL = 5 * 60 * 1000; // 5 minutes
+
+/** Reset the backup throttle so tests can call `takeAutoBackup` repeatedly. */
+export function __resetBackupThrottleForTests(): void {
+  lastBackupAt = 0;
+}
+
+/** Capture a full snapshot as a restore point, prune to the cap, and mirror if configured.
+ *  Calls within the 5-minute throttle window are silently skipped so rapid mutations
+ *  do not produce N backups per session. Pass `force: true` to bypass the throttle. */
+export async function takeAutoBackup(force = false): Promise<void> {
+  if (!force && Date.now() - lastBackupAt < MIN_BACKUP_INTERVAL) return;
+  lastBackupAt = Date.now();
+
   const payload = await exportDatabase();
   const snapshot: BackupSnapshot = {
     createdAt: payload.exportedAt,
@@ -88,14 +101,17 @@ export async function takeAutoBackup(): Promise<void> {
   // Keep only the most recent restore points. Pre-migration snapshots are exempt:
   // they are the safety net for a botched upgrade and must not be pruned away.
   const all = await db.backups.orderBy('createdAt').toArray();
-  const prunable = all.filter((s) => s.tag !== 'pre-migration');
+  const prunable = all.filter((s) => (s.tag ?? '') !== 'pre-migration');
   if (prunable.length > MAX_RESTORE_POINTS) {
     const excess = prunable.slice(0, prunable.length - MAX_RESTORE_POINTS);
     await db.backups.bulkDelete(excess.map((s) => s.id!));
   }
 
   // Best-effort folder mirror; never let it break the backup itself.
-  await mirrorToFolder(payload).catch(() => {});
+  await mirrorToFolder(payload).catch((e: unknown) => {
+    // eslint-disable-next-line no-console
+    console.warn('Folder mirror failed:', e);
+  });
 }
 
 /** Take a backup only if the newest restore point is older than 24 hours. */

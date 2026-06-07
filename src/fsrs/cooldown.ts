@@ -62,6 +62,9 @@ export function selectNextCard(
 /**
  * Decrement every other card's cooldown by one after `reviewedCardId` is reviewed.
  * The reviewed card keeps whatever cooldown was just assigned to it (if any).
+ *
+ * Note: cooldowns are session-scoped, so this naturally applies across every deck
+ * in a multi-deck session, matching SPEC §10.
  */
 export function decrementCooldowns(cooldowns: CooldownMap, reviewedCardId: string): void {
   for (const [id, value] of cooldowns) {

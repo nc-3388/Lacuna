@@ -23,6 +23,7 @@ import {
 } from './forwardSim';
 import { averagePredictedRetrievability, masteryFraction } from './progress';
 import { schedulingHorizon } from './horizon';
+import { availableCards } from './eligibility';
 import { MASTERY_R } from './params';
 import type { Card, Deck, ExamObjective } from '../db/types';
 
@@ -57,9 +58,10 @@ export function progressValue(
   deck: Deck,
   now: number = Date.now(),
 ): number {
+  const available = availableCards(cards, now);
   return deck.examObjective === 'securedTopics'
-    ? masteryFraction(cards, deck, now)
-    : averagePredictedRetrievability(cards, deck, now);
+    ? masteryFraction(available, deck, now)
+    : averagePredictedRetrievability(available, deck, now);
 }
 
 /** A short noun for compact headers, e.g. "62% predicted score" / "62% secured". */

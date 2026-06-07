@@ -27,6 +27,7 @@ import {
   UploadIcon,
 } from '../ui/icons';
 import { cn } from '../ui/cn';
+import { useMotionSpeed, speedMultiplier } from '../../state/motionSpeed';
 import type { ParsedCard } from '../../db/import';
 import type { Card, Deck } from '../../db/types';
 
@@ -47,6 +48,8 @@ export function CardList({ cards, deck, allDecks, onNewCard, onEditCard }: CardL
   const [tagging, setTagging] = useState(false);
   const [tagValue, setTagValue] = useState('');
   const [importing, setImporting] = useState(false);
+  const [motionSpeed] = useMotionSpeed();
+  const m = speedMultiplier(motionSpeed);
 
 
   const otherDecks = useMemo(
@@ -66,6 +69,13 @@ export function CardList({ cards, deck, allDecks, onNewCard, onEditCard }: CardL
       const next = new Set(prev);
       next.has(id) ? next.delete(id) : next.add(id);
       return next;
+    });
+  }
+
+  function toggleAll() {
+    setSelected((prev) => {
+      if (cards.length > 0 && cards.every((c) => prev.has(c.id))) return new Set();
+      return new Set(cards.map((c) => c.id));
     });
   }
 
@@ -153,9 +163,15 @@ export function CardList({ cards, deck, allDecks, onNewCard, onEditCard }: CardL
   async function handleMove() {
     if (!moveTarget) return;
     const ids = [...selected];
+    const snapshot = await snapshotCards(ids);
     await moveCards(ids, moveTarget);
     exitSelect();
-    notify(`${ids.length} card${ids.length === 1 ? '' : 's'} moved.`, 'positive');
+    notify(`${ids.length} card${ids.length === 1 ? '' : 's'} moved.`, 'neutral', {
+      actionLabel: 'Undo',
+      onAction: () => {
+        void restoreCards(snapshot);
+      },
+    });
   }
 
   async function handleImport(cards: ParsedCard[]) {
@@ -239,7 +255,7 @@ export function CardList({ cards, deck, allDecks, onNewCard, onEditCard }: CardL
             initial={{ opacity: 0, height: 0, marginBottom: 0 }}
             animate={{ opacity: 1, height: 'auto', marginBottom: 16 }}
             exit={{ opacity: 0, height: 0, marginBottom: 0 }}
-            transition={{ duration: 0.12, ease: [0.16, 1, 0.3, 1] }}
+            transition={{ duration: 0.12 * m, ease: [0.16, 1, 0.3, 1] }}
             className="overflow-hidden"
           >
             <div className="rounded-2xl border border-line-strong bg-surface p-5">
@@ -257,7 +273,27 @@ export function CardList({ cards, deck, allDecks, onNewCard, onEditCard }: CardL
       {selectMode && (
         <div className="mb-4 rounded-xl border border-line-strong bg-surface px-4 py-2.5">
           <div className="flex flex-wrap items-center gap-3">
-            <span className="text-sm text-ink-soft">{selected.size} selected</span>
+            <button
+              type="button"
+              onClick={toggleAll}
+              aria-pressed={cards.length > 0 && cards.every((c) => selected.has(c.id))}
+              className="flex items-center gap-2 text-sm text-ink-soft transition-colors hover:text-ink"
+            >
+              <span
+                className={cn(
+                  'grid h-5 w-5 place-items-center rounded-full border transition-colors',
+                  cards.length > 0 && cards.every((c) => selected.has(c.id))
+                    ? 'border-accent bg-accent text-accent-fg'
+                    : 'border-line-strong',
+                )}
+              >
+                {cards.length > 0 && cards.every((c) => selected.has(c.id)) && (
+                  <CheckIcon width={12} height={12} />
+                )}
+              </span>
+              {cards.length > 0 && cards.every((c) => selected.has(c.id)) ? 'Deselect all' : 'Select all'}
+            </button>
+            <span className="text-sm text-ink-faint">{selected.size} selected</span>
             <div className="ml-auto flex flex-wrap gap-2">
               <Button
                 size="sm"
@@ -309,7 +345,7 @@ export function CardList({ cards, deck, allDecks, onNewCard, onEditCard }: CardL
                 initial={{ opacity: 0, height: 0, marginTop: 0 }}
                 animate={{ opacity: 1, height: 'auto', marginTop: 12 }}
                 exit={{ opacity: 0, height: 0, marginTop: 0 }}
-                transition={{ duration: 0.12, ease: [0.16, 1, 0.3, 1] }}
+                transition={{ duration: 0.12 * m, ease: [0.16, 1, 0.3, 1] }}
                 className="overflow-hidden"
               >
                 <div className="border-t border-line pt-3">
@@ -367,7 +403,7 @@ export function CardList({ cards, deck, allDecks, onNewCard, onEditCard }: CardL
                 initial={{ opacity: 0, height: 0, marginTop: 0 }}
                 animate={{ opacity: 1, height: 'auto', marginTop: 12 }}
                 exit={{ opacity: 0, height: 0, marginTop: 0 }}
-                transition={{ duration: 0.12, ease: [0.16, 1, 0.3, 1] }}
+                transition={{ duration: 0.12 * m, ease: [0.16, 1, 0.3, 1] }}
                 className="overflow-hidden"
               >
                 <div className="border-t border-line pt-3">
@@ -427,6 +463,7 @@ export function CardList({ cards, deck, allDecks, onNewCard, onEditCard }: CardL
               onResume={() => handleResume(card)}
               onDelete={() => handleDeleteOne(card.id)}
               onToggleFlag={() => handleToggleFlag(card)}
+              motionMultiplier={m}
             />
           ))}
         </div>
@@ -445,6 +482,7 @@ function CardRow({
   onResume,
   onDelete,
   onToggleFlag,
+  motionMultiplier,
 }: {
   card: Card;
   index: number;
@@ -455,9 +493,11 @@ function CardRow({
   onResume: () => void;
   onDelete: () => void;
   onToggleFlag: () => void;
+  motionMultiplier?: number;
 }) {
   const [revealed, setRevealed] = useState(false);
   const [hovered, setHovered] = useState(false);
+  const m = motionMultiplier ?? 1;
   const showBack = revealed || hovered;
 
   const reviewed = card.lastReviewed !== null;
@@ -478,7 +518,7 @@ function CardRow({
     <motion.div
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.16, delay: Math.min(index * 0.03, 0.25) }}
+      transition={{ duration: 0.16 * m, delay: Math.min(index * 0.03, 0.25) * m }}
       onClick={handleClick}
       onMouseEnter={() => !selectMode && setHovered(true)}
       onMouseLeave={() => !selectMode && setHovered(false)}
@@ -545,7 +585,7 @@ function CardRow({
               initial={{ opacity: 0, y: 4 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -4 }}
-              transition={{ duration: 0.12 }}
+              transition={{ duration: 0.12 * m }}
             >
               <CardContent card={card} side={showBack ? 'back' : 'front'} />
             </motion.div>

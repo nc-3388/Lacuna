@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { motion } from 'motion/react';
 import { createHashRouter, RouterProvider } from 'react-router-dom';
 import { ThemeProvider } from './state/ThemeContext';
@@ -17,6 +17,7 @@ import { autoBackupIfStale } from './db/backups';
 import { ensurePreMigrationSnapshot } from './db/schema';
 import { requestPersistentStorage } from './db/persistence';
 import { revokeAllCachedUrls } from './db/assetCache';
+import { getMotionMultiplier } from './state/motionSpeed';
 
 // Heavier routes (Recharts, KaTeX, the markdown editor) are split into their own
 // chunks so the dashboard loads quickly. Settings is intentionally eager: it is tiny
@@ -111,8 +112,12 @@ const router = createHashRouter([
 
 export function App() {
   const [ready, setReady] = useState(false);
+  const initStarted = useRef(false);
 
   useEffect(() => {
+    if (initStarted.current) return;
+    initStarted.current = true;
+
     (async () => {
       try {
         // Detect any pending schema upgrade and capture a committed snapshot before
@@ -157,6 +162,7 @@ export function App() {
   }, []);
 
   if (!ready) {
+    const m = getMotionMultiplier();
     return (
       <div className="grid h-screen place-items-center text-ink">
         <motion.span
@@ -164,9 +170,9 @@ export function App() {
           initial={{ opacity: 0, y: 8, scale: 0.96 }}
           animate={{ opacity: [0, 1, 1, 0.6, 1], y: 0, scale: 1 }}
           transition={{
-            opacity: { duration: 1.6, repeat: Infinity, ease: 'easeInOut' },
-            y: { duration: 0.4, ease: [0.16, 1, 0.3, 1] },
-            scale: { duration: 0.4, ease: [0.16, 1, 0.3, 1] },
+            opacity: { duration: 1.6 * m, repeat: Infinity, ease: 'easeInOut' },
+            y: { duration: 0.4 * m, ease: [0.16, 1, 0.3, 1] },
+            scale: { duration: 0.4 * m, ease: [0.16, 1, 0.3, 1] },
           }}
         >
           Lacuna
