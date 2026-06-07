@@ -1,5 +1,6 @@
 import { app, BrowserWindow, session, ipcMain, protocol, net } from 'electron';
 import path from 'node:path';
+import fs from 'node:fs';
 
 const isDev = !app.isPackaged;
 const VITE_DEV_URL = 'http://localhost:5173';
@@ -49,10 +50,13 @@ function createWindow(): void {
 
   // Inject local font-face overrides so the app works fully offline.
   mainWindow.webContents.on('did-finish-load', () => {
-    const fontsCssPath = path.join(__dirname, 'fonts.css');
-    mainWindow?.webContents.insertCSS(`
-      @import url('file:///${fontsCssPath.replace(/\\/g, '/')}');
-    `);
+    try {
+      const fontsCssPath = path.join(__dirname, 'fonts.css');
+      const css = fs.readFileSync(fontsCssPath, 'utf-8');
+      void mainWindow?.webContents.insertCSS(css);
+    } catch {
+      // fonts.css may not exist in dev mode; this is fine.
+    }
   });
 
   mainWindow.on('closed', () => {
