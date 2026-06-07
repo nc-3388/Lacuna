@@ -10,6 +10,11 @@ const MULTIPLIERS: Record<MotionSpeed, number> = {
   fast: 0.6,
 };
 
+function prefersReducedMotion(): boolean {
+  if (typeof window === 'undefined') return false;
+  return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+}
+
 export function readMotionSpeed(): MotionSpeed {
   const raw = localStorage.getItem(KEY) as MotionSpeed | null;
   return raw === 'slow' || raw === 'fast' ? raw : 'normal';
@@ -23,6 +28,7 @@ export function writeMotionSpeed(speed: MotionSpeed): void {
 }
 
 export function speedMultiplier(speed?: MotionSpeed): number {
+  if (prefersReducedMotion()) return 0;
   return MULTIPLIERS[speed ?? readMotionSpeed()];
 }
 
@@ -40,14 +46,23 @@ export function useMotionSpeed(): [
   (speed: MotionSpeed) => void,
 ] {
   const [speed, setSpeed] = useState<MotionSpeed>(() => readMotionSpeed());
+  // Force re-render when the OS-level motion preference changes so that
+  // components recompute their speedMultiplier() on the next render.
+  const [, setMotionPref] = useState(false);
 
   useEffect(() => {
     const onChange = () => setSpeed(readMotionSpeed());
     window.addEventListener('storage', onChange);
     window.addEventListener('lacuna:motion-speed', onChange);
+
+    const mql = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const onPref = (e: MediaQueryListEvent) => setMotionPref(e.matches);
+    mql.addEventListener('change', onPref);
+
     return () => {
       window.removeEventListener('storage', onChange);
       window.removeEventListener('lacuna:motion-speed', onChange);
+      mql.removeEventListener('change', onPref);
     };
   }, []);
 
