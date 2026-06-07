@@ -6,6 +6,7 @@ files:
   - dist/**/*
   - electron/dist-electron/**/*
   - electron/assets/**/*
+  - electron/fonts.css
 win:
   target:
     - target: nsis

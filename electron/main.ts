@@ -1,6 +1,7 @@
 import { app, BrowserWindow, session, ipcMain, protocol, net } from 'electron';
 import path from 'node:path';
 import fs from 'node:fs';
+import { initAutoUpdater } from './updater.js';
 
 const isDev = !app.isPackaged;
 const VITE_DEV_URL = 'http://localhost:5173';
@@ -106,6 +107,10 @@ if (!gotTheLock) {
 
     registerWindowControls();
     createWindow();
+
+    if (!isDev) {
+      initAutoUpdater(mainWindow);
+    }
   });
 }
 
