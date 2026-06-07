@@ -13,6 +13,8 @@ const crossOriginIsolationHeaders = {
 export default defineConfig({
   plugins: [react(), tailwindcss()],
   server: {
+    port: 5173,
+    strictPort: true,
     headers: crossOriginIsolationHeaders,
   },
   preview: {
@@ -50,6 +52,7 @@ export default defineConfig({
   worker: {
     format: 'es',
   },
+  base: './',
   build: {
     rollupOptions: {
       output: {
