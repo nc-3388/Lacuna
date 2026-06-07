@@ -4,3 +4,7 @@ dist/
 .vite/
 .DS_Store
 .npmrc
+
+# Electron
+/release/
+electron/dist-electron/
