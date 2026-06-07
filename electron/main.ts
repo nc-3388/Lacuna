@@ -47,6 +47,14 @@ function createWindow(): void {
     mainWindow?.show();
   });
 
+  // Inject local font-face overrides so the app works fully offline.
+  mainWindow.webContents.on('did-finish-load', () => {
+    const fontsCssPath = path.join(__dirname, 'fonts.css');
+    mainWindow?.webContents.insertCSS(`
+      @import url('file:///${fontsCssPath.replace(/\\/g, '/')}');
+    `);
+  });
+
   mainWindow.on('closed', () => {
     mainWindow = null;
   });
