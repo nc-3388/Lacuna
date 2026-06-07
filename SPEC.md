@@ -881,3 +881,37 @@ with Relaxed/Balanced/Thorough presets and adaptive guidance copy).
 
 Single-key shortcuts are inert while a text field is focused. The `?` overlay can also be
 opened from the "Keyboard shortcuts" item in the Learn mode 3-dot action menu.
+
+---
+
+## 19. Electron desktop build
+
+Lacuna can be packaged as a standalone Windows desktop application via Electron.
+The Electron layer lives in `electron/` and wraps the existing Vite SPA without
+modifying the renderer source.
+
+### Architecture
+- **Main process** (`electron/main.ts`): creates a frameless `BrowserWindow`, injects
+  Cross-Origin Isolation headers (COOP/COEP) required by the FSRS WASM trainer,
+  registers a custom `app://` protocol for production builds, and manages window
+  lifecycle (single-instance lock, close/minimise/maximise).
+- **Preload** (`electron/preload.ts`): exposes a minimal `electronAPI` via
+  `contextBridge` for platform detection and window controls.
+- **Titlebar** (`src/components/layout/Titlebar.tsx`): a custom React component that
+  renders window controls (minimise, maximise/restore, close) when running inside
+  Electron. Only mounts when `window.electronAPI.isElectron` is truthy, so the web
+  version is completely unaffected.
+- **Fonts** (`electron/assets/fonts/`): Fraunces, Geist and JetBrains Mono bundled as
+  local TTF variable fonts. The main process injects `electron/fonts.css` via
+  `webContents.insertCSS` so the app works fully offline.
+- **Auto-updater** (`electron/updater.ts`): uses `electron-updater` with GitHub
+  Releases; checks for updates shortly after launch and notifies the renderer.
+
+### Scripts
+- `npm run electron:dev` — runs Vite dev server and Electron in parallel.
+- `npm run electron:build:win` — compiles the Electron TypeScript, builds the Vite
+  SPA with `--base ./`, and packages via electron-builder (NSIS installer).
+
+### Build output
+Packaged files land in `release/` (gitignored). The electron-builder configuration
+is at `electron/electron-builder.yml`.
