@@ -47,6 +47,9 @@ export default defineConfig({
       'ts-fsrs',
     ],
   },
+  worker: {
+    format: 'es',
+  },
   build: {
     rollupOptions: {
       output: {
