@@ -19,6 +19,7 @@ import {
   type Grade as TsGrade,
 } from 'ts-fsrs';
 import type { Card, FsrsCardState, FsrsParameters, Grade } from '../db/types';
+import { MS_PER_DAY } from './params';
 
 export type { FSRS } from 'ts-fsrs';
 
@@ -53,7 +54,7 @@ export function toTsCard(card: Card, now: number): TsCard {
     due: new Date(card.due ?? card.lastReviewed),
     stability,
     difficulty,
-    elapsed_days: 0,
+    elapsed_days: Math.max(0, Math.floor((now - card.lastReviewed) / MS_PER_DAY)),
     scheduled_days: card.scheduledDays,
     learning_steps: card.learningSteps,
     reps: card.reps,
