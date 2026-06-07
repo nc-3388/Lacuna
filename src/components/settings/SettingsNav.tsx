@@ -72,7 +72,8 @@ function computePullScale(
   const dist = Math.hypot(mouseX - itemCx, mouseY - itemCy);
   if (dist >= radius) return 1;
   const t = dist / radius; // 0 at cursor, 1 at edge
-  const eased = 1 - t * t; // quadratic falloff for smooth feel
+  // Exponential falloff: the closest pill expands dramatically more than neighbours
+  const eased = Math.exp(-3.5 * t);
   return 1 + (maxScale - 1) * eased;
 }
 
@@ -231,10 +232,9 @@ export function SettingsNav({ sections }: SettingsNavProps) {
         aria-label="Settings sections"
       >
         <motion.div
-          className="flex flex-col items-center gap-1.5 border border-line bg-surface/90 p-2 shadow-lg backdrop-blur-md"
+          className="flex flex-col items-center gap-1.5 rounded-full border border-line bg-surface/90 p-2 shadow-lg backdrop-blur-md"
           animate={{
-            width: expanded ? 152 : 32,
-            borderRadius: expanded ? 20 : 9999,
+            width: expanded ? 160 : 32,
           }}
           transition={
             reducedMotion ? { duration: 0 } : { type: 'spring', ...springConfig }
@@ -250,6 +250,7 @@ export function SettingsNav({ sections }: SettingsNavProps) {
               mouseX={mouseX}
               mouseY={mouseY}
               reducedMotion={reducedMotion}
+              springConfig={springConfig}
               m={m}
               onClick={() => handleClick(section.id)}
             />
@@ -325,6 +326,7 @@ function NavItem({
   mouseX,
   mouseY,
   reducedMotion,
+  springConfig,
   m,
   onClick,
 }: {
@@ -335,14 +337,17 @@ function NavItem({
   mouseX: MotionValue<number>;
   mouseY: MotionValue<number>;
   reducedMotion: boolean;
+  springConfig: { stiffness: number; damping: number };
   m: number;
   onClick: () => void;
 }) {
   const ref = useRef<HTMLButtonElement>(null);
   const scaleMotion = useMotionValue(1);
+  // Use the exact same spring as the dimension animations so scale
+  // never drifts out of sync with width / height.
   const smoothScale = useSpring(scaleMotion, {
-    stiffness: reducedMotion ? 10000 : 550 / m,
-    damping: reducedMotion ? 100 : 30 * m,
+    stiffness: springConfig.stiffness,
+    damping: springConfig.damping,
   });
 
   useEffect(() => {
@@ -355,7 +360,7 @@ function NavItem({
         scaleMotion.set(1);
         return;
       }
-      const s = computePullScale(x, y, rect, 1.15, 110);
+      const s = computePullScale(x, y, rect, 1.5, 130);
       scaleMotion.set(s);
     }
 
@@ -375,15 +380,14 @@ function NavItem({
       id={`settings-nav-${section.id}`}
       type="button"
       onClick={onClick}
-      style={{ scale: smoothScale }}
       className={cn(
-        'relative flex cursor-pointer items-center justify-center overflow-hidden outline-none transition-colors duration-200',
+        'group relative flex cursor-pointer items-center justify-center outline-none transition-colors duration-200',
         expanded
           ? 'h-8 w-full rounded-full px-3 text-xs font-medium'
           : 'h-2 w-2 rounded-full',
         isActive
-          ? 'bg-accent/60 text-accent'
-          : 'bg-accent/15 text-ink-soft hover:bg-accent-soft hover:text-accent',
+          ? 'text-accent'
+          : 'text-ink-soft hover:text-accent',
         isFocused && 'z-10',
       )}
       animate={{
@@ -394,13 +398,29 @@ function NavItem({
       transition={
         reducedMotion
           ? { duration: 0 }
-          : { type: 'spring', stiffness: 380 / m, damping: 32 * m }
+          : { type: 'spring', ...springConfig }
       }
       aria-current={isActive ? 'true' : undefined}
       tabIndex={-1}
     >
+      {/* Background pill – only this element gravitate-scales,
+          keeping text crisp and the container bounds clean. */}
+      <motion.div
+        className={cn(
+          'absolute inset-0 rounded-full transition-colors duration-200',
+          isActive
+            ? 'bg-accent/60'
+            : 'bg-accent/15 group-hover:bg-accent-soft',
+        )}
+        style={{ scale: smoothScale }}
+        transition={
+          reducedMotion
+            ? { duration: 0 }
+            : { type: 'spring', ...springConfig }
+        }
+      />
       <motion.span
-        className="whitespace-nowrap"
+        className="relative z-10 whitespace-nowrap"
         aria-hidden={!expanded}
         animate={{ opacity: expanded ? 1 : 0 }}
         transition={{ duration: reducedMotion ? 0 : 0.14 * m }}

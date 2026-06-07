@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
-import { SettingsNav } from '../components/settings/SettingsNav';
 import { useMotionSpeed, speedMultiplier, type MotionSpeed } from '../state/motionSpeed';
 import { useTheme, type Theme } from '../state/ThemeContext';
 import { ACCENTS, useAccent } from '../state/AccentContext';
@@ -54,16 +53,6 @@ import {
   formatBinding,
   type LearnAction,
 } from '../state/shortcutBindings';
-
-const SETTINGS_SECTIONS = [
-  { id: 'settings-appearance', label: 'Appearance' },
-  { id: 'settings-dashboard', label: 'Dashboard' },
-  { id: 'settings-study', label: 'Study' },
-  { id: 'settings-shortcuts', label: 'Shortcuts' },
-  { id: 'settings-pomodoro', label: 'Timer' },
-  { id: 'settings-export', label: 'Export' },
-  { id: 'settings-backups', label: 'Backups' },
-];
 
 export function Settings() {
   const [motionSpeed, setMotionSpeed] = useMotionSpeed();
@@ -207,7 +196,6 @@ export function Settings() {
 
   return (
     <div className="mx-auto max-w-2xl px-6 pb-10 pt-12 md:px-10 md:py-10">
-      <SettingsNav sections={SETTINGS_SECTIONS} />
       <header className="mb-10">
         <p className="mb-1 text-sm uppercase tracking-[0.18em] text-ink-faint">
           Preferences
