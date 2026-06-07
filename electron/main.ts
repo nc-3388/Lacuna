@@ -23,7 +23,7 @@ function installCrossOriginIsolation(): void {
 /** Register the app:// custom protocol for serving production assets. */
 function registerAppProtocol(): void {
   protocol.handle('app', (request) => {
-    const filePath = path.join(__dirname, '..', 'dist', request.url.slice('app://'.length));
+    const filePath = path.join(app.getAppPath(), 'dist', request.url.slice('app://'.length));
     return net.fetch(`file://${filePath}`);
   });
 }
@@ -52,8 +52,14 @@ function createWindow(): void {
   // Inject local font-face overrides so the app works fully offline.
   mainWindow.webContents.on('did-finish-load', () => {
     try {
-      const fontsCssPath = path.join(__dirname, 'fonts.css');
-      const css = fs.readFileSync(fontsCssPath, 'utf-8');
+      const baseDir = isDev ? path.join(__dirname, '..') : __dirname;
+      const fontsCssPath = path.join(baseDir, 'fonts.css');
+      let css = fs.readFileSync(fontsCssPath, 'utf-8');
+      if (isDev) {
+        // In dev mode, rewrite relative paths to absolute file:// URLs.
+        const assetsDir = path.join(baseDir, 'assets', 'fonts').replace(/\\/g, '/');
+        css = css.replace(/url\('..\/assets\/fonts\//g, `url('file:///${assetsDir}/`);
+      }
       void mainWindow?.webContents.insertCSS(css);
     } catch {
       // fonts.css may not exist in dev mode; this is fine.
