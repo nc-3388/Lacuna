@@ -15,10 +15,11 @@ win:
   icon: electron/assets/icon.ico
 nsis:
   oneClick: false
+  perMachine: false
   allowToChangeInstallationDirectory: true
   createDesktopShortcut: true
   createStartMenuShortcut: true
 publish:
   provider: github
-  owner: placeholder
+  owner: TJ7755
   repo: lacuna
