@@ -137,7 +137,7 @@ async function pipeThrough(
 const canCompress = typeof CompressionStream !== 'undefined';
 const canDecompress = typeof DecompressionStream !== 'undefined';
 
-async function encodeShareDirect(payload: SharePayload): Promise<string> {
+export async function encodeShareDirect(payload: SharePayload): Promise<string> {
   const bytes = new TextEncoder().encode(JSON.stringify(payload));
   if (canCompress) {
     const deflated = await pipeThrough(bytes, new CompressionStream('deflate-raw'));
@@ -146,7 +146,7 @@ async function encodeShareDirect(payload: SharePayload): Promise<string> {
   return PREFIX_PLAIN + bytesToBase64(bytes);
 }
 
-async function decodeShareDirect(code: string): Promise<SharePayload> {
+export async function decodeShareDirect(code: string): Promise<SharePayload> {
   const trimmed = code.trim().replace(/\s+/g, '');
   let bytes: Uint8Array;
   if (trimmed.startsWith(PREFIX_COMPRESSED)) {
@@ -211,7 +211,13 @@ function runShareWorker<T>(
   return new Promise((resolve, reject) => {
     const id = ++shareJobId;
     const w = getShareWorker();
-    const handler = (event: MessageEvent) => {
+
+    function cleanup() {
+      w.removeEventListener('message', messageHandler);
+      w.removeEventListener('error', errorHandler);
+    }
+
+    const messageHandler = (event: MessageEvent) => {
       const data = event.data as {
         type: string;
         result?: T;
@@ -219,14 +225,23 @@ function runShareWorker<T>(
         id?: number;
       };
       if (data.id !== id) return;
-      w.removeEventListener('message', handler);
+      cleanup();
       if (data.type === 'error') {
         reject(new Error(data.error ?? 'Share worker failed.'));
       } else {
         resolve(data.result as T);
       }
     };
-    w.addEventListener('message', handler);
+
+    const errorHandler = () => {
+      cleanup();
+      // Clear the cached worker so the next call creates a fresh one.
+      shareWorker = null;
+      reject(new Error('Share worker failed to load.'));
+    };
+
+    w.addEventListener('message', messageHandler);
+    w.addEventListener('error', errorHandler);
     w.postMessage({ ...message, id });
   });
 }
