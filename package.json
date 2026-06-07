@@ -14,7 +14,10 @@
     "test:watch": "vitest",
     "lint": "eslint src --ext .ts,.tsx",
     "lint:fix": "eslint src --ext .ts,.tsx --fix",
-    "format": "prettier --write \"src/**/*.{ts,tsx,json,css}\" \"*.cjs\" \".prettierrc\" \".eslintignore\""
+    "format": "prettier --write \"src/**/*.{ts,tsx,json,css}\" \"*.cjs\" \".prettierrc\" \".eslintignore\"",
+    "electron:dev": "tsc -p electron/tsconfig.json && concurrently \"vite\" \"wait-on http://localhost:5173 && electron .\"",
+    "electron:build": "tsc -p electron/tsconfig.json && vite build --mode production && electron-builder --config electron/electron-builder.yml",
+    "electron:build:win": "tsc -p electron/tsconfig.json && vite build --mode production && electron-builder --win --config electron/electron-builder.yml"
   },
   "dependencies": {
     "@napi-rs/wasm-runtime": "1.1.0",
