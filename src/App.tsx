@@ -139,8 +139,10 @@ export function App() {
 
         await seedIfFirstRun();
       } catch (error) {
-        // eslint-disable-next-line no-console
-        console.error('Failed to initialise Lacuna:', error);
+        if (import.meta.env.DEV) {
+          // eslint-disable-next-line no-console
+          console.error('Failed to initialise Lacuna:', error);
+        }
       } finally {
         setReady(true);
         // Take a daily restore point in the background; never blocks the UI.

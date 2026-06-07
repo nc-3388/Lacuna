@@ -353,7 +353,10 @@ function OptimisationPanel({ deck, cards }: { deck: Deck; cards: Card[] }) {
     try {
       await takeAutoBackup();
     } catch (e) {
-      console.warn('Auto-backup before applying weights failed:', e);
+      if (import.meta.env.DEV) {
+        // eslint-disable-next-line no-console
+        console.warn('Auto-backup before applying weights failed:', e);
+      }
       notify('Could not create a restore point before applying weights.', 'negative');
       return;
     }
@@ -368,7 +371,10 @@ function OptimisationPanel({ deck, cards }: { deck: Deck; cards: Card[] }) {
     try {
       await takeAutoBackup();
     } catch (e) {
-      console.warn('Auto-backup before resetting weights failed:', e);
+      if (import.meta.env.DEV) {
+        // eslint-disable-next-line no-console
+        console.warn('Auto-backup before resetting weights failed:', e);
+      }
       notify('Could not create a restore point before resetting weights.', 'negative');
       return;
     }

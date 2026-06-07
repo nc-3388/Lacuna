@@ -109,8 +109,10 @@ export async function takeAutoBackup(force = false): Promise<void> {
 
   // Best-effort folder mirror; never let it break the backup itself.
   await mirrorToFolder(payload).catch((e: unknown) => {
-    // eslint-disable-next-line no-console
-    console.warn('Folder mirror failed:', e);
+    if (import.meta.env.DEV) {
+      // eslint-disable-next-line no-console
+      console.warn('Folder mirror failed:', e);
+    }
   });
 }
 

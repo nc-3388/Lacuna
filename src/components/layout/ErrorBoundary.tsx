@@ -56,8 +56,10 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, info: ErrorInfo): void {
-    // Surface during development; data itself is safe in IndexedDB.
-    console.error('Lacuna error boundary caught an error:', error, info);
+    if (import.meta.env.DEV) {
+      // eslint-disable-next-line no-console
+      console.error('Lacuna error boundary caught an error:', error, info);
+    }
     this.setState({ componentStack: info.componentStack ?? null });
     // Gather non-sensitive counts for the diagnostic bundle (best-effort).
     gatherCounts()
