@@ -47,9 +47,30 @@ export function toDateTimeLocalValue(ms: number): string {
   )}:${pad(d.getMinutes())}`;
 }
 
-/** Parse a <input type="datetime-local"> value back to an epoch instant. */
+/**
+ * Parse a <input type="datetime-local"> value back to an epoch instant.
+ *
+ * We manually construct the Date from components rather than passing the raw
+ * string to the Date constructor, because browser behaviour for strings like
+ * "2026-06-07T23:59" is inconsistent (some parse as local time, some as UTC).
+ * This guarantees the value is always interpreted in the user's local timezone.
+ */
 export function fromDateTimeLocalValue(value: string): number {
-  return new Date(value).getTime();
+  const [datePart, timePart] = value.split('T');
+  if (!datePart || !timePart) return Number.NaN;
+
+  const [year, month, day] = datePart.split('-').map(Number);
+  const [hours, minutes] = timePart.split(':').slice(0, 2).map(Number);
+
+  if (
+    [year, month, day, hours, minutes].some((n) => Number.isNaN(n))
+  ) {
+    return Number.NaN;
+  }
+
+  // Use the constructor with explicit local-time components to avoid
+  // day-overflow issues that can happen when mutating an existing Date.
+  return new Date(year, month - 1, day, hours, minutes).getTime();
 }
 
 /** Start-of-day epoch for grouping (local midnight). */
