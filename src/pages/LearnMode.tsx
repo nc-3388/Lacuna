@@ -283,11 +283,20 @@ export function LearnMode() {
 
   const answer = useCallback(
     async (input: boolean | Grade) => {
-      if (phase !== 'answer' || !current || submitting.current) return;
+      // Acquire the guard first so no subsequent call can slip through while we
+      // validate phase / current / ctx. Clear it on every early-return path.
+      if (submitting.current) return;
+      submitting.current = true;
+      if (phase !== 'answer' || !current) {
+        submitting.current = false;
+        return;
+      }
       const ctx = ctxRef.current;
       const deck = decksRef.current.get(current.deckId);
-      if (!ctx || !deck) return;
-      submitting.current = true;
+      if (!ctx || !deck) {
+        submitting.current = false;
+        return;
+      }
       try {
         const manualGrade: Grade | null = typeof input === 'number' ? input : null;
       const correct: boolean = typeof input === 'number' ? input > 1 : input;
