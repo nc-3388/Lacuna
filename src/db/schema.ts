@@ -132,6 +132,62 @@ export const CURRENT_SCHEMA_VERSION = 4;
 
 export const db = new LacunaDatabase();
 
+/** Possible outcomes when trying to open the database. */
+export type DbOpenResult =
+  | { ok: true }
+  | { ok: false; reason: 'quota' | 'corrupt' | 'blocked' | 'unknown'; message: string };
+
+/**
+ * Explicitly open the database so that corruption or quota errors surface early,
+ * before any data operation runs. Dexie auto-opens on first query, which would
+ * surface the error somewhere deep in the component tree; calling open() here
+ * lets the UI show a clear failure screen instead.
+ */
+export async function openDatabase(): Promise<DbOpenResult> {
+  try {
+    await db.open();
+    return { ok: true };
+  } catch (err) {
+    if (err instanceof DOMException && err.name === 'QuotaExceededError') {
+      return {
+        ok: false,
+        reason: 'quota',
+        message:
+          'Your browser storage is full. Lacuna needs space to save your cards and progress. Free up disk space, or if you are in private browsing mode, switch to a normal window.',
+      };
+    }
+    if (err instanceof DOMException && err.name === 'VersionError') {
+      return {
+        ok: false,
+        reason: 'corrupt',
+        message:
+          'The local database appears to be from a newer version of Lacuna. Please refresh the page, or export a backup from the newer version and import it here.',
+      };
+    }
+    if (err instanceof DOMException && err.name === 'AbortError') {
+      return {
+        ok: false,
+        reason: 'corrupt',
+        message:
+          'The local database could not be opened — it may be corrupted. Try exporting your data from Settings if you can access it, then reset the app storage.',
+      };
+    }
+    if (err instanceof Error && err.message?.includes('blocked')) {
+      return {
+        ok: false,
+        reason: 'blocked',
+        message:
+          'Lacuna is already open in another tab or window. Close the other instance and try again.',
+      };
+    }
+    return {
+      ok: false,
+      reason: 'unknown',
+      message: `Failed to open the local database: ${err instanceof Error ? err.message : String(err)}`,
+    };
+  }
+}
+
 async function getCurrentDbVersion(name: string): Promise<number> {
   if ('databases' in indexedDB) {
     try {

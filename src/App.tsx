@@ -14,7 +14,7 @@ import { SharePage } from './pages/SharePage';
 import { Analytics } from './pages/Analytics';
 import { seedIfFirstRun } from './db/seed';
 import { autoBackupIfStale } from './db/backups';
-import { ensurePreMigrationSnapshot } from './db/schema';
+import { ensurePreMigrationSnapshot, openDatabase } from './db/schema';
 import { requestPersistentStorage } from './db/persistence';
 import { revokeAllCachedUrls } from './db/assetCache';
 import { getMotionMultiplier } from './state/motionSpeed';
@@ -112,6 +112,7 @@ const router = createHashRouter([
 
 export function App() {
   const [ready, setReady] = useState(false);
+  const [initError, setInitError] = useState<string | null>(null);
   const initStarted = useRef(false);
 
   useEffect(() => {
@@ -124,6 +125,14 @@ export function App() {
         // the destructive migration runs. This must happen before the first Dexie
         // query triggers the database open.
         await ensurePreMigrationSnapshot();
+
+        // Explicitly open the database so corruption or quota errors surface here
+        // rather than deep inside a component render.
+        const dbOpen = await openDatabase();
+        if (!dbOpen.ok) {
+          setInitError(dbOpen.message);
+          return;
+        }
 
         // Request persistent storage once on first run so the browser does not
         // silently evict IndexedDB data under storage pressure.
@@ -143,13 +152,19 @@ export function App() {
           // eslint-disable-next-line no-console
           console.error('Failed to initialise Lacuna:', error);
         }
-      } finally {
-        setReady(true);
-        // Take a daily restore point in the background; never blocks the UI.
-        void autoBackupIfStale();
-        // Warm the DeckView chunk in the background so the first deck click is instant.
-        void import('./pages/DeckView');
+        setInitError(
+          error instanceof Error
+            ? error.message
+            : 'An unexpected error occurred while starting Lacuna.',
+        );
+        return;
       }
+
+      setReady(true);
+      // Take a daily restore point in the background; never blocks the UI.
+      void autoBackupIfStale();
+      // Warm the DeckView chunk in the background so the first deck click is instant.
+      void import('./pages/DeckView');
     })();
   }, []);
 
@@ -162,6 +177,24 @@ export function App() {
       window.removeEventListener('pagehide', handler);
     };
   }, []);
+
+  if (initError) {
+    return (
+      <div className="grid h-screen place-items-center bg-surface p-8 text-ink">
+        <div className="max-w-md space-y-4 text-center">
+          <h1 className="font-display text-2xl tracking-tight">Lacuna could not start</h1>
+          <p className="text-ink/70">{initError}</p>
+          <button
+            type="button"
+            onClick={() => window.location.reload()}
+            className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-accent-contrast transition hover:opacity-90"
+          >
+            Reload
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   if (!ready) {
     const m = getMotionMultiplier();
