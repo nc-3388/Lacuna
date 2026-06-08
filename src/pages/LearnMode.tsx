@@ -357,7 +357,6 @@ export function LearnMode() {
       const progressSnapshot = cachedSessionProgress(cardsRef.current, ctx);
       const perfBefore = perf ?? null;
 
-      const deckCards = cardsRef.current.filter((c) => c.deckId === deck.id);
       const { card: updated, sessionHistoryId } = await recordReview({
         card: cardNow,
         deck,
@@ -365,7 +364,6 @@ export function LearnMode() {
         responseTimeSec: t,
         distracted,
         correct,
-        deckCards,
       });
 
       if (correct && perf) {
