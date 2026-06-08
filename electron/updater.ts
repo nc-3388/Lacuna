@@ -5,6 +5,14 @@ import log from 'electron-log';
 
 /** Configure and start the auto-updater. */
 export function initAutoUpdater(mainWindow: BrowserWindow | null): void {
+  // electron-updater only supports macOS, Windows, and Linux AppImage.
+  // Lacuna is currently distributed as NSIS / portable on Windows only,
+  // so auto-updates on Linux would silently fail.
+  if (process.platform === 'linux') {
+    log.info('Auto-updater skipped: Linux is not a supported distribution target.');
+    return;
+  }
+
   autoUpdater.logger = log;
 
   autoUpdater.on('update-available', () => {
