@@ -18,7 +18,7 @@ import {
   type ObjectiveContext,
 } from './objective';
 import { selectNextCard, type CooldownMap } from './cooldown';
-import { studyPool } from './eligibility';
+import { studyPool, availableCards } from './eligibility';
 import { schedulingHorizon } from './horizon';
 import { cramScore } from './cram';
 import { daysUntil } from '../utils/datetime';
@@ -61,6 +61,21 @@ export function urgency(deck: Deck, now: number = Date.now()): number {
 
 function cardsOfDeck(cards: Card[], deckId: string): Card[] {
   return cards.filter((c) => c.deckId === deckId);
+}
+
+/** Lightweight per-call cache so sessionComplete and sessionProgress don't re-filter
+ *  the same deck cards repeatedly when called in quick succession. */
+function getDeckCards(
+  cards: Card[],
+  deckId: string,
+  cache: Map<string, Card[]>,
+): Card[] {
+  let result = cache.get(deckId);
+  if (!result) {
+    result = cards.filter((c) => c.deckId === deckId);
+    cache.set(deckId, result);
+  }
+  return result;
 }
 
 /** The cards a session may serve right now (studyPool per deck, unioned).
@@ -134,7 +149,7 @@ export function selectNext(
     const span = max - min;
     const degenerate = Math.abs(span) < 1e-9;
     deckCards.forEach((c, i) => {
-      const normalised = degenerate ? 1 : (scores[i] - min) / span;
+      const normalised = degenerate ? 0.5 : (scores[i] - min) / span;
       priority.set(c.id, w * normalised);
     });
   }
@@ -165,9 +180,10 @@ export function sessionComplete(
   ctx: SessionContext,
   now: number = Date.now(),
 ): boolean {
+  const deckCache = new Map<string, Card[]>();
   let anyPoolNonEmpty = false;
   for (const { deck, oc } of ctx.decks.values()) {
-    const served = studyPool(cardsOfDeck(cards, deck.id), deck, now);
+    const served = studyPool(getDeckCards(cards, deck.id, deckCache), deck, now);
     if (served.length > 0) anyPoolNonEmpty = true;
     if (!isObjectiveComplete(served, oc, now)) return false;
   }
@@ -176,21 +192,22 @@ export function sessionComplete(
 
 /**
  * Combined session progress (0..1): a card-weighted mean of each deck's objective
- * progress over its served pool. For a single deck this is exactly that deck's
- * progress over the cards it is studying today.
+ * progress over its available cards (not suspended/buried). For a single deck this
+ * is exactly that deck's progress, consistent with the dashboard denominator.
  */
 export function sessionProgress(
   cards: Card[],
   ctx: SessionContext,
   now: number = Date.now(),
 ): number {
+  const deckCache = new Map<string, Card[]>();
   let total = 0;
   let acc = 0;
   for (const { deck } of ctx.decks.values()) {
-    const served = studyPool(cardsOfDeck(cards, deck.id), deck, now);
-    if (served.length === 0) continue;
-    acc += progressValue(served, deck, now) * served.length;
-    total += served.length;
+    const available = availableCards(getDeckCards(cards, deck.id, deckCache), now);
+    if (available.length === 0) continue;
+    acc += progressValue(available, deck, now) * available.length;
+    total += available.length;
   }
   return total ? acc / total : 1;
 }

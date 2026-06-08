@@ -47,16 +47,23 @@ export function selectNextCard(
   if (eligible) return eligible.card;
 
   // All cards are on cooldown: serve the soonest-eligible, breaking ties by score.
-  let best = scored[0];
-  let bestCooldown = cooldowns.get(best.card.id) ?? 0;
+  // All cards are on cooldown: serve the one closest to becoming eligible.
+  // Skip cards that have no cooldown entry — they should have been caught by the
+  // eligible check above and reaching here with a missing entry indicates a
+  // state inconsistency. Cards with a real cooldown entry > 0 are the valid candidates.
+  let best: (typeof scored)[0] | null = null;
+  let bestCooldown = Infinity;
   for (const entry of scored) {
-    const cd = cooldowns.get(entry.card.id) ?? 0;
-    if (cd < bestCooldown || (cd === bestCooldown && entry.score > best.score)) {
+    const cd = cooldowns.get(entry.card.id);
+    if (cd === undefined) continue;
+    if (cd < bestCooldown || (cd === bestCooldown && best !== null && entry.score > best.score)) {
       best = entry;
       bestCooldown = cd;
     }
   }
-  return best.card;
+  // Fallback: if every scored card somehow lacks a cooldown entry (should not happen),
+  // serve the highest-scored card so the session never stalls.
+  return (best ?? scored[0]).card;
 }
 
 /**

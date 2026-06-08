@@ -523,6 +523,9 @@ function CardRow({
   const m = motionMultiplier ?? 1;
   const showBack = hovered;
 
+  // Lazy-render: only parse the back side when it is actually visible.
+  const contentSide = useMemo(() => (showBack ? 'back' : 'front'), [showBack]);
+
   const reviewed = card.lastReviewed !== null;
   const tags = card.tags ?? [];
   const buried = card.buriedUntil != null && card.buriedUntil > Date.now();
@@ -625,7 +628,7 @@ function CardRow({
               exit={{ opacity: 0, y: -4 }}
               transition={{ duration: 0.12 * m }}
             >
-              <CardContent card={card} side={showBack ? 'back' : 'front'} />
+              <CardContent card={card} side={contentSide} />
             </motion.div>
           </AnimatePresence>
         </div>

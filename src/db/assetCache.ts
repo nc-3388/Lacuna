@@ -9,25 +9,53 @@ import { assetUrl, referencedAssetHashes } from './assets';
 
 const MAX_SIZE = 200;
 
+interface LruNode {
+  key: string;
+  prev: LruNode | null;
+  next: LruNode | null;
+}
+
 const cache = new Map<string, string>();
-const accessOrder = new Map<string, number>();
-let accessCounter = 0;
+const nodeMap = new Map<string, LruNode>();
+let head: LruNode | null = null;
+let tail: LruNode | null = null;
 const pending = new Map<string, Promise<string | null>>();
 
+function moveToFront(node: LruNode): void {
+  if (node === head) return;
+  // Detach
+  if (node.prev) node.prev.next = node.next;
+  if (node.next) node.next.prev = node.prev;
+  if (node === tail) tail = node.prev;
+  // Prepend
+  node.prev = null;
+  node.next = head;
+  if (head) head.prev = node;
+  head = node;
+  if (!tail) tail = node;
+}
+
+function addFront(key: string): LruNode {
+  const node: LruNode = { key, prev: null, next: head };
+  if (head) head.prev = node;
+  head = node;
+  if (!tail) tail = node;
+  nodeMap.set(key, node);
+  return node;
+}
+
 function evictOldest(): void {
-  let oldestKey: string | undefined;
-  let oldestTime = Infinity;
-  for (const [key, time] of accessOrder) {
-    if (time < oldestTime) {
-      oldestTime = time;
-      oldestKey = key;
-    }
-  }
-  if (oldestKey === undefined) return;
+  if (!tail) return;
+  const oldestKey = tail.key;
   const url = cache.get(oldestKey);
   if (url) URL.revokeObjectURL(url);
   cache.delete(oldestKey);
-  accessOrder.delete(oldestKey);
+  // Detach tail
+  const newTail = tail.prev;
+  if (newTail) newTail.next = null;
+  tail = newTail;
+  if (!tail) head = null;
+  nodeMap.delete(oldestKey);
 }
 
 /**
@@ -37,8 +65,8 @@ function evictOldest(): void {
 export async function resolveAssetUrl(hash: string): Promise<string | null> {
   const cached = cache.get(hash);
   if (cached) {
-    // Touch: update access order so this item is not evicted.
-    accessOrder.set(hash, ++accessCounter);
+    const node = nodeMap.get(hash);
+    if (node) moveToFront(node);
     return cached;
   }
 
@@ -52,7 +80,7 @@ export async function resolveAssetUrl(hash: string): Promise<string | null> {
       const url = URL.createObjectURL(asset.blob);
       if (cache.size >= MAX_SIZE) evictOldest();
       cache.set(hash, url);
-      accessOrder.set(hash, ++accessCounter);
+      addFront(hash);
       return url;
     } finally {
       pending.delete(hash);
@@ -86,7 +114,9 @@ export function revokeAllCachedUrls(): void {
     URL.revokeObjectURL(url);
   }
   cache.clear();
-  accessOrder.clear();
+  nodeMap.clear();
+  head = null;
+  tail = null;
 }
 
 /** Number of cached object URLs. */

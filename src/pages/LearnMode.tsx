@@ -85,6 +85,8 @@ export function LearnMode() {
   const [singleDeck, setSingleDeck] = useState<Deck | null>(null);
   const [current, setCurrent] = useState<Card | null>(null);
   const [progress, setProgress] = useState(0);
+  // Cache sessionProgress so repeated calls while the card pool is unchanged don't recompute.
+  const progressCacheRef = useRef<{ dirty: boolean; value: number }>({ dirty: true, value: 0 });
   const [summary, setSummary] = useState<SessionSummary | null>(null);
   const [canUndo, setCanUndo] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -122,8 +124,20 @@ export function LearnMode() {
   const lastAnswer = useRef<AnswerSnapshot | null>(null);
   // Guards against a double key-press / click submitting the same card twice.
   const submitting = useRef(false);
-
-  const exitTo = isGlobal ? '/' : `/deck/${deckId}`;
+  // Cache sessionProgress so repeated calls while the card pool is unchanged don't recompute.
+  // Stable refs for values that async callbacks must read fresh (avoid stale closures).
+  const phaseRef = useRef<Phase>(phase);
+  phaseRef.current = phase;
+  const currentRef = useRef<Card | null>(current);
+  currentRef.current = current;
+  // Guards against state updates on an unmounted component after async work.
+  const mountedRef = useRef(true);
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);  const exitTo = isGlobal ? '/' : `/deck/${deckId}`;
   const backOut = useCallback(() => navigate(exitTo), [navigate, exitTo]);
 
   const objectiveLabel = useCallback(() => {
@@ -131,8 +145,19 @@ export function LearnMode() {
     return 'Predicted readiness across all decks';
   }, [singleDeck]);
 
+  /** Compute sessionProgress with a lightweight dirty-check cache. */
+  const cachedSessionProgress = useCallback((cards: Card[], ctx: SessionContext): number => {
+    if (!progressCacheRef.current.dirty) {
+      return progressCacheRef.current.value;
+    }
+    const value = sessionProgress(cards, ctx);
+    progressCacheRef.current = { dirty: false, value };
+    return value;
+  }, []);
+
   const finish = useCallback(
     (reachedGoal: boolean) => {
+      if (!mountedRef.current) return;
       const ctx = ctxRef.current;
       if (!ctx) return;
       const total = distraction.sessionMs();
@@ -143,18 +168,22 @@ export function LearnMode() {
       setSummary({
         events: events.current,
         masteryBefore: progressBefore.current,
-        masteryAfter: sessionProgress(cardsRef.current, ctx),
+        masteryAfter: cachedSessionProgress(cardsRef.current, ctx),
         objectiveLabel: objectiveLabel(),
         focusFraction: focus,
         reachedGoal,
       });
       setCanUndo(false);
-      lastAnswer.current = null;      setPhase('finished');
-    }, [objectiveLabel, distraction],
+      lastAnswer.current = null;
+      if (!mountedRef.current) return;
+      setPhase('finished');
+    },
+    [objectiveLabel, distraction, cachedSessionProgress],
   );
 
   /** Present the next eligible card, or finish if the goal has been reached. */
   const serveNext = useCallback(() => {
+    if (!mountedRef.current) return;
     const ctx = ctxRef.current;
     if (!ctx) return;
     if (sessionComplete(cardsRef.current, ctx)) {
@@ -166,11 +195,16 @@ export function LearnMode() {
       finish(true);
       return;
     }
+    if (!mountedRef.current) return;
     setCurrent(next);
+    if (!mountedRef.current) return;
     setPhase('question');
     setMenuOpen(false);
     timerStart.current = performance.now();
     distraction.beginCard();
+    distraction.setAnswerVisible(false);
+    // Invalidate progress cache when moving to a new card.
+    progressCacheRef.current.dirty = true;
   }, [finish, distraction]);
 
   // Stable ref so the initial-load effect never re-runs just because serveNext's
@@ -281,7 +315,8 @@ export function LearnMode() {
       responseTime.current = (performance.now() - timerStart.current) / 1000;
       return 'answer';
     });
-  }, []);
+    distraction.setAnswerVisible(true);
+  }, [distraction]);
 
   const answer = useCallback(
     async (input: boolean | Grade) => {
@@ -289,12 +324,14 @@ export function LearnMode() {
       // validate phase / current / ctx. Clear it on every early-return path.
       if (submitting.current) return;
       submitting.current = true;
-      if (phase !== 'answer' || !current) {
+      const phaseNow = phaseRef.current;
+      const cardNow = currentRef.current;
+      if (phaseNow !== 'answer' || !cardNow) {
         submitting.current = false;
         return;
       }
       const ctx = ctxRef.current;
-      const deck = decksRef.current.get(current.deckId);
+      const deck = decksRef.current.get(cardNow.deckId);
       if (!ctx || !deck) {
         submitting.current = false;
         return;
@@ -317,12 +354,12 @@ export function LearnMode() {
       // Snapshot pre-review state for single-step undo.
       const cooldownsSnapshot = new Map(cooldowns.current);
       const eventsLen = events.current.length;
-      const progressSnapshot = sessionProgress(cardsRef.current, ctx);
+      const progressSnapshot = cachedSessionProgress(cardsRef.current, ctx);
       const perfBefore = perf ?? null;
 
       const deckCards = cardsRef.current.filter((c) => c.deckId === deck.id);
       const { card: updated, sessionHistoryId } = await recordReview({
-        card: current,
+        card: cardNow,
         deck,
         grade,
         responseTimeSec: t,
@@ -349,7 +386,7 @@ export function LearnMode() {
       events.current = [...events.current, { grade, correct, responseTimeSec: t, distracted }];
 
       lastAnswer.current = {
-        undo: { cardBefore: current, perfBefore, sessionHistoryId, deckId: deck.id },
+        undo: { cardBefore: cardNow, perfBefore, sessionHistoryId, deckId: deck.id },
         cooldowns: cooldownsSnapshot,
         progressBefore: progressSnapshot,
         eventsLen,
@@ -357,14 +394,15 @@ export function LearnMode() {
       };
       setCanUndo(true);
 
-      setProgress(sessionProgress(nextCards, ctx));
+      progressCacheRef.current.dirty = true;
+      setProgress(cachedSessionProgress(nextCards, ctx));
         if (sessionComplete(nextCards, ctx)) finish(true);
         else serveNext();
       } finally {
         submitting.current = false;
       }
     },
-    [phase, current, distraction, finish, serveNext],
+    [distraction, finish, serveNext, cachedSessionProgress],
   );
 
   const undoLast = useCallback(async () => {
@@ -373,6 +411,7 @@ export function LearnMode() {
     if (!snap || !ctx) return;
     try {
       await undoReview(snap.undo);
+      if (!mountedRef.current) return;
       cardsRef.current = cardsRef.current.map((c) =>
         c.id === snap.undo.cardBefore.id ? snap.undo.cardBefore : c,
       );
@@ -381,6 +420,7 @@ export function LearnMode() {
       events.current = events.current.slice(0, snap.eventsLen);
       lastAnswer.current = null;
       setCanUndo(false);
+      progressCacheRef.current.dirty = true;
       setProgress(snap.progressBefore);
       setCurrent(snap.undo.cardBefore);
       setPhase('question');
@@ -396,12 +436,14 @@ export function LearnMode() {
   const afterRemoval = useCallback(() => {
     const ctx = ctxRef.current;
     if (!ctx) return;
+    if (!mountedRef.current) return;
     setMenuOpen(false);
     setCanUndo(false);
     lastAnswer.current = null;
-    setProgress(sessionProgress(cardsRef.current, ctx));
+    progressCacheRef.current.dirty = true;
+    setProgress(cachedSessionProgress(cardsRef.current, ctx));
     serveNext();
-  }, [serveNext]);
+  }, [serveNext, cachedSessionProgress]);
 
   const suspendCurrent = useCallback(async () => {
     if (!current) return;
@@ -433,6 +475,9 @@ export function LearnMode() {
   /** Open the in-session editor, pausing the response timer while it is open. */
   const openEdit = useCallback(() => {
     if (!current) return;
+    // Guard against the card having been removed from the session pool
+    // (deleted / suspended by another tab) since the last render.
+    if (!cardsRef.current.some((c) => c.id === current.id)) return;
     setMenuOpen(false);
     // Only the question phase has a running timer; the answer phase already
     // captured responseTime at reveal, so there is nothing to pause there.
@@ -604,7 +649,7 @@ export function LearnMode() {
                       const ctx = ctxRef.current;
                       if (!ctx) return;
                       events.current = [];
-                      progressBefore.current = sessionProgress(cardsRef.current, ctx);
+                      progressBefore.current = cachedSessionProgress(cardsRef.current, ctx);
                       setSummary(null);
                       serveNext();
                     }

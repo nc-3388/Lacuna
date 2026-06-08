@@ -126,12 +126,31 @@ function base64ToBytes(b64: string): Uint8Array {
 async function pipeThrough(
   bytes: Uint8Array,
   stream: TransformStream<BufferSource, Uint8Array>,
+  maxBytes?: number,
 ): Promise<Uint8Array> {
   const writer = stream.writable.getWriter();
   void writer.write(bytes as BufferSource);
   void writer.close();
-  const buffer = await new Response(stream.readable).arrayBuffer();
-  return new Uint8Array(buffer);
+  const reader = stream.readable.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    total += value.length;
+    if (maxBytes != null && total > maxBytes) {
+      await reader.cancel();
+      throw new Error('Share code is too large to decode safely.');
+    }
+    chunks.push(value);
+  }
+  const result = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) {
+    result.set(chunk, offset);
+    offset += chunk.length;
+  }
+  return result;
 }
 
 const canCompress = typeof CompressionStream !== 'undefined';
@@ -146,6 +165,8 @@ export async function encodeShareDirect(payload: SharePayload): Promise<string> 
   return PREFIX_PLAIN + bytesToBase64(bytes);
 }
 
+const MAX_SHARE_BYTES = 5 * 1024 * 1024;
+
 export async function decodeShareDirect(code: string): Promise<SharePayload> {
   const trimmed = code.trim().replace(/\s+/g, '');
   let bytes: Uint8Array;
@@ -153,17 +174,25 @@ export async function decodeShareDirect(code: string): Promise<SharePayload> {
     if (!canDecompress) {
       throw new Error('This browser cannot read compressed share codes.');
     }
+    const compressed = base64ToBytes(trimmed.slice(PREFIX_COMPRESSED.length));
+    if (compressed.length > MAX_SHARE_BYTES) {
+      throw new Error('Share code is too large to decode safely.');
+    }
     bytes = await pipeThrough(
-      base64ToBytes(trimmed.slice(PREFIX_COMPRESSED.length)),
+      compressed,
       new DecompressionStream('deflate-raw'),
+      MAX_SHARE_BYTES,
     );
   } else if (trimmed.startsWith(PREFIX_PLAIN)) {
     bytes = base64ToBytes(trimmed.slice(PREFIX_PLAIN.length));
+    if (bytes.length > MAX_SHARE_BYTES) {
+      throw new Error('Share code is too large to decode safely.');
+    }
   } else {
     throw new Error('That does not look like a Lacuna share code.');
   }
 
-  if (bytes.length > 5 * 1024 * 1024) {
+  if (bytes.length > MAX_SHARE_BYTES) {
     throw new Error('Share code is too large to decode safely.');
   }
 
@@ -305,7 +334,10 @@ export function summariseShare(payload: SharePayload): ShareSummary {
 function packCards(cards: Card[]): ShareCard[] {
   const out: ShareCard[] = [];
   const consumed = new Set<string>();
-  const key = (f: string, b: string) => `${f}${b}`;
+  // Use a length-prefixed key so the separator can never collide with card content.
+  // Format: length-of-front + \u0002 + front + \u0002 + back.  \u0002 is a control
+  // character that cannot appear in normal Markdown.
+  const key = (f: string, b: string) => `${f.length}${f}${b}`;
 
   // Index front/back cards by content so a card can find its mirror in one lookup.
   const byContent = new Map<string, Card[]>();

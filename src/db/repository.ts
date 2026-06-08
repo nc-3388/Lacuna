@@ -175,6 +175,7 @@ export async function restoreDecks(snapshot: DeckSnapshot): Promise<void> {
 export async function mergeDecks(sourceIds: string[], targetId: string): Promise<void> {
   const others = sourceIds.filter((id) => id !== targetId);
   if (others.length === 0) return;
+  const now = Date.now();
   await db.transaction(
     'rw',
     db.decks,
@@ -191,6 +192,7 @@ export async function mergeDecks(sourceIds: string[], targetId: string): Promise
         await db.userPerformance.delete(sourceId);
         await db.decks.delete(sourceId);
       }
+      await db.decks.update(targetId, { lastInteractedAt: now });
     },
   );
 }
@@ -400,8 +402,6 @@ export interface RecordReviewArgs {
   /** Whether the answer was correct (grade > 1); drives per-deck calibration stats. */
   correct: boolean;
   now?: number;
-  /** Pre-computed deck cards to avoid re-reading the database on every review. */
-  deckCards?: Card[];
 }
 
 /** The result of recording a review: the updated card plus undo bookkeeping. */
@@ -453,13 +453,6 @@ export async function recordReview(args: RecordReviewArgs): Promise<RecordReview
     history: [...card.history, log],
   };
 
-  // Snapshot the deck's average predicted exam-day retrievability after this card.
-  // If the caller already has the deck cards, pass them to avoid re-reading the deck.
-  // Replace the pre-review card with updatedCard so the snapshot reflects the post-review state.
-  const deckCards = args.deckCards ?? (await db.cards.where('deckId').equals(deck.id).toArray());
-  const deckCardsWithUpdate = deckCards.map((c) => (c.id === updatedCard.id ? updatedCard : c));
-  const avgRetrievability = averagePredictedRetrievability(deckCardsWithUpdate, deck);
-
   const sessionHistoryId = await db.transaction(
     'rw',
     db.cards,
@@ -475,6 +468,14 @@ export async function recordReview(args: RecordReviewArgs): Promise<RecordReview
           (await db.userPerformance.get(deck.id)) ?? emptyPerformance(deck.id);
         await db.userPerformance.put(updatePerformance(perf, responseTimeSec));
       }
+
+      // Read deck cards inside the transaction so concurrent reviews cannot
+      // race the average predicted retrievability calculation.
+      const allDeckCards = await db.cards.where('deckId').equals(deck.id).toArray();
+      const deckCards = allDeckCards.map((c) =>
+        c.id === updatedCard.id ? updatedCard : c,
+      );
+      const avgRetrievability = averagePredictedRetrievability(deckCards, deck);
 
       return db.sessionHistory.add({
         timestamp: now,

@@ -8,6 +8,8 @@ import { useEffect, useMemo, useRef } from 'react';
 export interface DistractionTracker {
   /** Mark the start of a fresh card's answer window. */
   beginCard: () => void;
+  /** Call when the answer is revealed so distraction is tracked only from this point. */
+  setAnswerVisible: (visible: boolean) => void;
   /** Whether the user lost focus at any point during the current card. */
   wasDistracted: () => boolean;
   /** Total milliseconds the page has been unfocused across the whole session. */
@@ -21,12 +23,18 @@ export function useDistraction(): DistractionTracker {
   const blurredTotal = useRef(0);
   const blurStartedAt = useRef<number | null>(null);
   const distractedThisCard = useRef(false);
+  const answerVisible = useRef(false);
 
   useEffect(() => {
     const onLeave = () => {
       if (blurStartedAt.current === null) {
         blurStartedAt.current = Date.now();
-        distractedThisCard.current = true;
+        // Only mark distraction when the answer is visible (user has seen the
+        // answer and is supposed to be grading). Blurs during the question phase
+        // are expected browsing behaviour and should not count.
+        if (answerVisible.current) {
+          distractedThisCard.current = true;
+        }
       }
     };
     const onReturn = () => {
@@ -54,6 +62,10 @@ export function useDistraction(): DistractionTracker {
     () => ({
       beginCard: () => {
         distractedThisCard.current = false;
+        answerVisible.current = false;
+      },
+      setAnswerVisible: (visible: boolean) => {
+        answerVisible.current = visible;
       },
       wasDistracted: () => distractedThisCard.current,
       blurredMs: () => {

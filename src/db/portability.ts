@@ -71,7 +71,7 @@ export function validateBackup(data: unknown): data is BackupFile {
     typeof b.version === 'number' &&
     Array.isArray(b.decks) &&
     Array.isArray(b.cards) &&
-    (b.assets === undefined || Array.isArray(b.assets)) &&
+    Array.isArray(b.assets) &&
     Array.isArray(b.sessionHistory) &&
     Array.isArray(b.userPerformance)
   );
@@ -95,19 +95,22 @@ export async function importBackup(
   // Pre-process markdown assets outside the IndexedDB transaction so long-running
   // canvas compressions cannot auto-abort the import transaction.
   const decks = backup.decks.map((d) => migrateDeckRecord(d as LegacyDeck));
-  const assets = backup.assets ?? [];
+  const assets = backup.assets;
+  const knownHashes = new Set(backup.assets.map((a) => a.hash.toLowerCase()));
   const extractedAssets: ImageAsset[] = [];
   const cards = await Promise.all(
     backup.cards.map(async (c) => {
       const migrated = migrateCardRecord(c as LegacyCard);
       return {
         ...migrated,
-        front: await extractMarkdownAssets(migrated.front, (asset) =>
-          Promise.resolve(extractedAssets.push(asset)),
-        ),
-        back: await extractMarkdownAssets(migrated.back, (asset) =>
-          Promise.resolve(extractedAssets.push(asset)),
-        ),
+        front: await extractMarkdownAssets(migrated.front, async (asset) => {
+          extractedAssets.push(asset);
+          knownHashes.add(asset.hash.toLowerCase());
+        }, knownHashes),
+        back: await extractMarkdownAssets(migrated.back, async (asset) => {
+          extractedAssets.push(asset);
+          knownHashes.add(asset.hash.toLowerCase());
+        }, knownHashes),
       };
     }),
   );

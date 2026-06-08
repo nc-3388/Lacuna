@@ -69,9 +69,39 @@ export function referencedAssetHashesInCards(cards: { front: string; back: strin
 
 export function stripAssetImages(markdown: string): { markdown: string; stripped: boolean } {
   let stripped = false;
-  const next = markdown.replace(/!\[([^\]]*)\]\(lacuna-asset:\/\/[a-f0-9]{64}\)/gi, (_m, alt) => {
+  // Normalise line endings so every regex below can assume LF-only.
+  const source = markdown.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+  // Inline images: ![alt](lacuna-asset://hash)
+  let next = source.replace(/!\[([^\]]*)\]\(lacuna-asset:\/\/[a-f0-9]{64}\)/gi, (_m, alt) => {
     stripped = true;
     return `[Image omitted from share code: ${alt || 'image'}]`;
+  });
+  // Reference-style images: ![alt][ref] where [ref]: lacuna-asset://hash
+  const strippedRefs = new Set<string>();
+  next = next.replace(/!\[([^\]]*)\]\[([^\]]*)\]/gi, (m, alt, ref) => {
+    const refPattern = new RegExp(
+      `\\[${ref.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\]:\\s*lacuna-asset:\\/\\/[a-f0-9]{64}`,
+      'i',
+    );
+    if (refPattern.test(next)) {
+      stripped = true;
+      strippedRefs.add(ref);
+      return `[Image omitted from share code: ${alt || 'image'}]`;
+    }
+    return m;
+  });
+  // Strip the dangling reference definitions so asset hashes don't leak.
+  for (const ref of strippedRefs) {
+    const defPattern = new RegExp(
+      `\\n\\[${ref.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\]:\\s*lacuna-asset:\\/\\/[a-f0-9]{64}\\s*(?=\\n|$)`,
+      'gi',
+    );
+    next = next.replace(defPattern, '\n');
+  }
+  // HTML img tags: <img src="lacuna-asset://hash" ...>
+  next = next.replace(/<img\s+[^>]*src=["']lacuna-asset:\/\/[a-f0-9]{64}["'][^>]*>/gi, (_m) => {
+    stripped = true;
+    return '[Image omitted from share code]';
   });
   return { markdown: next, stripped };
 }
@@ -146,10 +176,12 @@ async function assetFromDataUri(uri: string, mimeType: string): Promise<ImageAss
 export async function extractMarkdownAssets(
   markdown: string,
   putAsset: (asset: ImageAsset) => Promise<unknown>,
+  knownHashes?: Set<string>,
 ): Promise<string> {
   const replacements: { from: string; to: string }[] = [];
   const seen = new Set<string>();
 
+  // Handle data URIs: extract, compress and store as assets.
   for (const match of markdown.matchAll(DATA_IMAGE_RE)) {
     const from = match[0];
     if (seen.has(from)) continue;
@@ -157,6 +189,20 @@ export async function extractMarkdownAssets(
     const asset = await assetFromDataUri(from, match[1]);
     await putAsset(asset);
     replacements.push({ from, to: assetUrl(asset.hash) });
+  }
+
+  // Normalise lacuna-asset:// references: verify each referenced hash exists in the
+  // asset store and replace any that are missing with a broken-image placeholder.
+  for (const match of markdown.matchAll(ASSET_RE)) {
+    const from = match[0];
+    if (seen.has(from)) continue;
+    seen.add(from);
+    const hash = match[1].toLowerCase();
+    if (knownHashes?.has(hash)) continue;
+    const existing = await db.assets.get(hash);
+    if (!existing) {
+      replacements.push({ from, to: MISSING_ASSET_SVG });
+    }
   }
 
   return replacements.reduce((text, r) => text.replaceAll(r.from, r.to), markdown);
@@ -227,13 +273,25 @@ export async function collectOrphanedAssets(): Promise<number> {
   if (gcRunning) return 0;
   gcRunning = true;
   try {
-    const cards = await db.cards.toArray();
+    // Build the set of referenced hashes by streaming cards in batches
+    // so we never load the entire card table into memory at once.
     const referenced = new Set<string>();
-    for (const card of cards) {
-      referencedAssetHashes(`${card.front}\n${card.back}`).forEach((h) => referenced.add(h));
+    const batchSize = 500;
+    let offset = 0;
+    while (true) {
+      const batch = await db.cards.offset(offset).limit(batchSize).toArray();
+      if (batch.length === 0) break;
+      for (const card of batch) {
+        referencedAssetHashes(`${card.front}\n${card.back}`).forEach((h) => referenced.add(h));
+      }
+      offset += batch.length;
     }
-    const allHashes = await db.assets.toCollection().primaryKeys();
-    const orphans = allHashes.filter((h) => !referenced.has(h));
+
+    // Stream asset keys and collect orphans without loading all keys at once.
+    const orphans: string[] = [];
+    await db.assets.toCollection().eachPrimaryKey((hash) => {
+      if (!referenced.has(hash)) orphans.push(hash);
+    });
     if (orphans.length > 0) {
       await db.assets.bulkDelete(orphans);
     }

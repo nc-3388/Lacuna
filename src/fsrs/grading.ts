@@ -29,8 +29,11 @@ export function gradeFromResponse(
   const totalCorrect = perf?.totalCorrectReviews ?? 0;
 
   if (totalCorrect < CALIBRATION_THRESHOLD) {
-    if (totalCorrect === 0) {
-      // No data yet: fall back to absolute thresholds.
+    if (totalCorrect <= 1) {
+      // No meaningful data yet (zero or one correct review): fall back to absolute
+      // thresholds. With a single observation the running mean equals that first
+      // response time and the variance is zero, which would make all subsequent
+      // responses fall into the "slow" band. Fixed thresholds are more reliable here.
       if (responseTimeSec < FAST_SECONDS) return 4;
       if (responseTimeSec > SLOW_SECONDS) return 2;
       return 3;
@@ -77,7 +80,7 @@ export function updatePerformance(
   const mean = perf.runningMeanResponseTime + delta / n;
   const delta2 = responseTimeSec - mean;
   const m2 = perf.m2 + delta * delta2;
-  const variance = n > 1 ? m2 / (n - 1) : 0;
+  const variance = m2 / n;
   return {
     deckId: perf.deckId,
     runningMeanResponseTime: mean,

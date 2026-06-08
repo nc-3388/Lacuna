@@ -13,7 +13,8 @@ import {
   type ShareSummary,
 } from '../db/share';
 import { referencedAssetHashesInCards } from '../db/assets';
-import { CheckIcon, DownloadIcon, ShareIcon, UploadIcon, CardsIcon } from '../components/ui/icons';
+import { exportCardsSimple } from '../db/export';
+import { CheckIcon, DownloadIcon, ShareIcon, UploadIcon, CardsIcon, FileTextIcon } from '../components/ui/icons';
 import { formatDate } from '../utils/datetime';
 
 /**
@@ -34,12 +35,17 @@ export function SharePage() {
   const [pending, setPending] = useState<{ summary: ShareSummary; raw: string } | null>(null);
   const [importing, setImporting] = useState(false);
   const copyTimeoutRef = useRef<number | null>(null);
+  const plainTextCopyTimeoutRef = useRef<number | null>(null);
   const [motionSpeed] = useMotionSpeed();
 
-  // Clear pending copy timeout on unmount to avoid setState on unmounted component.
+  const [plainText, setPlainText] = useState('');
+  const [plainTextCopied, setPlainTextCopied] = useState(false);
+
+  // Clear pending copy timeouts on unmount to avoid setState on unmounted component.
   useEffect(() => {
     return () => {
       if (copyTimeoutRef.current) window.clearTimeout(copyTimeoutRef.current);
+      if (plainTextCopyTimeoutRef.current) window.clearTimeout(plainTextCopyTimeoutRef.current);
     };
   }, []);
   const m = speedMultiplier(motionSpeed);
@@ -68,13 +74,15 @@ export function SharePage() {
       next.has(id) ? next.delete(id) : next.add(id);
       return next;
     });
-    // Any change invalidates a previously generated code.
+    // Any change invalidates a previously generated code or plain text export.
     setCode('');
+    setPlainText('');
   }
 
   function toggleAll() {
     if (!decks) return;
     setCode('');
+    setPlainText('');
     setSelected((prev) =>
       prev.size === decks.length ? new Set() : new Set(decks.map((d) => d.id)),
     );
@@ -103,6 +111,31 @@ export function SharePage() {
       copyTimeoutRef.current = window.setTimeout(() => setCopied(false), 2000);
     } catch {
       notify('Copy failed — select the code and copy it manually.', 'negative');
+    }
+  }
+
+  function handleExportPlainText() {
+    if (selectedCount === 0) return;
+    const selectedSet = selected;
+    const selectedCardRows = (cards ?? []).filter((card) => selectedSet.has(card.deckId));
+    if (selectedCardRows.length === 0) {
+      notify('Selected decks have no cards to export.', 'negative');
+      return;
+    }
+    const text = exportCardsSimple(selectedCardRows);
+    setPlainText(text);
+    setPlainTextCopied(false);
+  }
+
+  async function handleCopyPlainText() {
+    try {
+      await navigator.clipboard.writeText(plainText);
+      setPlainTextCopied(true);
+      notify('Copied to clipboard.', 'positive');
+      if (plainTextCopyTimeoutRef.current) window.clearTimeout(plainTextCopyTimeoutRef.current);
+      plainTextCopyTimeoutRef.current = window.setTimeout(() => setPlainTextCopied(false), 2000);
+    } catch {
+      notify('Copy failed — select the text and copy it manually.', 'negative');
     }
   }
 
@@ -259,14 +292,24 @@ export function SharePage() {
                   the images too.
                 </p>
               )}
-              <Button
-                variant="primary"
-                onClick={handleGenerate}
-                disabled={selectedCount === 0 || generating}
-              >
-                <ShareIcon width={18} height={18} />
-                {generating ? 'Generating…' : 'Generate share code'}
-              </Button>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  variant="primary"
+                  onClick={handleGenerate}
+                  disabled={selectedCount === 0 || generating}
+                >
+                  <ShareIcon width={18} height={18} />
+                  {generating ? 'Generating…' : 'Generate share code'}
+                </Button>
+                <Button
+                  variant="secondary"
+                  onClick={handleExportPlainText}
+                  disabled={selectedCount === 0 || selectedCards === 0}
+                >
+                  <FileTextIcon width={18} height={18} />
+                  Export as plain text
+                </Button>
+              </div>
             </div>
 
             <AnimatePresence>
@@ -299,6 +342,43 @@ export function SharePage() {
                       value={code}
                       onFocus={(e) => e.currentTarget.select()}
                       rows={4}
+                      className="w-full resize-none break-all rounded-lg border border-line bg-surface px-3 py-2 font-mono text-xs text-ink-soft outline-none"
+                    />
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            <AnimatePresence>
+              {plainText && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0, marginTop: 0 }}
+                  animate={{ opacity: 1, height: 'auto', marginTop: 20 }}
+                  exit={{ opacity: 0, height: 0, marginTop: 0 }}
+                  transition={{ duration: 0.16 * m, ease: [0.16, 1, 0.3, 1] }}
+                  className="overflow-hidden"
+                >
+                  <div className="rounded-xl border border-line-strong bg-surface-raised p-4">
+                    <div className="mb-2 flex items-center justify-between">
+                      <span className="text-xs uppercase tracking-[0.14em] text-ink-faint">
+                        Plain text export · {selectedCards.toLocaleString()} card{selectedCards === 1 ? '' : 's'}
+                      </span>
+                      <Button size="sm" variant="secondary" onClick={handleCopyPlainText}>
+                        {plainTextCopied ? (
+                          <>
+                            <CheckIcon width={14} height={14} />
+                            Copied
+                          </>
+                        ) : (
+                          'Copy'
+                        )}
+                      </Button>
+                    </div>
+                    <textarea
+                      readOnly
+                      value={plainText}
+                      onFocus={(e) => e.currentTarget.select()}
+                      rows={6}
                       className="w-full resize-none break-all rounded-lg border border-line bg-surface px-3 py-2 font-mono text-xs text-ink-soft outline-none"
                     />
                   </div>

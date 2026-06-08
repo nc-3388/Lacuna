@@ -31,7 +31,7 @@ import type { Card, Deck, ExamObjective } from '../db/types';
  * Below this Delta-R, a further review is deemed to add no meaningful marks, so
  * an "expectedMarks" session is considered complete.
  */
-const EXPECTED_MARKS_EPSILON = 1e-3;
+const EXPECTED_MARKS_EPSILON = 5e-3;
 
 /** Pre-built scoring context for a deck (engine + decay + objective). */
 export interface ObjectiveContext {

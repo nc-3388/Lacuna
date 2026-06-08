@@ -122,3 +122,16 @@ export function downloadTextFile(content: string, filename: string, mimeType: st
   a.remove();
   URL.revokeObjectURL(url);
 }
+
+/** Export selected cards as a simple tab-separated plain text: front\tback per line. */
+export function exportCardsSimple(
+  cards: { front: string; back: string }[],
+): string {
+  return cards
+    .map((c) => {
+      const front = escapeTsvCell(c.front);
+      const back = escapeTsvCell(c.back);
+      return `${front}\t${back}`;
+    })
+    .join('\n');
+}

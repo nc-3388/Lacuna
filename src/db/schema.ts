@@ -293,7 +293,9 @@ export async function readAllDataFromVersion(
   };
 }
 
-const snapshottedDbNames = new Set<string>();
+// Cache the in-flight snapshot promise so concurrent calls await the same
+// operation instead of racing or skipping.
+const snapshotPromises = new Map<string, Promise<void>>();
 
 /**
  * Detect a pending schema upgrade and, if one is pending, capture a full
@@ -301,24 +303,35 @@ const snapshottedDbNames = new Set<string>();
  * destructive migration runs. The snapshot is written to the dedicated
  * `lacuna-pre-migration` database so it survives even if the main upgrade
  * aborts and rolls back.
+ *
+ * Concurrent calls for the same database name coalesce into a single snapshot
+ * operation rather than racing each other.
  */
 export async function ensurePreMigrationSnapshot(dbName: string = 'lacuna'): Promise<void> {
-  if (snapshottedDbNames.has(dbName)) return;
-  snapshottedDbNames.add(dbName);
+  const existing = snapshotPromises.get(dbName);
+  if (existing) return existing;
 
-  const targetVersion = CURRENT_SCHEMA_VERSION;
-  const currentVersion = await getCurrentDbVersion(dbName);
-
-  if (currentVersion > 0 && currentVersion < targetVersion) {
+  const promise = (async () => {
     try {
-      const payload = await readAllDataFromVersion(dbName, currentVersion);
-      await savePreMigrationSnapshot(targetVersion, payload);
+      const targetVersion = CURRENT_SCHEMA_VERSION;
+      const currentVersion = await getCurrentDbVersion(dbName);
+
+      if (currentVersion > 0 && currentVersion < targetVersion) {
+        const payload = await readAllDataFromVersion(dbName, currentVersion);
+        await savePreMigrationSnapshot(targetVersion, payload);
+      }
     } catch (e) {
       // eslint-disable-next-line no-console
       console.error('Pre-migration snapshot failed:', e);
-      snapshottedDbNames.delete(dbName);
+      // Remove from cache so a future call can retry. Concurrent callers that
+      // already hold this promise will see a resolved value (the catch prevents
+      // the rejection from propagating to them).
+      snapshotPromises.delete(dbName);
     }
-  }
+  })();
+
+  snapshotPromises.set(dbName, promise);
+  return promise;
 }
 
 /** Generate a stable, collision-resistant identifier without external dependencies. */

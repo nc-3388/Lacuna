@@ -72,13 +72,21 @@ function splitDelimited(raw: string, fieldSep: string, rowSep: string): string[]
       i += fieldSep.length;
       continue;
     }
+    let rowSepLen = 0;
     if (rowSep && raw.startsWith(rowSep, i)) {
+      rowSepLen = rowSep.length;
+    } else if (rowSep === '\n' && raw.startsWith('\r\n', i)) {
+      rowSepLen = 2;
+    } else if (rowSep === '\n' && raw[i] === '\r') {
+      rowSepLen = 1;
+    }
+    if (rowSepLen > 0) {
       row.push(field);
       rows.push(row);
       row = [];
       field = '';
       fieldStart = true;
-      i += rowSep.length;
+      i += rowSepLen;
       continue;
     }
     field += ch;
@@ -97,7 +105,8 @@ function splitDelimited(raw: string, fieldSep: string, rowSep: string): string[]
  * Each row is split into fields by `fieldSeparator`; the first field is the front, the
  * second the back, and an optional third field is read as space-separated tags. A row
  * with only one field is imported as a cloze card when it contains `{{cN::…}}` notation,
- * otherwise skipped. Windows/old-Mac line endings are normalised first.
+ * otherwise skipped. Windows and old-Mac line endings are handled natively by
+ * `splitDelimited` when `rowSeparator` is `'\n'`.
  */
 export function parseImport(
   raw: string,
@@ -108,11 +117,10 @@ export function parseImport(
   let skipped = 0;
   if (!raw.trim()) return { cards, skipped };
 
-  const normalised = raw.replace(/\r\n?/g, '\n');
   const field = fieldSeparator || DEFAULT_FIELD_SEPARATOR;
   const row = rowSeparator || DEFAULT_ROW_SEPARATOR;
 
-  for (const rawFields of splitDelimited(normalised, field, row)) {
+  for (const rawFields of splitDelimited(raw, field, row)) {
     const fields = rawFields.map((f) => f.trim());
     if (fields.every((f) => f.length === 0)) continue; // blank row
 

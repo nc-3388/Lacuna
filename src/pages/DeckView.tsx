@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { AnimatePresence, motion } from 'motion/react';
 import {
@@ -59,6 +59,8 @@ export function DeckView() {
   const [postExamDismissed, setPostExamDismissed] = useState(false);
   const [activeTag, setActiveTag] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedQuery, setDebouncedQuery] = useState('');
+  const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [sortMode, setSortMode] = useState<'due' | 'created' | 'stability' | 'alpha'>('due');
   const [filters, setFilters] = useState<Set<CardFilter>>(new Set());
   const [motionSpeed] = useMotionSpeed();
@@ -70,6 +72,15 @@ export function DeckView() {
     for (const c of cards ?? []) for (const t of c.tags ?? []) set.add(t);
     return [...set].sort();
   }, [cards]);
+
+  // Debounce search input so filtering/sorting doesn't run on every keystroke.
+  useEffect(() => {
+    if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
+    searchTimeoutRef.current = setTimeout(() => setDebouncedQuery(searchQuery), 180);
+    return () => {
+      if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
+    };
+  }, [searchQuery]);
 
   // Deck-scoped shortcut: N starts a new card. Ignored while typing in a field so it
   // never hijacks the tag filter or the exam-date input.
@@ -102,7 +113,7 @@ export function DeckView() {
       : [...cards];
 
     // Apply text query and inline operators.
-    const trimmed = searchQuery.trim();
+    const trimmed = debouncedQuery.trim();
     if (trimmed || filters.size > 0) {
       const hits = searchCards(trimmed, pool, deck ? [deck] : [], {
         filters: [...filters],
@@ -131,7 +142,7 @@ export function DeckView() {
         break;
     }
     return pool;
-  }, [cards, deck, filters, searchQuery, sortMode, visibleTag]);
+  }, [cards, deck, filters, debouncedQuery, sortMode, visibleTag]);
 
   if (deck === undefined || cards === undefined) {
     return <DeckViewSkeleton />;
