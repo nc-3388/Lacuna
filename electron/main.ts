@@ -11,16 +11,20 @@ const isDev = !app.isPackaged;
 const VITE_DEV_URL = 'http://localhost:5173';
 let mainWindow: BrowserWindow | null = null;
 
-/** Inject Cross-Origin Isolation headers required for SharedArrayBuffer (WASM). */
-function installCrossOriginIsolation(): void {
+/** Inject security headers required for SharedArrayBuffer (WASM) and CSP. */
+function installSecurityHeaders(): void {
   session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
-    callback({
-      responseHeaders: {
-        ...details.responseHeaders,
-        'Cross-Origin-Opener-Policy': ['same-origin'],
-        'Cross-Origin-Embedder-Policy': ['credentialless'],
-      },
-    });
+    const headers: Record<string, string[]> = {
+      ...details.responseHeaders,
+      'Cross-Origin-Opener-Policy': ['same-origin'],
+      'Cross-Origin-Embedder-Policy': ['credentialless'],
+    };
+    if (!isDev) {
+      headers['Content-Security-Policy'] = [
+        "default-src 'self' app: file:; script-src 'self' 'unsafe-inline' app: file:; style-src 'self' 'unsafe-inline' app: file:; font-src 'self' app: file:; img-src 'self' blob: data: app: file:; connect-src 'self';",
+      ];
+    }
+    callback({ responseHeaders: headers });
   });
 }
 
@@ -112,7 +116,7 @@ if (!gotTheLock) {
   });
 
   app.whenReady().then(() => {
-    installCrossOriginIsolation();
+    installSecurityHeaders();
 
     if (!isDev) {
       registerAppProtocol();
