@@ -313,7 +313,9 @@ export async function ensurePreMigrationSnapshot(dbName: string = 'lacuna'): Pro
     try {
       const payload = await readAllDataFromVersion(dbName, currentVersion);
       await savePreMigrationSnapshot(targetVersion, payload);
-    } catch {
+    } catch (e) {
+      // eslint-disable-next-line no-console
+      console.error('Pre-migration snapshot failed:', e);
       snapshottedDbNames.delete(dbName);
     }
   }
