@@ -49,21 +49,30 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     setToasts((prev) => prev.filter((t) => t.id !== id));
   }, []);
 
+  const MAX_TOASTS = 5;
+
   const notify = useCallback(
     (message: string, tone: ToastTone = 'neutral', options?: ToastOptions) => {
       const id = ++toastIdCounter;
       const duration = options?.duration ?? (options?.actionLabel ? 6000 : 3500);
-      setToasts((prev) => [
-        ...prev,
-        {
-          id,
-          message,
-          tone,
-          actionLabel: options?.actionLabel,
-          onAction: options?.onAction,
-          duration,
-        },
-      ]);
+      setToasts((prev) => {
+        const next = [
+          ...prev,
+          {
+            id,
+            message,
+            tone,
+            actionLabel: options?.actionLabel,
+            onAction: options?.onAction,
+            duration,
+          },
+        ];
+        // Prune the oldest toasts so the stack never grows without limit.
+        if (next.length > MAX_TOASTS) {
+          return next.slice(next.length - MAX_TOASTS);
+        }
+        return next;
+      });
       // Dismissal is managed by ToastBar via requestAnimationFrame so it can be paused on hover.
     },
     [],
