@@ -29,18 +29,21 @@ function registerAppProtocol(): void {
   protocol.handle('app', (request) => {
     const distPath = path.resolve(path.join(app.getAppPath(), 'dist'));
 
-    // Parse the pathname out of the custom URL so query strings and fragments
-    // cannot be used to mask a traversal attempt.
-    let pathname: string;
+    // Extract the raw path part after the scheme.  We deliberately do NOT use
+    // new URL().pathname because for non-special schemes (like app://) the host
+    // portion would be discarded, allowing traversal via the authority section
+    // (e.g. app://../../../etc/passwd would yield pathname === '/passwd').
+    let rawPath: string;
     try {
-      pathname = new URL(request.url).pathname;
+      rawPath = decodeURIComponent(request.url.slice('app://'.length));
     } catch {
       return new Response('Invalid URL', { status: 400 });
     }
 
-    // Normalise the requested path and ensure it stays inside the dist folder.
-    const resolved = path.resolve(path.join(distPath, pathname));
-    if (!resolved.startsWith(distPath + path.sep) && resolved !== distPath) {
+    // Normalise and ensure the resolved path stays inside the dist folder.
+    const resolved = path.resolve(path.join(distPath, rawPath));
+    const relative = path.relative(distPath, resolved);
+    if (relative.startsWith('..') || path.isAbsolute(relative)) {
       return new Response('Forbidden', { status: 403 });
     }
 
