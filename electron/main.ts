@@ -27,8 +27,24 @@ function installCrossOriginIsolation(): void {
 /** Register the app:// custom protocol for serving production assets. */
 function registerAppProtocol(): void {
   protocol.handle('app', (request) => {
-    const filePath = path.join(app.getAppPath(), 'dist', request.url.slice('app://'.length));
-    return net.fetch(`file://${filePath}`);
+    const distPath = path.resolve(path.join(app.getAppPath(), 'dist'));
+
+    // Parse the pathname out of the custom URL so query strings and fragments
+    // cannot be used to mask a traversal attempt.
+    let pathname: string;
+    try {
+      pathname = new URL(request.url).pathname;
+    } catch {
+      return new Response('Invalid URL', { status: 400 });
+    }
+
+    // Normalise the requested path and ensure it stays inside the dist folder.
+    const resolved = path.resolve(path.join(distPath, pathname));
+    if (!resolved.startsWith(distPath + path.sep) && resolved !== distPath) {
+      return new Response('Forbidden', { status: 403 });
+    }
+
+    return net.fetch(`file://${resolved}`);
   });
 }
 
