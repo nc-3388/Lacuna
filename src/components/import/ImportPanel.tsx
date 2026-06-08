@@ -49,9 +49,13 @@ export function ImportPanel({ onImport, onCancel, importLabel = 'Import cards' }
   const [motionSpeed] = useMotionSpeed();
   const m = speedMultiplier(motionSpeed);
 
+  const MAX_IMPORT_ROWS = 5000;
+  const MAX_IMPORT_CHARS = 500_000;
+
+  const trimmedText = text.length > MAX_IMPORT_CHARS ? text.slice(0, MAX_IMPORT_CHARS) : text;
   const result = useMemo(
-    () => parseImport(text, fieldSep, rowSep),
-    [text, fieldSep, rowSep],
+    () => parseImport(trimmedText, fieldSep, rowSep),
+    [trimmedText, fieldSep, rowSep],
   );
 
   async function handleFile(file: File | undefined) {
@@ -77,6 +81,16 @@ export function ImportPanel({ onImport, onCancel, importLabel = 'Import cards' }
 
   return (
     <div className="flex flex-col gap-4">
+      {text.length > MAX_IMPORT_CHARS && (
+        <div className="rounded-lg border border-negative/30 bg-negative/5 px-3 py-2 text-sm text-negative">
+          Input truncated to {MAX_IMPORT_CHARS.toLocaleString()} characters to keep the import responsive.
+        </div>
+      )}
+      {result.cards.length > MAX_IMPORT_ROWS && (
+        <div className="rounded-lg border border-negative/30 bg-negative/5 px-3 py-2 text-sm text-negative">
+          Only the first {MAX_IMPORT_ROWS.toLocaleString()} cards will be imported.
+        </div>
+      )}
       <div>
         <div className="mb-2 flex items-center justify-between">
           <label className="text-sm text-ink-soft">Paste your cards</label>
@@ -200,9 +214,9 @@ export function ImportPanel({ onImport, onCancel, importLabel = 'Import cards' }
         <Button
           variant="primary"
           onClick={handleImport}
-          disabled={busy || result.cards.length === 0}
+          disabled={busy || result.cards.length === 0 || result.cards.length > MAX_IMPORT_ROWS}
         >
-          {busy ? 'Importing…' : `${importLabel} (${result.cards.length})`}
+          {busy ? 'Importing…' : `${importLabel} (${Math.min(result.cards.length, MAX_IMPORT_ROWS)})`}
         </Button>
       </div>
     </div>
