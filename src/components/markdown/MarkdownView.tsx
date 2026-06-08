@@ -86,10 +86,24 @@ function evictStaleEntries(now: number): void {
   }
 }
 
+/** Evict the single least-recently-used entry (oldest accessedAt). */
+function evictLru(): void {
+  let oldestKey: string | undefined;
+  let oldestTime = Infinity;
+  for (const [key, entry] of HTML_CACHE) {
+    if (entry.accessedAt < oldestTime) {
+      oldestTime = entry.accessedAt;
+      oldestKey = key;
+    }
+  }
+  if (oldestKey !== undefined) HTML_CACHE.delete(oldestKey);
+}
+
 function renderMarkdownToHtml(prepared: string): string {
   const now = Date.now();
   const cached = HTML_CACHE.get(prepared);
   if (cached !== undefined) {
+    // Update access time on hit so LRU eviction preserves frequently-used entries.
     cached.accessedAt = now;
     return cached.html;
   }
@@ -104,8 +118,7 @@ function renderMarkdownToHtml(prepared: string): string {
     evictStaleEntries(now);
   }
   if (HTML_CACHE.size >= cacheLimit) {
-    const oldest = HTML_CACHE.keys().next().value;
-    if (oldest !== undefined) HTML_CACHE.delete(oldest);
+    evictLru();
   }
   HTML_CACHE.set(prepared, { html, accessedAt: now });
   return html;

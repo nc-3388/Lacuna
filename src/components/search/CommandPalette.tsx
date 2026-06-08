@@ -41,11 +41,20 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
   const inputRef = useRef<HTMLInputElement>(null);
 
   const [query, setQuery] = useState('');
+  const [debouncedQuery, setDebouncedQuery] = useState('');
   const [active, setActive] = useState(0);
 
+  // Debounce the search query so expensive full-text search does not run on
+  // every keystroke. 150ms keeps the UI feeling responsive while avoiding
+  // redundant work during rapid typing.
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedQuery(query), 150);
+    return () => clearTimeout(timer);
+  }, [query]);
+
   const results = useMemo(
-    () => searchCards(query, cards ?? [], decks ?? []).slice(0, MAX_RESULTS),
-    [query, cards, decks],
+    () => searchCards(debouncedQuery, cards ?? [], decks ?? []).slice(0, MAX_RESULTS),
+    [debouncedQuery, cards, decks],
   );
 
   // Reset and focus whenever the palette opens.
@@ -138,7 +147,7 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
                     transition={{ duration: 0.12 * m }}
                     className="px-4 py-6 text-center text-sm text-ink-faint"
                   >
-                    No cards match "{query}".
+                    No cards match "{debouncedQuery}".
                   </motion.p>
                 ) : (
                   <motion.ul

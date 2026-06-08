@@ -202,6 +202,7 @@ export function LearnMode() {
     setMenuOpen(false);
     timerStart.current = performance.now();
     distraction.beginCard();
+    distraction.setAnswerVisible(false);
     // Invalidate progress cache when moving to a new card.
     progressCacheRef.current.dirty = true;
   }, [finish, distraction]);
@@ -314,7 +315,8 @@ export function LearnMode() {
       responseTime.current = (performance.now() - timerStart.current) / 1000;
       return 'answer';
     });
-  }, []);
+    distraction.setAnswerVisible(true);
+  }, [distraction]);
 
   const answer = useCallback(
     async (input: boolean | Grade) => {

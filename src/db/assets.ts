@@ -176,6 +176,7 @@ async function assetFromDataUri(uri: string, mimeType: string): Promise<ImageAss
 export async function extractMarkdownAssets(
   markdown: string,
   putAsset: (asset: ImageAsset) => Promise<unknown>,
+  knownHashes?: Set<string>,
 ): Promise<string> {
   const replacements: { from: string; to: string }[] = [];
   const seen = new Set<string>();
@@ -197,6 +198,7 @@ export async function extractMarkdownAssets(
     if (seen.has(from)) continue;
     seen.add(from);
     const hash = match[1].toLowerCase();
+    if (knownHashes?.has(hash)) continue;
     const existing = await db.assets.get(hash);
     if (!existing) {
       replacements.push({ from, to: MISSING_ASSET_SVG });
@@ -271,13 +273,25 @@ export async function collectOrphanedAssets(): Promise<number> {
   if (gcRunning) return 0;
   gcRunning = true;
   try {
-    const cards = await db.cards.toArray();
+    // Build the set of referenced hashes by streaming cards in batches
+    // so we never load the entire card table into memory at once.
     const referenced = new Set<string>();
-    for (const card of cards) {
-      referencedAssetHashes(`${card.front}\n${card.back}`).forEach((h) => referenced.add(h));
+    const batchSize = 500;
+    let offset = 0;
+    while (true) {
+      const batch = await db.cards.offset(offset).limit(batchSize).toArray();
+      if (batch.length === 0) break;
+      for (const card of batch) {
+        referencedAssetHashes(`${card.front}\n${card.back}`).forEach((h) => referenced.add(h));
+      }
+      offset += batch.length;
     }
-    const allHashes = await db.assets.toCollection().primaryKeys();
-    const orphans = allHashes.filter((h) => !referenced.has(h));
+
+    // Stream asset keys and collect orphans without loading all keys at once.
+    const orphans: string[] = [];
+    await db.assets.toCollection().eachPrimaryKey((hash) => {
+      if (!referenced.has(hash)) orphans.push(hash);
+    });
     if (orphans.length > 0) {
       await db.assets.bulkDelete(orphans);
     }

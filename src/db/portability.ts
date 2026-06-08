@@ -96,6 +96,7 @@ export async function importBackup(
   // canvas compressions cannot auto-abort the import transaction.
   const decks = backup.decks.map((d) => migrateDeckRecord(d as LegacyDeck));
   const assets = backup.assets;
+  const knownHashes = new Set(backup.assets.map((a) => a.hash.toLowerCase()));
   const extractedAssets: ImageAsset[] = [];
   const cards = await Promise.all(
     backup.cards.map(async (c) => {
@@ -104,10 +105,12 @@ export async function importBackup(
         ...migrated,
         front: await extractMarkdownAssets(migrated.front, async (asset) => {
           extractedAssets.push(asset);
-        }),
+          knownHashes.add(asset.hash.toLowerCase());
+        }, knownHashes),
         back: await extractMarkdownAssets(migrated.back, async (asset) => {
           extractedAssets.push(asset);
-        }),
+          knownHashes.add(asset.hash.toLowerCase());
+        }, knownHashes),
       };
     }),
   );

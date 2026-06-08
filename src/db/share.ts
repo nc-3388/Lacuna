@@ -185,6 +185,9 @@ export async function decodeShareDirect(code: string): Promise<SharePayload> {
     );
   } else if (trimmed.startsWith(PREFIX_PLAIN)) {
     bytes = base64ToBytes(trimmed.slice(PREFIX_PLAIN.length));
+    if (bytes.length > MAX_SHARE_BYTES) {
+      throw new Error('Share code is too large to decode safely.');
+    }
   } else {
     throw new Error('That does not look like a Lacuna share code.');
   }
@@ -331,7 +334,10 @@ export function summariseShare(payload: SharePayload): ShareSummary {
 function packCards(cards: Card[]): ShareCard[] {
   const out: ShareCard[] = [];
   const consumed = new Set<string>();
-  const key = (f: string, b: string) => `${f}${b}`;
+  // Use a length-prefixed key so the separator can never collide with card content.
+  // Format: length-of-front + \u0002 + front + \u0002 + back.  \u0002 is a control
+  // character that cannot appear in normal Markdown.
+  const key = (f: string, b: string) => `${f.length}${f}${b}`;
 
   // Index front/back cards by content so a card can find its mirror in one lookup.
   const byContent = new Map<string, Card[]>();
