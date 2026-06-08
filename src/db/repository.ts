@@ -455,8 +455,10 @@ export async function recordReview(args: RecordReviewArgs): Promise<RecordReview
 
   // Snapshot the deck's average predicted exam-day retrievability after this card.
   // If the caller already has the deck cards, pass them to avoid re-reading the deck.
+  // Replace the pre-review card with updatedCard so the snapshot reflects the post-review state.
   const deckCards = args.deckCards ?? (await db.cards.where('deckId').equals(deck.id).toArray());
-  const avgRetrievability = averagePredictedRetrievability(deckCards, deck);
+  const deckCardsWithUpdate = deckCards.map((c) => (c.id === updatedCard.id ? updatedCard : c));
+  const avgRetrievability = averagePredictedRetrievability(deckCardsWithUpdate, deck);
 
   const sessionHistoryId = await db.transaction(
     'rw',
