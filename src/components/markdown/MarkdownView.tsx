@@ -57,12 +57,42 @@ const REHYPE_PLUGINS: MarkdownProps['rehypePlugins'] = [
  * with simple FIFO eviction so the live editor preview (a new string per keystroke)
  * can't grow it without limit.
  */
-const HTML_CACHE = new Map<string, string>();
-const CACHE_LIMIT = 600;
+interface CacheEntry {
+  html: string;
+  accessedAt: number;
+}
+
+const HTML_CACHE = new Map<string, CacheEntry>();
+const DEFAULT_CACHE_LIMIT = 600;
+const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+
+/** Maximum number of parsed HTML entries to retain. Exposed so tests can tune it. */
+export let cacheLimit = DEFAULT_CACHE_LIMIT;
+
+export function setCacheLimit(limit: number): void {
+  cacheLimit = Math.max(1, limit);
+}
+
+export function getCacheLimit(): number {
+  return cacheLimit;
+}
+
+function evictStaleEntries(now: number): void {
+  const cutoff = now - CACHE_TTL_MS;
+  for (const [key, entry] of HTML_CACHE) {
+    if (entry.accessedAt < cutoff) {
+      HTML_CACHE.delete(key);
+    }
+  }
+}
 
 function renderMarkdownToHtml(prepared: string): string {
+  const now = Date.now();
   const cached = HTML_CACHE.get(prepared);
-  if (cached !== undefined) return cached;
+  if (cached !== undefined) {
+    cached.accessedAt = now;
+    return cached.html;
+  }
 
   const html = renderToStaticMarkup(
     <ReactMarkdown remarkPlugins={REMARK_PLUGINS} rehypePlugins={REHYPE_PLUGINS}>
@@ -70,11 +100,14 @@ function renderMarkdownToHtml(prepared: string): string {
     </ReactMarkdown>,
   );
 
-  if (HTML_CACHE.size >= CACHE_LIMIT) {
+  if (HTML_CACHE.size >= cacheLimit) {
+    evictStaleEntries(now);
+  }
+  if (HTML_CACHE.size >= cacheLimit) {
     const oldest = HTML_CACHE.keys().next().value;
     if (oldest !== undefined) HTML_CACHE.delete(oldest);
   }
-  HTML_CACHE.set(prepared, html);
+  HTML_CACHE.set(prepared, { html, accessedAt: now });
   return html;
 }
 

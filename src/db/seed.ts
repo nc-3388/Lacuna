@@ -16,6 +16,8 @@ function exampleCard(
   front: string,
   back: string,
   tags?: string[],
+  /** Milliseconds offset from base time so every card has a distinct createdAt. */
+  timeOffset = 0,
 ): Card {
   return {
     id: makeId(),
@@ -34,7 +36,7 @@ function exampleCard(
     learningSteps: 0,
     history: [],
     tags: tags ?? [],
-    createdAt: Date.now(),
+    createdAt: Date.now() + timeOffset,
     suspended: false,
     flagged: false,
     buriedUntil: null,
@@ -113,6 +115,7 @@ export async function seedIfFirstRun(): Promise<void> {
         'What does the **forgetting curve** describe?',
         `How retrievability of a memory **decays over time** since the last review. Lacuna uses the FSRS-6 model:\n\n\`R(t, S) = (1 + factor·(t/S))^decay\`, where \`factor = 0.9^(1/decay) − 1\` and \`decay = −w20\`.\n\n![Forgetting curve](${fcAsset.url})`,
         ['fsrs', 'theory'],
+        0,
       ),
       exampleCard(
         deck.id,
@@ -120,6 +123,7 @@ export async function seedIfFirstRun(): Promise<void> {
         'The chemical symbol for water is {{c1::H2O}}.',
         '',
         ['chemistry', 'basics'],
+        1,
       ),
       exampleCard(
         deck.id,
@@ -127,6 +131,7 @@ export async function seedIfFirstRun(): Promise<void> {
         'In spaced repetition, the two state variables FSRS tracks are {{c1::stability::how long a memory lasts}} and {{c2::difficulty::how hard a card is}}.',
         '',
         ['fsrs', 'theory'],
+        2,
       ),
       exampleCard(
         deck.id,
@@ -134,6 +139,7 @@ export async function seedIfFirstRun(): Promise<void> {
         'Write the quadratic formula.',
         'For $ax^2 + bx + c = 0$:\n\n$$x = \\frac{-b \\pm \\sqrt{b^2 - 4ac}}{2a}$$',
         ['maths', 'formulae'],
+        3,
       ),
       exampleCard(
         deck.id,
@@ -141,6 +147,7 @@ export async function seedIfFirstRun(): Promise<void> {
         'What is the derivative of $e^x$ with respect to $x$?',
         '$$\\frac{d}{dx} e^x = e^x$$',
         ['maths', 'calculus'],
+        4,
       ),
 
       // Scheduling philosophy
@@ -150,6 +157,7 @@ export async function seedIfFirstRun(): Promise<void> {
         'How does Lacuna differ from classic spaced repetition?',
         'Classic SRS asks "when is this card next due?" Lacuna asks "what will this card\'s retrievability be on the **exam date**?" Every review is chosen to maximise your predicted score on exam day, not merely to space intervals.',
         ['scheduling', 'philosophy'],
+        5,
       ),
       exampleCard(
         deck.id,
@@ -157,6 +165,7 @@ export async function seedIfFirstRun(): Promise<void> {
         'What are the two exam objectives a deck can use?',
         '1. **Expected marks** — maximise the mean predicted retrievability across all cards.\n2. **Secured topics** — maximise the fraction of cards whose predicted retrievability is at least 0.90.\n\nYou can switch between them in Deck Settings.',
         ['scheduling', 'objectives'],
+        6,
       ),
       exampleCard(
         deck.id,
@@ -164,6 +173,7 @@ export async function seedIfFirstRun(): Promise<void> {
         'What is Exam-eve cram mode?',
         'Within 48 hours of an exam, a deck can enter **cram mode**. It reorders study **weakest-first** — cards with the lowest predicted exam-day retrievability — to get as many topics over the line as possible before the deadline.',
         ['scheduling', 'cram'],
+        7,
       ),
       exampleCard(
         deck.id,
@@ -171,6 +181,7 @@ export async function seedIfFirstRun(): Promise<void> {
         'What happens after an exam date passes?',
         'The deck shows "Exam date passed" and offers three choices: **set a new exam date**, **archive** the deck (withdraw it from study while keeping the data), or **keep revising** against a rolling 7-day maintenance horizon.',
         ['scheduling', 'post-exam'],
+        8,
       ),
 
       // Learn mode & grading
@@ -180,6 +191,7 @@ export async function seedIfFirstRun(): Promise<void> {
         'What happens when you press "Yes" with silent grading enabled?',
         'An **invisible timer** measures how long you took from revealing the answer to pressing Yes. Lacuna maps your speed to an FSRS grade: fast responses become **Easy**, average become **Good**, and slow become **Hard**. Only "No" maps directly to **Again**.',
         ['learn', 'grading'],
+        9,
       ),
       exampleCard(
         deck.id,
@@ -187,6 +199,7 @@ export async function seedIfFirstRun(): Promise<void> {
         'How can you switch from silent to manual grading?',
         'Go to **Settings** and toggle **Manual four-point grading**. When enabled, Learn mode shows **Again / Hard / Good / Easy** buttons instead of Yes / No.',
         ['learn', 'grading'],
+        10,
       ),
       exampleCard(
         deck.id,
@@ -194,6 +207,7 @@ export async function seedIfFirstRun(): Promise<void> {
         'During a Learn session, press {{c1::Space}} or {{c2::Up}} to reveal the answer. Press {{c3::Y}}, {{c4::J}}, or {{c5::Right}} for Yes, and {{c6::N}} or {{c7::Left}} for No. Press {{c8::F}} for focus mode and {{c9::?}} for help.',
         '',
         ['learn', 'shortcuts'],
+        11,
       ),
       exampleCard(
         deck.id,
@@ -201,6 +215,7 @@ export async function seedIfFirstRun(): Promise<void> {
         'What actions can you take on a card during a study session?',
         'From the three-dot menu: **Edit** the card in-place, **Flag** it for later attention, **Bury** it until tomorrow, or **Suspend** it indefinitely. You can also **Undo** your last answer with **U**.',
         ['learn', 'actions'],
+        12,
       ),
       exampleCard(
         deck.id,
@@ -208,6 +223,7 @@ export async function seedIfFirstRun(): Promise<void> {
         'How can you stay focused while studying?',
         'Toggle **Focus mode** with **F** to hide all chrome. You can also enable the **Pomodoro timer** in Learn mode, with customisable work and break durations to pace your sessions.',
         ['learn', 'focus'],
+        13,
       ),
 
       // Data management
@@ -217,6 +233,7 @@ export async function seedIfFirstRun(): Promise<void> {
         'How can you find cards across all decks?',
         'Open **Search** from the sidebar or press **Ctrl+K** for the command palette. You can filter by **due**, **new**, **leech**, **flagged**, and **suspended** cards.',
         ['search', 'navigation'],
+        14,
       ),
       exampleCard(
         deck.id,
@@ -224,6 +241,7 @@ export async function seedIfFirstRun(): Promise<void> {
         'How can you share a deck with someone else?',
         'Go to the **Share** page, select a deck, and generate a compact **share code**. It carries the deck content and settings, but not review history or images. The recipient pastes the code and imports it as a fresh deck.',
         ['share', 'export'],
+        15,
       ),
       exampleCard(
         deck.id,
@@ -231,6 +249,7 @@ export async function seedIfFirstRun(): Promise<void> {
         'How is your data protected?',
         'Lacuna stores everything **locally** in your browser. Automatic **restore points** are taken daily. You can also **export** everything to a JSON file, or use **folder mirroring** (where supported) to write backups to disk.',
         ['backup', 'privacy'],
+        16,
       ),
 
       // Advanced features
@@ -240,6 +259,7 @@ export async function seedIfFirstRun(): Promise<void> {
         'Did you know: FSRS parameters can be personalised?',
         'Lacuna can **optimise** your deck\'s FSRS weights by training them on your own review history. This runs in a background Web Worker and only applies after you confirm an improvement in prediction accuracy.',
         ['optimisation', 'advanced'],
+        17,
       ),
       exampleCard(
         deck.id,
@@ -247,6 +267,7 @@ export async function seedIfFirstRun(): Promise<void> {
         'What is a leech card?',
         'A card with **8 or more lapses** is flagged as a **leech**. Lacuna surfaces it with a badge and a search filter, but it is never auto-suspended — you decide what to do with it.',
         ['leech', 'advanced'],
+        18,
       ),
       exampleCard(
         deck.id,
@@ -254,6 +275,7 @@ export async function seedIfFirstRun(): Promise<void> {
         'What happens when you add tags to a card?',
         'Tags let you filter the card list in Deck view. The active tag also narrows the **study session** to only cards with that tag. Try selecting a tag and then pressing **Study**.',
         ['tags', 'organisation'],
+        19,
       ),
       exampleCard(
         deck.id,
@@ -261,6 +283,7 @@ export async function seedIfFirstRun(): Promise<void> {
         'Can you create a card that tests both directions?',
         'Yes. When creating a front/back card, enable **Also create reverse**. Lacuna will generate an independent second card with the front and back swapped, so you are tested on the relationship in both directions.',
         ['cards', 'editor'],
+        20,
       ),
 
       // Did-you-know cards for minor features
@@ -270,6 +293,7 @@ export async function seedIfFirstRun(): Promise<void> {
         'Did you know: failed cards are temporarily deferred?',
         'If you answer "No", the card enters a **cooldown** so it is not shown again immediately. This gives you a chance to see other cards before retrying it.',
         ['learn', 'cooldown'],
+        21,
       ),
       exampleCard(
         deck.id,
@@ -277,6 +301,7 @@ export async function seedIfFirstRun(): Promise<void> {
         'Did you know: the dashboard tracks your study streak?',
         'The dashboard shows your current **study streak** and a **review heatmap** — a calendar grid of how many cards you reviewed each day. It is a familiar sight for anyone arriving from Anki.',
         ['dashboard', 'stats'],
+        22,
       ),
       exampleCard(
         deck.id,
@@ -284,6 +309,7 @@ export async function seedIfFirstRun(): Promise<void> {
         'Did you know: you can import cards from a spreadsheet?',
         'Go to a deck and choose **Import**. Lacuna accepts **CSV** or **TSV** files (and Anki\'s plain-text export) with front, back, and optional tags. Cloze notation in a single column is recognised automatically.',
         ['import', 'data'],
+        23,
       ),
       exampleCard(
         deck.id,
@@ -291,6 +317,7 @@ export async function seedIfFirstRun(): Promise<void> {
         'Did you know: cards can include images?',
         `Paste or drag an image into the editor and it is stored as a binary asset, referenced in Markdown as \`lacuna-asset://<hash>\`. Identical images are deduplicated by hash so they are only stored once.\n\n![Sample embedded image](${sampleAsset.url})`,
         ['images', 'editor'],
+        24,
       ),
       exampleCard(
         deck.id,
@@ -298,6 +325,7 @@ export async function seedIfFirstRun(): Promise<void> {
         'Did you know: the interface is fully themeable?',
         'In **Settings** you can switch between light and dark mode, pick from **seven accent colours**, and adjust the **text size** in steps. Your choices persist across sessions.',
         ['appearance', 'customisation'],
+        25,
       ),
       exampleCard(
         deck.id,
@@ -305,6 +333,7 @@ export async function seedIfFirstRun(): Promise<void> {
         'Did you know: you can cap new cards per day?',
         'In **Deck Settings**, set a **new cards per day** cap to ration brand-new material. The dashboard denominator stays honest while your daily session paces itself.',
         ['settings', 'scheduling'],
+        26,
       ),
       exampleCard(
         deck.id,
@@ -312,6 +341,7 @@ export async function seedIfFirstRun(): Promise<void> {
         'Did you know: target retention is adjustable?',
         'The **target retention** slider in Deck Settings lets you choose between **0.80** (relaxed) and **0.97** (thorough). A higher value means more reviews but stronger memories on exam day.',
         ['settings', 'fsrs'],
+        27,
       ),
       exampleCard(
         deck.id,
@@ -319,6 +349,7 @@ export async function seedIfFirstRun(): Promise<void> {
         'Did you know: Lacuna requests persistent storage?',
         'On first run the app asks the browser for **persistent storage** so your data is not silently evicted. Check the result in **Settings**; if denied, regular exports or folder mirroring are your safeguard.',
         ['settings', 'privacy'],
+        28,
       ),
     ];
 

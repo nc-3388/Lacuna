@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import { isAvailable, studyPool } from './eligibility';
-import { startOfDay } from '../utils/datetime';
 import { MS_PER_DAY } from './params';
 import type { Card, Deck, ReviewLog } from '../db/types';
 
@@ -109,21 +108,21 @@ describe('studyPool', () => {
     expect(pool).not.toContain('new2');
   });
 
-  it('does not count cards first reviewed on a previous day', () => {
-    const yesterday = startOfDay(NOW) - 2 * 3600_000; // 02:00 the day before
+  it('does not count cards first reviewed more than 24 hours ago', () => {
+    const twoDaysAgo = NOW - 2 * MS_PER_DAY;
     const cards = [
       makeCard({
         id: 'old',
         state: 2,
         createdAt: 1,
         lastReviewed: NOW,
-        history: [review(yesterday)],
+        history: [review(twoDaysAgo)],
       }),
       makeCard({ id: 'new1', createdAt: 2 }),
       makeCard({ id: 'new2', createdAt: 3 }),
     ];
     const pool = studyPool(cards, deck(2), NOW).map((c) => c.id);
-    // Nothing introduced today, so the full budget of 2 new cards is available.
+    // Nothing introduced in the last 24 hours, so the full budget of 2 new cards is available.
     expect(pool).toContain('new1');
     expect(pool).toContain('new2');
   });

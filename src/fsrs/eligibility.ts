@@ -10,7 +10,7 @@
 //    will introduce). It deliberately does not change the dashboard denominator, so
 //    the deck's exam-day trajectory stays honest while a session paces new material.
 
-import { startOfDay } from '../utils/datetime';
+import { MS_PER_DAY } from './params';
 import type { Card, Deck } from '../db/types';
 
 /** Whether a card may be studied or counted at `now` (not suspended, not buried). */
@@ -25,13 +25,16 @@ export function availableCards(cards: Card[], now: number = Date.now()): Card[] 
   return cards.filter((c) => isAvailable(c, now));
 }
 
-/** How many brand-new cards a card-set has already introduced today (first review today). */
-export function newCardsIntroducedToday(cards: Card[], now: number = Date.now()): number {
-  const today = startOfDay(now);
+/** How many brand-new cards a card-set has already introduced in the last 24 hours.
+ *  Uses a rolling window so a late-night session that crosses midnight does not
+ *  double-spend the daily new-card budget.
+ */
+export function newCardsIntroducedRecently(cards: Card[], now: number = Date.now()): number {
+  const cutoff = now - MS_PER_DAY;
   return cards.filter((c) => {
     if (c.history.length === 0) return false;
     const firstReview = c.history.reduce((min, h) => Math.min(min, h.timestamp), Infinity);
-    return firstReview !== Infinity && startOfDay(firstReview) === today;
+    return firstReview !== Infinity && firstReview > cutoff;
   }).length;
 }
 
@@ -49,7 +52,7 @@ export function studyPool(cards: Card[], deck: Deck, now: number = Date.now()): 
   const cap = Math.floor(deck.newCardsPerDay ?? 0);
   if (cap <= 0) return available; // unlimited
 
-  const budget = Math.max(cap - newCardsIntroducedToday(available, now), 0);
+  const budget = Math.max(cap - newCardsIntroducedRecently(available, now), 0);
   const newAllowed = new Set(
     available
       .filter((c) => c.state === 0)

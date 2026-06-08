@@ -69,9 +69,39 @@ export function referencedAssetHashesInCards(cards: { front: string; back: strin
 
 export function stripAssetImages(markdown: string): { markdown: string; stripped: boolean } {
   let stripped = false;
-  const next = markdown.replace(/!\[([^\]]*)\]\(lacuna-asset:\/\/[a-f0-9]{64}\)/gi, (_m, alt) => {
+  // Normalise line endings so every regex below can assume LF-only.
+  const source = markdown.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+  // Inline images: ![alt](lacuna-asset://hash)
+  let next = source.replace(/!\[([^\]]*)\]\(lacuna-asset:\/\/[a-f0-9]{64}\)/gi, (_m, alt) => {
     stripped = true;
     return `[Image omitted from share code: ${alt || 'image'}]`;
+  });
+  // Reference-style images: ![alt][ref] where [ref]: lacuna-asset://hash
+  const strippedRefs = new Set<string>();
+  next = next.replace(/!\[([^\]]*)\]\[([^\]]*)\]/gi, (m, alt, ref) => {
+    const refPattern = new RegExp(
+      `\\[${ref.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\]:\\s*lacuna-asset:\\/\\/[a-f0-9]{64}`,
+      'i',
+    );
+    if (refPattern.test(next)) {
+      stripped = true;
+      strippedRefs.add(ref);
+      return `[Image omitted from share code: ${alt || 'image'}]`;
+    }
+    return m;
+  });
+  // Strip the dangling reference definitions so asset hashes don't leak.
+  for (const ref of strippedRefs) {
+    const defPattern = new RegExp(
+      `\\n\\[${ref.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\]:\\s*lacuna-asset:\\/\\/[a-f0-9]{64}\\s*(?=\\n|$)`,
+      'gi',
+    );
+    next = next.replace(defPattern, '\n');
+  }
+  // HTML img tags: <img src="lacuna-asset://hash" ...>
+  next = next.replace(/<img\s+[^>]*src=["']lacuna-asset:\/\/[a-f0-9]{64}["'][^>]*>/gi, (_m) => {
+    stripped = true;
+    return '[Image omitted from share code]';
   });
   return { markdown: next, stripped };
 }

@@ -77,7 +77,7 @@ export function updatePerformance(
   const mean = perf.runningMeanResponseTime + delta / n;
   const delta2 = responseTimeSec - mean;
   const m2 = perf.m2 + delta * delta2;
-  const variance = n > 1 ? m2 / (n - 1) : 0;
+  const variance = m2 / n;
   return {
     deckId: perf.deckId,
     runningMeanResponseTime: mean,
