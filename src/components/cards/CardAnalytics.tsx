@@ -169,17 +169,6 @@ export function CardAnalytics({ card, deck, motionMultiplier }: CardAnalyticsPro
                   dot={false}
                 />
                 <ReferenceLine
-                  x={now}
-                  stroke={c.inkSoft}
-                  strokeDasharray="4 4"
-                  label={{
-                    value: 'Now',
-                    position: 'insideTopRight',
-                    fill: c.inkSoft,
-                    fontSize: 11,
-                  }}
-                />
-                <ReferenceLine
                   x={deck.examDate}
                   stroke={c.positive}
                   strokeDasharray="4 4"
