@@ -8,6 +8,8 @@ import { useEffect, useMemo, useRef } from 'react';
 export interface DistractionTracker {
   /** Mark the start of a fresh card's answer window. */
   beginCard: () => void;
+  /** Call when the answer is revealed so distraction is tracked only from this point. */
+  setAnswerVisible: (visible: boolean) => void;
   /** Whether the user lost focus at any point during the current card. */
   wasDistracted: () => boolean;
   /** Total milliseconds the page has been unfocused across the whole session. */

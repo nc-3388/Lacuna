@@ -180,6 +180,7 @@ export async function extractMarkdownAssets(
   const replacements: { from: string; to: string }[] = [];
   const seen = new Set<string>();
 
+  // Handle data URIs: extract, compress and store as assets.
   for (const match of markdown.matchAll(DATA_IMAGE_RE)) {
     const from = match[0];
     if (seen.has(from)) continue;
@@ -187,6 +188,19 @@ export async function extractMarkdownAssets(
     const asset = await assetFromDataUri(from, match[1]);
     await putAsset(asset);
     replacements.push({ from, to: assetUrl(asset.hash) });
+  }
+
+  // Normalise lacuna-asset:// references: verify each referenced hash exists in the
+  // asset store and replace any that are missing with a broken-image placeholder.
+  for (const match of markdown.matchAll(ASSET_RE)) {
+    const from = match[0];
+    if (seen.has(from)) continue;
+    seen.add(from);
+    const hash = match[1].toLowerCase();
+    const existing = await db.assets.get(hash);
+    if (!existing) {
+      replacements.push({ from, to: MISSING_ASSET_SVG });
+    }
   }
 
   return replacements.reduce((text, r) => text.replaceAll(r.from, r.to), markdown);
