@@ -66,8 +66,14 @@ export const DECK_COLOURS = [
 export interface Deck {
   id: string;
   name: string;
-  /** Exam date/time as an epoch millisecond value. Defaults to creation + 7 days at 23:59 local. */
+  /** Exam date/time as an epoch millisecond value, stored in UTC. Defaults to creation + 7 days at 23:59 local. */
   examDate: number;
+  /**
+   * IANA time zone name (e.g. 'Europe/London') captured when the exam date is set.
+   * Used to display the exam date consistently in the original time zone even if
+   * the user moves to a different one.
+   */
+  timeZone?: string;
   createdAt: number;
   /** Set true once the user has set or dismissed the exam-date prompt with "don't ask again". */
   examDatePromptDismissed?: boolean;

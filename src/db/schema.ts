@@ -142,10 +142,25 @@ export class LacunaDatabase extends Dexie {
         assets: 'hash, createdAt',
         folders: 'id, parentId, createdAt',
       });
+
+    // Version 6: add explicit time zone tracking to decks so exam dates are
+    // displayed in the original time zone even when the user moves between zones.
+    // No index needed — timeZone is a display-only field.
+    this.version(6)
+      .stores({
+        decks: 'id, createdAt, examDate, folderId',
+        cards: 'id, deckId, type, lastReviewed',
+        sessionHistory: '++id, deckId, timestamp',
+        userPerformance: 'deckId',
+        backups: '++id, createdAt',
+        appState: 'key',
+        assets: 'hash, createdAt',
+        folders: 'id, parentId, createdAt',
+      });
   }
 }
 
-export const CURRENT_SCHEMA_VERSION = 5;
+export const CURRENT_SCHEMA_VERSION = 6;
 
 export const db = new LacunaDatabase();
 

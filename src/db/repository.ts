@@ -16,7 +16,7 @@ import { applyReview, makeEngine } from '../fsrs/fsrs';
 import { defaultFsrsParameters, FSRS_VERSION } from '../fsrs/params';
 import { emptyPerformance, updatePerformance } from '../fsrs/grading';
 import { averagePredictedRetrievability } from '../fsrs/progress';
-import { defaultExamDate } from '../utils/datetime';
+import { defaultExamDate, getLocalTimeZone } from '../utils/datetime';
 import { scheduleAssetGc } from './assets';
 
 /** Convert low-level IndexedDB errors into user-friendly messages. */
@@ -39,6 +39,7 @@ export async function createDeck(name: string, colour?: string): Promise<Deck> {
       id: makeId(),
       name: name.trim() || 'Untitled deck',
       examDate: defaultExamDate(createdAt),
+      timeZone: getLocalTimeZone(),
       createdAt,
       fsrsVersion: FSRS_VERSION,
       fsrsParameters: defaultFsrsParameters(),

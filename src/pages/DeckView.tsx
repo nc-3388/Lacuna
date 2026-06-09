@@ -26,6 +26,7 @@ import { useToast } from '../components/ui/Toast';
 import {
   formatDateTime,
   fromDateTimeLocalValue,
+  getLocalTimeZone,
   relativeExam,
   toDateTimeLocalValue,
 } from '../utils/datetime';
@@ -209,7 +210,7 @@ export function DeckView() {
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="min-w-0">
             <div className="mb-1 text-sm uppercase tracking-[0.16em] text-ink-faint">
-              Exam {relativeExam(deck.examDate)} · {formatDateTime(deck.examDate)}
+              Exam {relativeExam(deck.examDate, Date.now(), deck.timeZone)} · {formatDateTime(deck.examDate, deck.timeZone)}
             </div>
             <h1 className="font-display text-4xl tracking-tight md:text-5xl">
               {deck.name}
@@ -538,13 +539,14 @@ function ExamDateBanner({
   motionMultiplier?: number;
 }) {
   const m = motionMultiplier ?? 1;
-  const [value, setValue] = useState(() => toDateTimeLocalValue(deck.examDate));
+  const [value, setValue] = useState(() => toDateTimeLocalValue(deck.examDate, deck.timeZone));
   const [dontAsk, setDontAsk] = useState(false);
 
   async function handleSet() {
-    const ms = fromDateTimeLocalValue(value);
+    const ms = fromDateTimeLocalValue(value, deck.timeZone);
     await updateDeck(deck.id, {
       examDate: Number.isNaN(ms) ? deck.examDate : ms,
+      timeZone: deck.timeZone ?? getLocalTimeZone(),
       examDatePromptDismissed: true,
     });
     onClose();
@@ -575,8 +577,9 @@ function ExamDateBanner({
         </p>
         <div className="max-w-sm">
           <DateTimePicker
-            value={fromDateTimeLocalValue(value) || deck.examDate}
-            onChange={(ms) => setValue(toDateTimeLocalValue(ms))}
+            value={fromDateTimeLocalValue(value, deck.timeZone) || deck.examDate}
+            onChange={(ms) => setValue(toDateTimeLocalValue(ms, deck.timeZone))}
+            timeZone={deck.timeZone}
             label="Exam date and time"
           />
         </div>

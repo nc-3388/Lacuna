@@ -850,7 +850,7 @@ function DeckCard({
           ? 'Archived'
           : deck.examDate < Date.now()
             ? 'Exam date passed'
-            : `Exam ${relativeExam(deck.examDate)}`}
+            : `Exam ${relativeExam(deck.examDate, Date.now(), deck.timeZone)}`}
       </div>
       <h3 className="mb-4 font-display text-2xl leading-tight tracking-tight">
         {deck.name}

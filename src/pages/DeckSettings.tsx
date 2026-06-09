@@ -16,6 +16,8 @@ import {
 import { takeAutoBackup } from '../db/backups';
 import {
   fromDateTimeLocalValue,
+  formatDateTime,
+  getLocalTimeZone,
   toDateTimeLocalValue,
 } from '../utils/datetime';
 import { DateTimePicker } from '../components/ui/DateTimePicker';
@@ -61,6 +63,7 @@ export function DeckSettings() {
 
   const [name, setName] = useState('');
   const [examValue, setExamValue] = useState('');
+  const [timeZone, setTimeZone] = useState<string | undefined>(undefined);
   const [objective, setObjective] = useState<ExamObjective>('expectedMarks');
   const [newPerDay, setNewPerDay] = useState('');
   const [maxReviewsPerDay, setMaxReviewsPerDay] = useState('');
@@ -77,7 +80,8 @@ export function DeckSettings() {
   useEffect(() => {
     if (loaded || !deck) return;
     setName(deck.name);
-    setExamValue(toDateTimeLocalValue(deck.examDate));
+    setExamValue(toDateTimeLocalValue(deck.examDate, deck.timeZone));
+    setTimeZone(deck.timeZone);
     setObjective(deck.examObjective);      setNewPerDay(deck.newCardsPerDay ? String(deck.newCardsPerDay) : '');
       setMaxReviewsPerDay(deck.maxReviewsPerDay ? String(deck.maxReviewsPerDay) : '');
       setRetention(clampRequestRetention(deck.fsrsParameters.requestRetention));
@@ -103,7 +107,7 @@ export function DeckSettings() {
 
   async function handleSave() {
     if (!deck) return;
-    const ms = fromDateTimeLocalValue(examValue);
+    const ms = fromDateTimeLocalValue(examValue, timeZone);
     const parsedCap = Math.floor(Number(newPerDay));
     const newCardsPerDay =
       newPerDay.trim() === '' || !Number.isFinite(parsedCap) || parsedCap <= 0
@@ -117,6 +121,7 @@ export function DeckSettings() {
     await updateDeck(deck.id, {
       name: name.trim() || deck.name,
       examDate: Number.isNaN(ms) ? deck.examDate : ms,
+      timeZone: timeZone ?? getLocalTimeZone(),
       examObjective: objective,
       newCardsPerDay,
       maxReviewsPerDay: maxReviewsPerDayValue,
@@ -214,10 +219,16 @@ export function DeckSettings() {
               </div>
 
               <DateTimePicker
-                value={fromDateTimeLocalValue(examValue) || deck.examDate}
-                onChange={(ms) => setExamValue(toDateTimeLocalValue(ms))}
+                value={fromDateTimeLocalValue(examValue, timeZone) || deck.examDate}
+                onChange={(ms) => setExamValue(toDateTimeLocalValue(ms, timeZone))}
+                timeZone={timeZone}
                 label="Exam date and time"
               />
+              {timeZone && (
+                <span className="text-xs text-ink-faint">
+                  {formatDateTime(deck.examDate, timeZone)} ({timeZone})
+                </span>
+              )}
 
               <div className="block text-sm text-ink-soft">
                 <div className="mb-2">Exam objective</div>

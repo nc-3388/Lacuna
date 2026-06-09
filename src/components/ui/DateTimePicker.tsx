@@ -15,11 +15,13 @@ import {
 } from './icons';
 import { cn } from './cn';
 import { useMotionSpeed, speedMultiplier } from '../../state/motionSpeed';
+import { getComponentsInZone, fromDateTimeLocalValue } from '../../utils/datetime';
 
 interface DateTimePickerProps {
   value: number;
   onChange: (epochMs: number) => void;
   label?: string;
+  timeZone?: string;
 }
 
 const DAYS: string[] = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
@@ -71,7 +73,7 @@ function resolveAdjacentMonth(
   return m > 11 ? { y: year + 1, m: 0 } : { y: year, m };
 }
 
-export function DateTimePicker({ value, onChange, label }: DateTimePickerProps) {
+export function DateTimePicker({ value, onChange, label, timeZone }: DateTimePickerProps) {
   const [open, setOpen] = useState(false);
   const [placement, setPlacement] = useState<'bottom' | 'top'>('bottom');
   const containerRef = useRef<HTMLDivElement>(null);
@@ -79,7 +81,7 @@ export function DateTimePicker({ value, onChange, label }: DateTimePickerProps) 
   const [motionSpeed] = useMotionSpeed();
   const m = speedMultiplier(motionSpeed);
 
-  // View state: which month the calendar is displaying
+  // View state: which month the calendar is displaying (always in local time for internal use)
   const [viewDate, setViewDate] = useState(() => new Date(value));
   // Direction for month slide animation: -1 = prev, 1 = next
   const [slideDir, setSlideDir] = useState(0);
@@ -88,18 +90,26 @@ export function DateTimePicker({ value, onChange, label }: DateTimePickerProps) 
   // Keyboard focus: index into the cells array
   const [focusIndex, setFocusIndex] = useState<number | null>(null);
 
-  const date = useMemo(() => new Date(value), [value]);
-  const year = viewDate.getFullYear();
-  const month = viewDate.getMonth();
+  // Extract selected-date components in the target time zone
+  const selected = useMemo(() => getComponentsInZone(value, timeZone), [value, timeZone]);
+  const selectedDay = selected.day;
+  const selectedMonth = selected.month;
+  const selectedYear = selected.year;
+  const hours = selected.hours;
+  const minutes = selected.minutes;
 
-  const selectedDay = date.getDate();
-  const selectedMonth = date.getMonth();
-  const selectedYear = date.getFullYear();
-
-  const hours = date.getHours();
-  const minutes = date.getMinutes();
+  // Extract view-date components in the target time zone
+  const view = useMemo(() => getComponentsInZone(viewDate.getTime(), timeZone), [viewDate, timeZone]);
+  const year = view.year;
+  const month = view.month;
 
   const cells = useMemo(() => buildMonth(year, month), [year, month]);
+
+  // Extract "today" components in the target time zone
+  const today = useMemo(() => getComponentsInZone(Date.now(), timeZone), [timeZone]);
+  const todayDay = today.day;
+  const todayMonth = today.month;
+  const todayYear = today.year;
 
   // Find the initial focus index (selected day or today)
   const initialFocusIndex = useMemo(() => {
@@ -111,21 +121,15 @@ export function DateTimePicker({ value, onChange, label }: DateTimePickerProps) 
         year === selectedYear,
     );
     if (idx >= 0) return idx;
-    const today = new Date();
     const todayIdx = cells.findIndex(
       (c) =>
         c.currentMonth &&
-        c.day === today.getDate() &&
-        month === today.getMonth() &&
-        year === today.getFullYear(),
+        c.day === todayDay &&
+        month === todayMonth &&
+        year === todayYear,
     );
     return todayIdx >= 0 ? todayIdx : 0;
-  }, [cells, selectedDay, selectedMonth, selectedYear, month, year]);
-
-  const now = new Date();
-  const todayDay = now.getDate();
-  const todayMonth = now.getMonth();
-  const todayYear = now.getFullYear();
+  }, [cells, selectedDay, selectedMonth, selectedYear, month, year, todayDay, todayMonth, todayYear]);
 
   const display = `${pad(selectedDay)} ${MONTHS[selectedMonth].slice(0, 3)} ${selectedYear} · ${pad(hours)}:${pad(minutes)}`;
 
@@ -189,15 +193,14 @@ export function DateTimePicker({ value, onChange, label }: DateTimePickerProps) 
             break;
           }
           case 'PageUp': {
-            e.preventDefault();
-            setSlideDir(-1);
-            setViewDate(new Date(year, month - 1, 1));
-            return;
+            e.preventDefault();              setSlideDir(-1);
+              setViewDate(new Date(fromDateTimeLocalValue(`${year}-${pad(month)}-01T00:00`, timeZone)));
+              return;
           }
           case 'PageDown': {
             e.preventDefault();
             setSlideDir(1);
-            setViewDate(new Date(year, month + 1, 1));
+            setViewDate(new Date(fromDateTimeLocalValue(`${year}-${pad(month + 2)}-01T00:00`, timeZone)));
             return;
           }
           case 'Enter':
@@ -211,9 +214,9 @@ export function DateTimePicker({ value, onChange, label }: DateTimePickerProps) 
                 year,
                 month,
               );
-              const nextDate = new Date(y, m, cell.day, hours, minutes, 0, 0);
-              onChange(nextDate.getTime());
-              setViewDate(nextDate);
+              const ms = fromDateTimeLocalValue(`${y}-${pad(m + 1)}-${pad(cell.day)}T${pad(hours)}:${pad(minutes)}`, timeZone);
+              onChange(ms);
+              setViewDate(new Date(ms));
               setOpen(false);
             }
             return;
@@ -257,8 +260,7 @@ export function DateTimePicker({ value, onChange, label }: DateTimePickerProps) 
           default:
             return;
         }
-        nextMonth = Math.max(0, Math.min(11, nextMonth));
-        setViewDate(new Date(year, nextMonth, 1));
+        nextMonth = Math.max(0, Math.min(11, nextMonth));              setViewDate(new Date(fromDateTimeLocalValue(`${year}-${pad(nextMonth + 1)}-01T00:00`, timeZone)));
       } else if (pickerMode === 'years') {
         let nextYear = year;
         switch (e.key) {
@@ -291,7 +293,7 @@ export function DateTimePicker({ value, onChange, label }: DateTimePickerProps) 
           default:
             return;
         }
-        setViewDate(new Date(nextYear, month, 1));
+        setViewDate(new Date(fromDateTimeLocalValue(`${nextYear}-${pad(month + 1)}-01T00:00`, timeZone)));
       }
     },
     [
@@ -305,36 +307,38 @@ export function DateTimePicker({ value, onChange, label }: DateTimePickerProps) 
       hours,
       minutes,
       onChange,
+      timeZone,
     ],
   );
 
   const selectDay = useCallback(
     (day: number, currentMonth: boolean) => {
       const { y, m } = resolveAdjacentMonth(day, currentMonth, year, month);
-      const next = new Date(y, m, day, hours, minutes, 0, 0);
-      onChange(next.getTime());
-      setViewDate(next);
+      const ms = fromDateTimeLocalValue(`${y}-${pad(m + 1)}-${pad(day)}T${pad(hours)}:${pad(minutes)}`, timeZone);
+      onChange(ms);
+      setViewDate(new Date(ms));
       setOpen(false);
     },
-    [year, month, hours, minutes, onChange],
+    [year, month, hours, minutes, onChange, timeZone],
   );
 
   const setTime = useCallback(
     (h: number, m: number) => {
-      const next = new Date(selectedYear, selectedMonth, selectedDay, h, m, 0, 0);
-      onChange(next.getTime());
+      const ms = fromDateTimeLocalValue(`${selectedYear}-${pad(selectedMonth + 1)}-${pad(selectedDay)}T${pad(h)}:${pad(m)}`, timeZone);
+      onChange(ms);
     },
-    [selectedYear, selectedMonth, selectedDay, onChange],
+    [selectedYear, selectedMonth, selectedDay, onChange, timeZone],
   );
 
-  // When the picker opens, reset focus and slide direction
+  // When the picker opens, reset focus and slide direction, and snap viewDate to the selected date
   useEffect(() => {
     if (open) {
       setFocusIndex(initialFocusIndex);
       setSlideDir(0);
       setPickerMode('days');
+      setViewDate(new Date(value));
     }
-  }, [open, initialFocusIndex]);
+  }, [open, initialFocusIndex, value]);
 
   // Measure available space and flip the dropdown if it would be clipped.
   useLayoutEffect(() => {
@@ -421,7 +425,7 @@ export function DateTimePicker({ value, onChange, label }: DateTimePickerProps) 
                 type="button"
                 onClick={() => {
                   setSlideDir(-1);
-                  setViewDate(new Date(year, month - 1, 1));
+                  setViewDate(new Date(fromDateTimeLocalValue(`${year}-${pad(month)}-01T00:00`, timeZone)));
                 }}
                 className="flex h-8 w-8 items-center justify-center rounded-lg text-ink-soft transition-colors hover:bg-ink/5 hover:text-ink"
                 aria-label="Previous month"
@@ -442,7 +446,7 @@ export function DateTimePicker({ value, onChange, label }: DateTimePickerProps) 
                 type="button"
                 onClick={() => {
                   setSlideDir(1);
-                  setViewDate(new Date(year, month + 1, 1));
+                  setViewDate(new Date(fromDateTimeLocalValue(`${year}-${pad(month + 2)}-01T00:00`, timeZone)));
                 }}
                 className="flex h-8 w-8 items-center justify-center rounded-lg text-ink-soft transition-colors hover:bg-ink/5 hover:text-ink"
                 aria-label="Next month"
@@ -555,7 +559,7 @@ export function DateTimePicker({ value, onChange, label }: DateTimePickerProps) 
                           key={m}
                           type="button"
                           onClick={() => {
-                            setViewDate(new Date(year, i, 1));
+                            setViewDate(new Date(fromDateTimeLocalValue(`${year}-${pad(i + 1)}-01T00:00`, timeZone)));
                             setPickerMode('days');
                             setFocusIndex(initialFocusIndex);
                           }}
@@ -594,7 +598,7 @@ export function DateTimePicker({ value, onChange, label }: DateTimePickerProps) 
                           key={y}
                           type="button"
                           onClick={() => {
-                            setViewDate(new Date(y, month, 1));
+                            setViewDate(new Date(fromDateTimeLocalValue(`${y}-${pad(month + 1)}-01T00:00`, timeZone)));
                             setPickerMode('months');
                           }}
                           className={cn(
@@ -663,18 +667,14 @@ export function DateTimePicker({ value, onChange, label }: DateTimePickerProps) 
               <button
                 type="button"
                 onClick={() => {
-                  const now = new Date();
-                  const next = new Date(
-                    now.getFullYear(),
-                    now.getMonth(),
-                    now.getDate(),
-                    hours,
-                    minutes,
-                    0,
-                    0,
+                  const now = Date.now();
+                  const nowComponents = getComponentsInZone(now, timeZone);
+                  const ms = fromDateTimeLocalValue(
+                    `${nowComponents.year}-${pad(nowComponents.month + 1)}-${pad(nowComponents.day)}T${pad(hours)}:${pad(minutes)}`,
+                    timeZone,
                   );
-                  onChange(next.getTime());
-                  setViewDate(now);
+                  onChange(ms);
+                  setViewDate(new Date(ms));
                 }}
                 className="text-xs font-medium text-accent transition-opacity hover:opacity-80"
               >
@@ -683,18 +683,14 @@ export function DateTimePicker({ value, onChange, label }: DateTimePickerProps) 
               <button
                 type="button"
                 onClick={() => {
-                  const now = new Date();
-                  const next = new Date(
-                    now.getFullYear(),
-                    now.getMonth(),
-                    now.getDate(),
-                    now.getHours(),
-                    now.getMinutes(),
-                    0,
-                    0,
+                  const now = Date.now();
+                  const nowComponents = getComponentsInZone(now, timeZone);
+                  const ms = fromDateTimeLocalValue(
+                    `${nowComponents.year}-${pad(nowComponents.month + 1)}-${pad(nowComponents.day)}T${pad(nowComponents.hours)}:${pad(nowComponents.minutes)}`,
+                    timeZone,
                   );
-                  onChange(next.getTime());
-                  setViewDate(now);
+                  onChange(ms);
+                  setViewDate(new Date(ms));
                 }}
                 className="text-xs font-medium text-ink-soft transition-opacity hover:text-ink"
               >
