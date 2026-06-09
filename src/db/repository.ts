@@ -201,6 +201,52 @@ export async function mergeDecks(sourceIds: string[], targetId: string): Promise
 // Cards
 // ---------------------------------------------------------------------------
 
+/** Normalise card text for duplicate comparison: trim, lowercase, collapse whitespace. */
+function normaliseCardText(text: string): string {
+  return text.trim().toLowerCase().replace(/\s+/g, ' ');
+}
+
+/** Check whether a card with the same type, front, and back already exists in the deck. */
+export async function checkDuplicate(
+  deckId: string,
+  type: CardType,
+  front: string,
+  back: string,
+  excludeId?: string,
+): Promise<Card | undefined> {
+  const normalisedFront = normaliseCardText(front);
+  const normalisedBack = normaliseCardText(back);
+  const existing = await db.cards.where('deckId').equals(deckId).toArray();
+  return existing.find((c) => {
+    if (c.type !== type) return false;
+    if (excludeId && c.id === excludeId) return false;
+    return normaliseCardText(c.front) === normalisedFront && normaliseCardText(c.back) === normalisedBack;
+  });
+}
+
+/** Check many drafts against a deck in a single DB read, returning the indices of duplicates. */
+export async function checkDuplicatesBatch(
+  deckId: string,
+  drafts: { type: CardType; front: string; back: string }[],
+): Promise<Set<number>> {
+  const existing = await db.cards.where('deckId').equals(deckId).toArray();
+  const existingSet = new Set(
+    existing.map((c) => `${c.type}:${normaliseCardText(c.front)}:${normaliseCardText(c.back)}`),
+  );
+  const seen = new Set<string>();
+  const duplicates = new Set<number>();
+  for (let i = 0; i < drafts.length; i++) {
+    const d = drafts[i];
+    const key = `${d.type}:${normaliseCardText(d.front)}:${normaliseCardText(d.back)}`;
+    if (existingSet.has(key) || seen.has(key)) {
+      duplicates.add(i);
+    } else {
+      seen.add(key);
+    }
+  }
+  return duplicates;
+}
+
 export async function createCard(
   deckId: string,
   type: CardType,

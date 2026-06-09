@@ -17,6 +17,7 @@ import {
   parseImportAuto,
   type UnifiedImportOptions,
 } from '../../db/importEngine';
+import { checkDuplicatesBatch } from '../../db/repository';
 import {
   decodeShare,
   importSharePayload,
@@ -40,6 +41,8 @@ interface UnifiedImportPanelProps {
   showShareImport?: boolean;
   /** Called after a share-code import completes successfully. */
   onShareImport?: (decks: number, cards: number) => void | Promise<void>;
+  /** When provided, the panel checks parsed cards against existing cards in this deck and warns about duplicates. */
+  deckId?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -81,6 +84,7 @@ export function UnifiedImportPanel({
   importLabel = 'Import cards',
   showShareImport = false,
   onShareImport,
+  deckId,
 }: UnifiedImportPanelProps) {
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
@@ -117,6 +121,30 @@ export function UnifiedImportPanel({
       text.length > MAX_IMPORT_CHARS ? text.slice(0, MAX_IMPORT_CHARS) : text;
     return parseImportAuto(trimmed, options);
   }, [text, options]);
+
+  // Duplicate detection against existing cards in the target deck.
+  const [duplicateCount, setDuplicateCount] = useState(0);
+  useEffect(() => {
+    if (!deckId || result.cards.length === 0) {
+      setDuplicateCount(0);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const duplicates = await checkDuplicatesBatch(
+          deckId,
+          result.cards.map((c) => ({ type: c.type, front: c.front, back: c.back })),
+        );
+        if (!cancelled) setDuplicateCount(duplicates.size);
+      } catch {
+        if (!cancelled) setDuplicateCount(0);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [deckId, result.cards]);
 
   // ---- Clipboard paste detection ----
 
@@ -506,6 +534,11 @@ export function UnifiedImportPanel({
                   <span className="text-xs font-medium text-ink-soft">
                     {result.cards.length} card
                     {result.cards.length === 1 ? '' : 's'} ready
+                    {duplicateCount > 0 && (
+                      <span className="ml-2 text-amber-600">
+                        {duplicateCount} duplicate{duplicateCount === 1 ? '' : 's'}
+                      </span>
+                    )}
                   </span>
                   {result.skipped > 0 && (
                     <span className="text-xs text-ink-faint">

@@ -6,13 +6,13 @@ import { Button } from '../components/ui/Button';
 import { MarkdownEditor } from '../components/markdown/MarkdownEditor';
 import { TagInput } from '../components/ui/TagInput';
 import { useToast } from '../components/ui/Toast';
-import { createCard, createCardWithReverse, updateCard } from '../db/repository';
+import { checkDuplicate, createCard, createCardWithReverse, updateCard } from '../db/repository';
 import { hasCloze } from '../components/markdown/cloze';
 import { ChevronLeftIcon, CheckIcon } from '../components/ui/icons';
 import { cn } from '../components/ui/cn';
 import { useMotionSpeed, speedMultiplier } from '../state/motionSpeed';
 import { saveDraft, loadDraft, clearDraft, draftKey } from '../utils/drafts';
-import type { CardType } from '../db/types';
+import type { Card, CardType } from '../db/types';
 
 /**
  * Full-page card composer for both creating and editing a card. Replaces the old
@@ -70,6 +70,8 @@ export function CardEditor() {
   const [shakeField, setShakeField] = useState<string | null>(null);
   const [shakeNonce, setShakeNonce] = useState(0);
   const shakeTimer = useRef<number>();
+  const [duplicateWarning, setDuplicateWarning] = useState<Card | null>(null);
+  const duplicateTimer = useRef<number>();
   const [motionSpeed] = useMotionSpeed();
   const m = speedMultiplier(motionSpeed);
   function flashSaved() {
@@ -151,6 +153,23 @@ export function CardEditor() {
     }, 800);
     return () => window.clearTimeout(draftTimer.current);
   }, [loaded, type, front, back, tags, alsoReverse]);
+
+  // Check for duplicate cards whenever front/back/type changes.
+  useEffect(() => {
+    if (!loaded || !deckId) return;
+    if (editing && !card) return;
+    window.clearTimeout(duplicateTimer.current);
+    duplicateTimer.current = window.setTimeout(async () => {
+      const backValue = type === 'cloze' ? '' : back;
+      if (!front.trim() || (!backValue.trim() && type !== 'cloze')) {
+        setDuplicateWarning(null);
+        return;
+      }
+      const dup = await checkDuplicate(deckId, type, front, backValue, card?.id);
+      setDuplicateWarning(dup ?? null);
+    }, 600);
+    return () => window.clearTimeout(duplicateTimer.current);
+  }, [loaded, deckId, type, front, back, editing, card?.id]);
 
   const deckPath = `/deck/${deckId}`;
 
@@ -315,6 +334,30 @@ export function CardEditor() {
         </AnimatePresence>
 
         <div className="flex flex-col gap-5">
+          {/* Duplicate warning */}
+          <AnimatePresence>
+            {duplicateWarning && (
+              <motion.div
+                initial={{ opacity: 0, y: -8, scale: 0.98 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: -8, scale: 0.98 }}
+                transition={{ duration: 0.18 * m, ease: [0.16, 1, 0.3, 1] }}
+                className="flex items-center gap-3 rounded-xl border border-amber-500/20 bg-amber-500/5 px-4 py-3"
+              >
+                <span className="text-sm text-amber-700">
+                  A card with identical content already exists in this deck.
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setDuplicateWarning(null)}
+                  className="ml-auto rounded-lg px-2 py-1 text-xs text-ink-faint transition-colors hover:bg-ink/5 hover:text-ink"
+                >
+                  Dismiss
+                </button>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
           {/* Card type selector */}
           <div>
             <div className="mb-2 text-xs uppercase tracking-[0.14em] text-ink-faint">

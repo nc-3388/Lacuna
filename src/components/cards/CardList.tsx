@@ -274,6 +274,7 @@ export function CardList({ cards, deck, allDecks, onNewCard, onEditCard }: CardL
             <div className="rounded-2xl border border-line-strong bg-surface p-5">
               <h3 className="mb-4 font-display text-lg">Import cards into {deck.name}</h3>
               <UnifiedImportPanel
+                deckId={deck.id}
                 onImport={handleImport}
                 onCancel={() => setImporting(false)}
                 importLabel="Add cards"
