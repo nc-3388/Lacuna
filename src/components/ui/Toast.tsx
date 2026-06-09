@@ -25,6 +25,12 @@ interface ToastOptions {
   duration?: number;
 }
 
+interface ToastContextValue {
+  notify: (message: string, tone?: ToastTone, options?: ToastOptions) => void;
+}
+
+const ToastContext = createContext<ToastContextValue | null>(null);
+
 interface ToastItem {
   id: number;
   message: string;
@@ -33,12 +39,6 @@ interface ToastItem {
   onAction?: () => void;
   duration: number;
 }
-
-interface ToastContextValue {
-  notify: (message: string, tone?: ToastTone, options?: ToastOptions) => void;
-}
-
-const ToastContext = createContext<ToastContextValue | null>(null);
 
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<ToastItem[]>([]);

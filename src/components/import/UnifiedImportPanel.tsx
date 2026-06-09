@@ -113,13 +113,10 @@ export function UnifiedImportPanel({
   );
 
   const result = useMemo(() => {
-    if (shareMode && effectiveFormat === 'share-code') {
-      return { cards: [], skipped: 0 };
-    }
     const trimmed =
       text.length > MAX_IMPORT_CHARS ? text.slice(0, MAX_IMPORT_CHARS) : text;
     return parseImportAuto(trimmed, options);
-  }, [text, options, shareMode, effectiveFormat]);
+  }, [text, options]);
 
   // ---- Clipboard paste detection ----
 
@@ -155,7 +152,7 @@ export function UnifiedImportPanel({
           e.preventDefault();
           return;
         }
-        if (shareMode && pasteDetection.format !== 'share-code') {
+        if (shareMode) {
           setText(trimmed);
           setShareMode(false);
           showPasteNotification(`${FORMAT_LABELS[pasteDetection.format]} detected — switched to text import`);
@@ -331,7 +328,6 @@ export function UnifiedImportPanel({
           text={text}
           setText={setText}
           pending={sharePending}
-          onInspect={handleShareInspect}
           onImport={handleShareImport}
           onClear={clearSharePending}
           importing={shareImporting}
@@ -604,7 +600,6 @@ function ShareCodeImport({
   text,
   setText,
   pending,
-  onInspect,
   onImport,
   onClear,
   importing,
@@ -613,7 +608,6 @@ function ShareCodeImport({
   text: string;
   setText: (v: string) => void;
   pending: { summary: ShareSummary; raw: string } | null;
-  onInspect: () => void;
   onImport: () => void;
   onClear: () => void;
   importing: boolean;

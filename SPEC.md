@@ -907,6 +907,7 @@ with Relaxed/Balanced/Thorough presets and adaptive guidance copy).
 | Card editor | `Ctrl/Cmd+Enter` | Save (and add another, for new cards) |
 | Card editor | `Tab` | Front → Back → Save-and-add → Save |
 | Learn | `Space` / `Up` | Show answer |
+| Learn | `Down` | Hide answer |
 | Learn (silent grading) | `Y` / `J` / `Right` | Yes (correct) |
 | Learn (silent grading) | `N` / `Left` | No (incorrect) |
 | Learn (manual grading) | `1`, `2`, `3`, `4` | Again / Hard / Good / Easy |

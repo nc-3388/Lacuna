@@ -335,21 +335,18 @@ export function parseJsonImport(input: string): ImportParseResult {
     return { cards, skipped };
   }
 
-  let items: unknown[];
+  let items: unknown[] = [];
   if (Array.isArray(data)) {
     items = data;
   } else if (typeof data === 'object' && data !== null) {
     const obj = data as Record<string, unknown>;
     const candidates = ['cards', 'data', 'items', 'entries', 'notes'];
-    let found = false;
     for (const key of candidates) {
       if (Array.isArray(obj[key])) {
         items = obj[key] as unknown[];
-        found = true;
         break;
       }
     }
-    if (!found) items = [];
   } else {
     return { cards, skipped };
   }

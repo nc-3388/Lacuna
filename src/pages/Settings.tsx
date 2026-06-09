@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { AnimatePresence, motion } from 'motion/react';
+import { AnimatePresence, motion, useMotionValue, useSpring, LayoutGroup } from 'motion/react';
 import { useMotionSpeed, speedMultiplier, type MotionSpeed } from '../state/motionSpeed';
 import { useTheme, type Theme } from '../state/ThemeContext';
 import { ACCENTS, useAccent } from '../state/AccentContext';
@@ -48,6 +48,16 @@ import {
   type LearnAction,
 } from '../state/shortcutBindings';
 
+const SETTINGS_SECTIONS = [
+  { id: 'settings-appearance', label: 'Appearance' },
+  { id: 'settings-dashboard', label: 'Dashboard' },
+  { id: 'settings-study', label: 'Study & scheduling' },
+  { id: 'settings-shortcuts', label: 'Keyboard shortcuts' },
+  { id: 'settings-pomodoro', label: 'Pomodoro timer' },
+  { id: 'settings-export', label: 'Import & export' },
+  { id: 'settings-backups', label: 'Automatic backups' },
+];
+
 export function Settings() {
   const [motionSpeed, setMotionSpeed] = useMotionSpeed();
   const m = speedMultiplier(motionSpeed);
@@ -64,6 +74,7 @@ export function Settings() {
   const [persistence, setPersistence] = useState<StoragePersistenceState | null>(null);
   const shortcutBindings = useShortcutBindings();
   const [capturingAction, setCapturingAction] = useState<LearnAction | null>(null);
+  const [activeSection, setActiveSection] = useState<string>(SETTINGS_SECTIONS[0].id);
 
   const [pending, setPending] = useState<BackupFile | null>(null);
   const [confirmRestore, setConfirmRestore] = useState<number | null>(null);
@@ -73,6 +84,28 @@ export function Settings() {
   useEffect(() => {
     void backupFolderName().then(setFolder);
     void checkPersistentStorage().then(setPersistence);
+  }, []);
+
+  // Track which settings section is currently visible using IntersectionObserver.
+  useEffect(() => {
+    const intersecting = new Set<string>();
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) intersecting.add(entry.target.id);
+          else intersecting.delete(entry.target.id);
+        });
+        // Pick the topmost intersecting section (earliest in the list).
+        const top = SETTINGS_SECTIONS.find((s) => intersecting.has(s.id));
+        if (top) setActiveSection(top.id);
+      },
+      { rootMargin: '-20% 0px -60% 0px', threshold: 0 },
+    );
+    SETTINGS_SECTIONS.forEach((section) => {
+      const el = document.getElementById(section.id);
+      if (el) observer.observe(el);
+    });
+    return () => observer.disconnect();
   }, []);
 
   async function handleBackupNow() {
@@ -147,8 +180,9 @@ export function Settings() {
   }
 
   return (
-    <div className="mx-auto max-w-2xl px-6 pb-10 pt-12 md:px-10 md:py-10">
-      <header className="mb-10">
+    <div className="mx-auto flex max-w-6xl gap-8 px-6 pb-10 pt-12 md:px-10 md:py-10">
+      <div className="min-w-0 flex-1 max-w-2xl">
+        <header className="mb-10">
         <p className="mb-1 text-sm uppercase tracking-[0.18em] text-ink-faint">
           Preferences
         </p>
@@ -726,7 +760,143 @@ export function Settings() {
           </ul>
         )}
       </section>
+      </div>
+
+      {/* Right-side section nav */}
+      <aside className="hidden xl:block w-64 shrink-0">
+        <div className="sticky top-24">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4 * m, ease: [0.16, 1, 0.3, 1] }}
+            className="relative overflow-hidden rounded-2xl border border-line bg-surface p-3 shadow-xl shadow-black/5 backdrop-blur-sm"
+          >
+            {/* Ambient top glow that subtly pulses */}
+            <motion.div
+              aria-hidden
+              className="pointer-events-none absolute top-0 left-4 right-4 h-px bg-gradient-to-r from-transparent via-accent/40 to-transparent"
+              animate={{ opacity: [0.4, 0.8, 0.4] }}
+              transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
+            />
+            {/* Soft radial ambient wash behind the card */}
+            <motion.div
+              aria-hidden
+              className="pointer-events-none absolute inset-0 rounded-2xl"
+              style={{
+                background:
+                  'radial-gradient(circle at 50% 0%, hsl(var(--accent) / 0.06), transparent 55%)',
+              }}
+              animate={{ opacity: [0.5, 0.8, 0.5] }}
+              transition={{ duration: 5, repeat: Infinity, ease: 'easeInOut' }}
+            />
+
+            <div className="relative mb-3 px-3 py-2 text-[11px] uppercase tracking-[0.18em] text-ink-faint">
+              On this page
+            </div>
+            <LayoutGroup>
+              <nav className="relative flex flex-col gap-1">
+                {SETTINGS_SECTIONS.map((section, index) => (
+                  <NavItem
+                    key={section.id}
+                    section={section}
+                    active={activeSection === section.id}
+                    onClick={() => {
+                      const el = document.getElementById(section.id);
+                      if (el) {
+                        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                      }
+                    }}
+                    index={index}
+                    m={m}
+                  />
+                ))}
+              </nav>
+            </LayoutGroup>
+          </motion.div>
+        </div>
+      </aside>
     </div>
+  );
+}
+
+function NavItem({
+  section,
+  active,
+  onClick,
+  index,
+  m,
+}: {
+  section: (typeof SETTINGS_SECTIONS)[number];
+  active: boolean;
+  onClick: () => void;
+  index: number;
+  m: number;
+}) {
+  const ref = useRef<HTMLButtonElement>(null);
+  const mouseX = useMotionValue(0);
+  const mouseY = useMotionValue(0);
+  const springX = useSpring(mouseX, { stiffness: 350, damping: 25 });
+  const springY = useSpring(mouseY, { stiffness: 350, damping: 25 });
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!ref.current) return;
+    const rect = ref.current.getBoundingClientRect();
+    const centerX = rect.left + rect.width / 2;
+    const centerY = rect.top + rect.height / 2;
+    const distX = (e.clientX - centerX) * 0.12;
+    const distY = (e.clientY - centerY) * 0.12;
+    mouseX.set(distX);
+    mouseY.set(distY);
+  };
+
+  const handleMouseLeave = () => {
+    mouseX.set(0);
+    mouseY.set(0);
+  };
+
+  return (
+    <motion.button
+      ref={ref}
+      type="button"
+      onClick={onClick}
+      onMouseMove={handleMouseMove}
+      onMouseLeave={handleMouseLeave}
+      style={{ x: springX, y: springY }}
+      initial={{ opacity: 0, x: 16 }}
+      animate={{ opacity: 1, x: 0 }}
+      transition={{
+        delay: 0.04 * index * m,
+        duration: 0.35 * m,
+        ease: [0.16, 1, 0.3, 1],
+      }}
+      whileHover={{ scale: 1.04 }}
+      whileTap={{ scale: 0.96 }}
+      className={cn(
+        'relative flex items-center rounded-lg px-3 py-2.5 text-left text-sm transition-colors duration-150',
+        active ? 'text-accent' : 'text-ink-soft hover:text-ink',
+      )}
+    >
+      {active && (
+        <motion.div
+          layoutId="activePill"
+          className="absolute inset-0 rounded-lg bg-accent/10"
+          transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+        >
+          <motion.div
+            layoutId="activeBar"
+            className="absolute inset-y-0 left-0 w-1 rounded-r-full bg-accent"
+            transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+          />
+          <motion.div
+            aria-hidden
+            className="absolute inset-0 rounded-lg bg-gradient-to-r from-accent/10 via-accent/5 to-transparent"
+            animate={{ opacity: [0.3, 0.7, 0.3] }}
+            transition={{ duration: 2.5, repeat: Infinity, ease: 'easeInOut' }}
+          />
+        </motion.div>
+      )}
+      <span className="relative z-10 truncate font-medium">{section.label}</span>
+    </motion.button>
   );
 }
 

@@ -34,7 +34,7 @@ export const DashboardIcon = (p: IconProps) => (
 
 export const FlameIcon = (p: IconProps) => (
   <Icon {...p}>
-    <path d="M12 2c1 3-1.5 4.5-1.5 7A2.5 2.5 0 0 0 13 11c.5-1 .3-2 0-2.5 2 1 4 3.4 4 6.5a5 5 0 0 1-10 0c0-1.6.8-3 1.7-4-.2 1 .3 2 1.3 2.2" />
+    <path d="M12 3q1 4 4 6.5t3 5.5a1 1 0 0 1-14 0 5 5 0 0 1 1-3 1 1 0 0 0 5 0c0-2-1.5-3-1.5-5q0-2 2.5-4" />
   </Icon>
 );
 

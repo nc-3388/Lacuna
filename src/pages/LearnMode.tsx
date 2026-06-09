@@ -318,6 +318,14 @@ export function LearnMode() {
     distraction.setAnswerVisible(true);
   }, [distraction]);
 
+  const hide = useCallback(() => {
+    setPhase((p) => {
+      if (p !== 'answer') return p;
+      return 'question';
+    });
+    distraction.setAnswerVisible(false);
+  }, [distraction]);
+
   const answer = useCallback(
     async (input: boolean | Grade) => {
       // Acquire the guard first so no subsequent call can slip through while we
@@ -581,6 +589,11 @@ export function LearnMode() {
         e.preventDefault();
         reveal();
       } else if (phase === 'answer') {
+        if (e.code === 'ArrowDown') {
+          e.preventDefault();
+          hide();
+          return;
+        }
         if (gradingMode === 'manual') {
           if (keyMatches(e, bindings.again)) { e.preventDefault(); answer(1); }
           else if (keyMatches(e, bindings.hard)) { e.preventDefault(); answer(2); }
@@ -597,7 +610,7 @@ export function LearnMode() {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [phase, reveal, answer, canUndo, undoLast, navOpen, editing, current, openEdit, hintsOpen, gradingMode, bindings]);
+  }, [phase, reveal, hide, answer, canUndo, undoLast, navOpen, editing, current, openEdit, hintsOpen, gradingMode, bindings]);
 
   // Clear any pending feedback timer if the session unmounts mid-flash.
   useEffect(

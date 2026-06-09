@@ -29,6 +29,7 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
     title: 'Studying',
     shortcuts: [
       { keys: ['Space'], description: 'Show the answer' },
+      { keys: ['Down'], description: 'Hide the answer' },
       { keys: ['Y'], description: 'Mark correct (silent mode)' },
       { keys: ['N'], description: 'Mark incorrect (silent mode)' },
       { keys: ['1'], description: 'Again (manual mode)' },

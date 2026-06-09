@@ -19,6 +19,9 @@ export function KeyHints({ open, onClose }: { open: boolean; onClose: () => void
       if (description.includes('show the answer')) {
         return { ...s, keys: [formatBinding(bindings.reveal)] };
       }
+      if (description.includes('hide the answer')) {
+        return { ...s, keys: ['Down'] };
+      }
       if (description.includes('mark correct') && !description.includes('manual')) {
         return { ...s, keys: [formatBinding(bindings.yes)] };
       }
