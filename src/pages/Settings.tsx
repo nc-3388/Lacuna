@@ -35,6 +35,7 @@ import { formatDate, formatDateTime } from '../utils/datetime';
 import { useGradingMode } from '../state/gradingMode';
 import { useAutoOptimiseDefault } from '../state/optimiseSetting';
 import { useDashboardSort, type DashboardSort } from '../state/dashboardSort';
+import { useSidebarSettings } from '../state/sidebarSettings';
 import { MIN_OPTIMISE_REVIEWS } from '../fsrs/optimise';
 import {
   requestPersistentStorage,
@@ -50,6 +51,7 @@ import {
 
 const SETTINGS_SECTIONS = [
   { id: 'settings-appearance', label: 'Appearance' },
+  { id: 'settings-sidebar', label: 'Sidebar' },
   { id: 'settings-dashboard', label: 'Dashboard' },
   { id: 'settings-study', label: 'Study & scheduling' },
   { id: 'settings-shortcuts', label: 'Keyboard shortcuts' },
@@ -73,6 +75,7 @@ export function Settings() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [persistence, setPersistence] = useState<StoragePersistenceState | null>(null);
   const shortcutBindings = useShortcutBindings();
+  const [sidebarSettings, setSidebarSettings] = useSidebarSettings();
   const [capturingAction, setCapturingAction] = useState<LearnAction | null>(null);
   const [activeSection, setActiveSection] = useState<string>(SETTINGS_SECTIONS[0].id);
 
@@ -322,6 +325,56 @@ export function Settings() {
             />
             <span className="text-xs text-ink-faint">Fast</span>
           </div>
+        </div>
+      </section>
+
+      {/* Sidebar */}
+      <section
+        id="settings-sidebar"
+        className="mb-8 rounded-2xl border border-line bg-surface p-6"
+      >
+        <h2 className="mb-1 font-display text-xl">Sidebar</h2>
+        <p className="mb-5 text-sm text-ink-soft">
+          Control what information appears in the sidebar navigation and how compact it is.
+        </p>
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <div className="text-sm">Show due card counts</div>
+            <p className="mt-1 text-sm text-ink-soft">
+              Display the number of cards ready for review next to each deck name in the
+              sidebar, so you can see which decks need attention at a glance.
+            </p>
+          </div>
+          <Toggle
+            checked={sidebarSettings.showDueCounts}
+            onChange={(checked) => setSidebarSettings({ showDueCounts: checked })}
+          />
+        </div>
+        <div className="mt-6 flex items-start justify-between gap-3 border-t border-line pt-5">
+          <div className="min-w-0">
+            <div className="text-sm">Show archived decks</div>
+            <p className="mt-1 text-sm text-ink-soft">
+              Include archived decks in the sidebar deck list. Archived decks are hidden
+              from the dashboard by default but can still be accessed via the sidebar.
+            </p>
+          </div>
+          <Toggle
+            checked={sidebarSettings.showArchived}
+            onChange={(checked) => setSidebarSettings({ showArchived: checked })}
+          />
+        </div>
+        <div className="mt-6 flex items-start justify-between gap-3 border-t border-line pt-5">
+          <div className="min-w-0">
+            <div className="text-sm">Compact mode</div>
+            <p className="mt-1 text-sm text-ink-soft">
+              Reduce padding and font sizes throughout the sidebar to fit more items on
+              screen at once.
+            </p>
+          </div>
+          <Toggle
+            checked={sidebarSettings.compactMode}
+            onChange={(checked) => setSidebarSettings({ compactMode: checked })}
+          />
         </div>
       </section>
 
