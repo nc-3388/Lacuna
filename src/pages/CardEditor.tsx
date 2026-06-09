@@ -11,6 +11,7 @@ import { hasCloze } from '../components/markdown/cloze';
 import { ChevronLeftIcon, CheckIcon } from '../components/ui/icons';
 import { cn } from '../components/ui/cn';
 import { useMotionSpeed, speedMultiplier } from '../state/motionSpeed';
+import { saveDraft, loadDraft, clearDraft, draftKey } from '../utils/drafts';
 import type { CardType } from '../db/types';
 
 /**
@@ -37,6 +38,10 @@ export function CardEditor() {
   // When set (new front/back cards only), saving also creates an independent reverse card.
   const [alsoReverse, setAlsoReverse] = useState(false);
   const [loaded, setLoaded] = useState(false);
+  // Whether a stored draft was found and is offered for restoration.
+  const [draftPrompt, setDraftPrompt] = useState(false);
+  const draftKeyRef = useRef(draftKey(deckId ?? '', cardId ?? 'new'));
+  const draftTimer = useRef<number>();
 
   // Re-arm the loaded latch whenever the card being edited changes so direct
   // navigation between cards (same route, different param) re-seeds the formotion.
@@ -82,20 +87,70 @@ export function CardEditor() {
   }, [deckCards]);
 
   // Seed the form from the card being edited once it has loaded (new cards start blank).
+  // If a draft exists, offer it instead of the persisted state.
   useEffect(() => {
     if (loaded) return;
     if (!editing) {
+      // New card: check for a draft from a previous abandoned session.
+      const draft = loadDraft(draftKeyRef.current);
+      if (draft && draft.front.trim()) {
+        setDraftPrompt(true);
+      }
       setLoaded(true);
       return;
     }
     if (card) {
+      const draft = loadDraft(draftKeyRef.current);
+      if (draft && draft.timestamp > 0) {
+        setDraftPrompt(true);
+      } else {
+        setType(card.type);
+        setFront(card.front);
+        setBack(card.back);
+        setTags(card.tags ?? []);
+      }
+      setLoaded(true);
+    }
+  }, [editing, card, loaded]);
+
+  const applyDraft = () => {
+    const draft = loadDraft(draftKeyRef.current);
+    if (!draft) return;
+    setType(draft.type);
+    setFront(draft.front);
+    setBack(draft.back);
+    setTags(draft.tags);
+    if (draft.alsoReverse !== undefined) setAlsoReverse(draft.alsoReverse);
+    setDraftPrompt(false);
+  };
+
+  const discardDraft = () => {
+    clearDraft(draftKeyRef.current);
+    setDraftPrompt(false);
+    if (editing && card) {
       setType(card.type);
       setFront(card.front);
       setBack(card.back);
       setTags(card.tags ?? []);
-      setLoaded(true);
     }
-  }, [editing, card, loaded]);
+  };
+
+  // Auto-save a draft whenever the form changes.
+  useEffect(() => {
+    if (!loaded) return;
+    window.clearTimeout(draftTimer.current);
+    draftTimer.current = window.setTimeout(() => {
+      saveDraft(draftKeyRef.current, {
+        type,
+        front,
+        back,
+        tags,
+        alsoReverse,
+        timestamp: Date.now(),
+      });
+    }, 800);
+    return () => window.clearTimeout(draftTimer.current);
+  }, [loaded, type, front, back, tags, alsoReverse]);
 
   const deckPath = `/deck/${deckId}`;
 
@@ -151,6 +206,7 @@ export function CardEditor() {
     const backValue = isCloze ? '' : back;
     if (editing && card) {
       await updateCard(card.id, { type, front, back: backValue, tags });
+      clearDraft(draftKeyRef.current);
       flashSaved();
       // Let the confirmation flourish play briefly before leaving the page.
       window.setTimeout(() => {
@@ -166,6 +222,7 @@ export function CardEditor() {
     } else {
       await createCard(deckId, type, front, backValue, tags);
     }
+    clearDraft(draftKeyRef.current);
     if (andAnother) {
       // Stay on the page for rapid entry: clear the content, keep the type and tags
       // (usually shared across a batch), refocus the first field, and tally the count.
@@ -224,6 +281,38 @@ export function CardEditor() {
             {editing ? 'Edit card' : 'New card'}
           </h1>
         </header>
+
+        <AnimatePresence>
+          {draftPrompt && (
+            <motion.div
+              initial={{ opacity: 0, y: -8, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -8, scale: 0.98 }}
+              transition={{ duration: 0.18 * m, ease: [0.16, 1, 0.3, 1] }}
+              className="mb-5 flex items-center gap-3 rounded-xl border border-accent/20 bg-accent-soft px-4 py-3"
+            >
+              <span className="text-sm text-accent">
+                A saved draft from a previous session was found.
+              </span>
+              <div className="ml-auto flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={discardDraft}
+                  className="rounded-lg px-3 py-1.5 text-sm text-ink-soft transition-colors hover:bg-ink/5 hover:text-ink"
+                >
+                  Discard
+                </button>
+                <button
+                  type="button"
+                  onClick={applyDraft}
+                  className="rounded-lg bg-accent px-3 py-1.5 text-sm font-medium text-accent-fg transition-colors hover:bg-accent-hover"
+                >
+                  Restore draft
+                </button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         <div className="flex flex-col gap-5">
           {/* Card type selector */}

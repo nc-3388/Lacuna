@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { m as motion } from 'motion/react';
 import { useFocusTrap } from '../../hooks/useFocusTrap';
 import { MarkdownEditor } from '../markdown/MarkdownEditor';
@@ -9,6 +9,7 @@ import { updateCard } from '../../db/repository';
 import { hasCloze } from '../markdown/cloze';
 import { cn } from '../ui/cn';
 import { CloseIcon } from '../ui/icons';
+import { saveDraft, loadDraft, clearDraft, draftKey } from '../../utils/drafts';
 import type { Card, CardType } from '../../db/types';
 
 interface CardEditOverlayProps {
@@ -43,6 +44,34 @@ export function CardEditOverlay({
 
   const frontRef = useRef<HTMLTextAreaElement>(null);
   const backRef = useRef<HTMLTextAreaElement>(null);
+  const draftTimer = useRef<number>();
+  const draftKeyRef = useRef(draftKey(card.deckId, `session:${card.id}`));
+
+  // Auto-restore a draft from a previous interrupted session.
+  useEffect(() => {
+    const draft = loadDraft(draftKeyRef.current);
+    if (draft && draft.timestamp > 0) {
+      setType(draft.type);
+      setFront(draft.front);
+      setBack(draft.back);
+      setTags(draft.tags);
+    }
+  }, []);
+
+  // Auto-save a draft whenever the form changes.
+  useEffect(() => {
+    window.clearTimeout(draftTimer.current);
+    draftTimer.current = window.setTimeout(() => {
+      saveDraft(draftKeyRef.current, {
+        type,
+        front,
+        back,
+        tags,
+        timestamp: Date.now(),
+      });
+    }, 800);
+    return () => window.clearTimeout(draftTimer.current);
+  }, [type, front, back, tags]);
 
   const isCloze = type === 'cloze';
   const clozeValid = !isCloze || hasCloze(front);
@@ -56,6 +85,7 @@ export function CardEditOverlay({
     const changes = { type, front, back: isCloze ? '' : back, tags };
     try {
       await updateCard(card.id, changes);
+      clearDraft(draftKeyRef.current);
       onSaved({ ...card, ...changes });
     } catch (err) {
       setSaving(false);
