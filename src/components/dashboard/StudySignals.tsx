@@ -1,10 +1,43 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { m as motion, AnimatePresence } from 'motion/react';
 import type { StudyStats, DayForecast } from '../../fsrs/stats';
 import type { Deck } from '../../db/types';
-import { FlameIcon, CalendarIcon } from '../ui/icons';
+import { FlameIcon, CalendarIcon, SparklesIcon } from '../ui/icons';
 import { cn } from '../ui/cn';
 import { useMotionSpeed, speedMultiplier } from '../../state/motionSpeed';
+
+/** A simple spring-driven count-up hook that animates a number from 0 to target. */
+function useCountUp(target: number, durationMs = 1200, delayMs = 0) {
+  const [value, setValue] = useState(0);
+  const raf = useRef<number | null>(null);
+  const startTime = useRef<number | null>(null);
+
+  useEffect(() => {
+    setValue(0);
+    startTime.current = null;
+    const delayId = window.setTimeout(() => {
+      const tick = (now: number) => {
+        if (startTime.current === null) startTime.current = now;
+        const elapsed = now - startTime.current;
+        const progress = Math.min(elapsed / durationMs, 1);
+        const eased = 1 - Math.pow(1 - progress, 3);
+        const next = Math.round(eased * target);
+        setValue((prev) => (next !== prev ? next : prev));
+        if (progress < 1) {
+          raf.current = requestAnimationFrame(tick);
+        }
+      };
+      raf.current = requestAnimationFrame(tick);
+    }, delayMs);
+
+    return () => {
+      window.clearTimeout(delayId);
+      if (raf.current) cancelAnimationFrame(raf.current);
+    };
+  }, [target, durationMs, delayMs]);
+
+  return value;
+}
 
 /** A thin horizontal animated bar used for streak and reviewed-today metrics. */
 function MetricBar({
@@ -73,6 +106,21 @@ export function StudySignals({ stats, decks }: StudySignalsProps) {
   const maxMinutes = Math.max(1, ...forecast.map((d) => d.minutes));
   const lit = streak > 0;
 
+  // Count-up numbers for a satisfying entrance animation.
+  const countStreak = useCountUp(streak, 1000, 300);
+  const countReviewed = useCountUp(reviewedToday, 1000, 450);
+
+  // Milestone celebration: subtle sparkles when streak hits a notable number.
+  const milestone = streak > 0 && (streak === 7 || streak === 14 || streak === 30 || streak === 60 || streak === 100);
+  const [showMilestone, setShowMilestone] = useState(false);
+  useEffect(() => {
+    if (milestone) {
+      setShowMilestone(true);
+      const id = window.setTimeout(() => setShowMilestone(false), 2500);
+      return () => window.clearTimeout(id);
+    }
+  }, [milestone]);
+
   // Detail panel defaults to the first day with cards so touch users always see something useful.
   const firstBusyDay = forecast.findIndex((d) => d.dueCount + d.newCount > 0);
   const defaultDetail = firstBusyDay >= 0 ? firstBusyDay : 0;
@@ -109,15 +157,14 @@ export function StudySignals({ stats, decks }: StudySignalsProps) {
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.24 * m }}
       className="mb-6 grid gap-4 rounded-2xl border border-line bg-surface p-5 sm:grid-cols-[180px_1fr] sm:items-stretch"
-    >
-      {/* Left column: streak + reviewed today */}
+    >      {/* Left column: streak + reviewed today */}
       <div className="flex flex-col justify-center gap-5 sm:pr-5">
         {/* Streak */}
         <div>
           <div className="flex items-center gap-2">
             <motion.span
               className={cn(
-                'grid h-9 w-9 shrink-0 place-items-center rounded-full',
+                'relative grid h-9 w-9 shrink-0 place-items-center rounded-full',
                 lit ? 'bg-accent-soft text-accent' : 'bg-ink/5 text-ink-faint',
               )}
               animate={
@@ -128,6 +175,19 @@ export function StudySignals({ stats, decks }: StudySignalsProps) {
               transition={lit ? { duration: 2.0 * m, repeat: Infinity, ease: 'easeInOut' } : undefined}
             >
               <FlameIcon width={18} height={18} />
+              <AnimatePresence>
+                {showMilestone && (
+                  <motion.span
+                    initial={{ scale: 0, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    exit={{ scale: 0, opacity: 0 }}
+                    transition={{ type: 'spring', stiffness: 500, damping: 15 }}
+                    className="absolute -right-1 -top-1 grid h-4 w-4 place-items-center rounded-full bg-positive text-positive"
+                  >
+                    <SparklesIcon width={10} height={10} />
+                  </motion.span>
+                )}
+              </AnimatePresence>
             </motion.span>
             <div className="flex items-baseline gap-1">
               <motion.span
@@ -137,19 +197,32 @@ export function StudySignals({ stats, decks }: StudySignalsProps) {
                 transition={{ type: 'spring', stiffness: 500, damping: 18 }}
                 className="font-display text-xl tabular leading-none"
               >
-                {streak}
+                {countStreak}
               </motion.span>
               <span className="text-xs text-ink-soft">day{streak === 1 ? '' : 's'}</span>
             </div>
           </div>
           <MetricBar value={streak} max={14} colourClass="bg-amber-400/60" title={`${streak} day streak`} motionMultiplier={m} />
           <div className="mt-1 text-[11px] text-ink-faint">study streak</div>
+          <AnimatePresence>
+            {showMilestone && (
+              <motion.p
+                initial={{ opacity: 0, y: 4 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 4 }}
+                transition={{ duration: 0.3 * m, delay: 0.1 * m }}
+                className="mt-1 text-[11px] font-medium text-positive"
+              >
+                {streak} day milestone reached
+              </motion.p>
+            )}
+          </AnimatePresence>
         </div>
 
         {/* Reviewed today */}
         <div>
           <div className="flex items-baseline gap-1">
-            <span className="font-display text-xl tabular leading-none">{reviewedToday}</span>
+            <span className="font-display text-xl tabular leading-none">{countReviewed}</span>
             <span className="text-xs text-ink-soft">card{reviewedToday === 1 ? '' : 's'}</span>
           </div>
           <MetricBar value={reviewedToday} max={100} colourClass="bg-accent/50" title={`${reviewedToday} cards reviewed today`} motionMultiplier={m} />

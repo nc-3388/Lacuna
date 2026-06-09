@@ -1,7 +1,7 @@
 import { NavLink, useLocation } from 'react-router-dom';
 import { AnimatePresence, m as motion } from 'motion/react';
 import { useTheme } from '../../state/ThemeContext';
-import { useDecks } from '../../state/useData';
+import { useDecks, useStudyStats } from '../../state/useData';
 import { cn } from '../ui/cn';
 import { useMotionSpeed, speedMultiplier } from '../../state/motionSpeed';
 import {
@@ -9,6 +9,7 @@ import {
   ChevronLeftIcon,
   ChevronRightIcon,
   DashboardIcon,
+  FlameIcon,
   FlaskIcon,
   MoonIcon,
   PlayIcon,
@@ -29,12 +30,14 @@ function NavItem({
   label,
   collapsed,
   end,
+  streakBadge,
 }: {
   to: string;
   icon: React.ReactNode;
   label: string;
   collapsed: boolean;
   end?: boolean;
+  streakBadge?: React.ReactNode;
 }) {
   const [motionSpeed] = useMotionSpeed();
   const m = speedMultiplier(motionSpeed);
@@ -64,9 +67,33 @@ function NavItem({
           )}
           <span className="shrink-0">{icon}</span>
           {!collapsed && <span className="truncate">{label}</span>}
+          {!collapsed && streakBadge}
         </>
       )}
     </NavLink>
+  );
+}
+
+function StudyStreakBadge({ collapsed }: { collapsed: boolean }) {
+  const stats = useStudyStats();
+  const [motionSpeed] = useMotionSpeed();
+  const m = speedMultiplier(motionSpeed);
+  const streak = stats?.streak ?? 0;
+  if (streak === 0) return null;
+  return (
+    <motion.span
+      initial={{ scale: 0, opacity: 0 }}
+      animate={{ scale: 1, opacity: 1 }}
+      transition={{ type: 'spring', stiffness: 500, damping: 20, delay: 0.3 * m }}
+      className={cn(
+        'ml-auto flex items-center gap-1 rounded-full bg-accent/10 px-2 py-0.5 text-[11px] font-medium tabular text-accent',
+        collapsed && 'hidden',
+      )}
+      title={`${streak} day streak`}
+    >
+      <FlameIcon width={12} height={12} />
+      {streak}
+    </motion.span>
   );
 }
 
@@ -116,6 +143,7 @@ export function Sidebar({ collapsed, onToggleCollapsed }: SidebarProps) {
           icon={<PlayIcon />}
           label="Study today"
           collapsed={collapsed}
+          streakBadge={<StudyStreakBadge collapsed={collapsed} />}
         />
         <NavItem
           to="/search"

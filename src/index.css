@@ -200,6 +200,17 @@
       transition-duration: 0.001ms !important;
     }
   }
+
+  /* Form-field shake animation for inline validation feedback. */
+  .shake-field {
+    animation: shake-field 0.45s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+  }
+  @keyframes shake-field {
+    10%, 90% { transform: translateX(-1px); }
+    20%, 80% { transform: translateX(2px); }
+    30%, 50%, 70% { transform: translateX(-3px); }
+    40%, 60% { transform: translateX(3px); }
+  }
 }
 
 /* Markdown / KaTeX rendered content sits inside `.prose-lacuna`. */
