@@ -104,7 +104,7 @@ export function LearnMode() {
   // A brief, non-blocking flash of colour the instant a card is graded — the small
   // tactile reward that makes answering feel responsive. Cleared on a short timer and
   // never delays the next card.
-  const [feedback, setFeedback] = useState<'correct' | 'wrong' | null>(null);
+  const [feedback, setFeedback] = useState<'left' | 'right' | null>(null);
   const feedbackTimer = useRef<number | null>(null);
 
   // Session-only mutable state held in refs so it never triggers re-renders mid-card
@@ -351,7 +351,7 @@ export function LearnMode() {
       // Fire the feedback flash immediately, independent of the (async) DB write and
       // of the next card mounting, so the reward always lands on the keypress.
       if (feedbackTimer.current) window.clearTimeout(feedbackTimer.current);
-      setFeedback(correct ? 'correct' : 'wrong');
+      setFeedback(correct ? 'right' : 'left');
       feedbackTimer.current = window.setTimeout(() => setFeedback(null), Math.round(400 * m));
 
       const t = responseTime.current;
@@ -676,9 +676,9 @@ export function LearnMode() {
             transition={{ duration: 0.32 * m, ease: [0.16, 1, 0.3, 1] }}
             className="flex min-h-screen flex-col"
           >
-      {/* Grading feedback: a soft glow rising from the foot of the screen plus a
-          radial ring that pulses outward from the card centre — green for correct,
-          muted red for missed. Purely decorative and never intercepts input. */}
+      {/* Grading feedback: a directional glow that sweeps in from the side the user
+          swiped — left for No, right for Yes — plus a radial ring that pulses outward.
+          Purely decorative and never intercepts input. */}
       <AnimatePresence>
         {feedback && (
           <>
@@ -690,10 +690,10 @@ export function LearnMode() {
               exit={{ opacity: 0 }}
               transition={{ duration: 0.18 * m }}
               className={
-                'pointer-events-none fixed inset-x-0 bottom-0 z-30 h-56 ' +
-                (feedback === 'correct'
-                  ? 'bg-gradient-to-t from-positive/25 to-transparent'
-                  : 'bg-gradient-to-t from-negative/20 to-transparent')
+                'pointer-events-none fixed inset-y-0 z-30 w-56 ' +
+                (feedback === 'right'
+                  ? 'right-0 bg-gradient-to-l from-positive/25 to-transparent'
+                  : 'left-0 bg-gradient-to-r from-negative/20 to-transparent')
               }
             />
             <motion.div
@@ -711,7 +711,7 @@ export function LearnMode() {
                 transition={{ duration: 0.55 * m, ease: [0.16, 1, 0.3, 1] }}
                 className={
                   'h-96 w-96 rounded-full ' +
-                  (feedback === 'correct'
+                  (feedback === 'right'
                     ? 'bg-positive/15 ring-4 ring-positive/20'
                     : 'bg-negative/10 ring-4 ring-negative/15')
                 }
@@ -846,7 +846,17 @@ export function LearnMode() {
 
       {/* Card */}
       <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col px-6 py-8">
-        {current && <FlipCard card={current} revealed={phase === 'answer'} motionSpeed={motionSpeed} />}
+        {current && (
+          <FlipCard
+            card={current}
+            revealed={phase === 'answer'}
+            motionSpeed={motionSpeed}
+            phase={phase}
+            onReveal={reveal}
+            onHide={hide}
+            onAnswer={answer}
+          />
+        )}
 
         {/* Controls */}
         <div className="mt-8">
@@ -1036,28 +1046,157 @@ function MenuItem({
 }
 
 /**
- * A card that flips vertically to reveal its answer. The two faces are swapped via a
- * keyed transition (rather than absolute stacking) so the card's height always fits the
- * content, even when the answer is much longer than the question.
- *
- * Enhanced with 3D perspective, dynamic shadows, and staggered text reveals.
+ * A card that flips vertically to reveal its answer, and responds to touch and mouse
+ * gestures: tap to flip, swipe left for No, swipe right for Yes. The swipe interaction
+ * is springy — the card follows the finger, a directional glow hints at the outcome,
+ * and releasing past the threshold commits the answer with a satisfying snap.
  */
-function FlipCard({ card, revealed, motionSpeed }: { card: Card; revealed: boolean; motionSpeed: MotionSpeed }) {
+function FlipCard({
+  card,
+  revealed,
+  motionSpeed,
+  phase,
+  onReveal,
+  onHide,
+  onAnswer,
+}: {
+  card: Card;
+  revealed: boolean;
+  motionSpeed: MotionSpeed;
+  phase: Phase;
+  onReveal: () => void;
+  onHide: () => void;
+  onAnswer: (input: boolean | Grade) => void;
+}) {
   const m = speedMultiplier(motionSpeed);
   const isCloze = card.type === 'cloze';
+  const [swipe, setSwipe] = useState({ x: 0, committed: false, hint: null as 'left' | 'right' | null });
+  const swipeRef = useRef({ x: 0, startX: 0, startY: 0, dragging: false, isSwipe: false });
+  const containerRef = useRef<HTMLDivElement>(null);
+  const swipeThreshold = 80;
+  const maxDrag = 180;
+
+  const handlePointerDown = useCallback((e: React.PointerEvent) => {
+    if (swipeRef.current.dragging) return;
+    swipeRef.current = {
+      x: 0,
+      startX: e.clientX,
+      startY: e.clientY,
+      dragging: true,
+      isSwipe: false,
+    };
+    containerRef.current?.setPointerCapture?.(e.pointerId);
+    setSwipe({ x: 0, committed: false, hint: null });
+  }, []);
+
+  const handlePointerMove = useCallback((e: React.PointerEvent) => {
+    if (!swipeRef.current.dragging) return;
+    const dx = e.clientX - swipeRef.current.startX;
+    const dy = e.clientY - swipeRef.current.startY;
+    // Decide whether this is a horizontal swipe or a vertical scroll.
+    if (!swipeRef.current.isSwipe && Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 8) {
+      swipeRef.current.isSwipe = true;
+    }
+    if (!swipeRef.current.isSwipe) return;
+    // Clamp the visual drag so the card never flies off-screen.
+    const clamped = Math.max(-maxDrag, Math.min(maxDrag, dx));
+    swipeRef.current.x = clamped;
+    const hint: 'left' | 'right' | null = clamped < -swipeThreshold / 2 ? 'left' : clamped > swipeThreshold / 2 ? 'right' : null;
+    setSwipe({ x: clamped, committed: false, hint });
+  }, []);
+
+  const handlePointerUp = useCallback((e: React.PointerEvent) => {
+    if (!swipeRef.current.dragging) return;
+    containerRef.current?.releasePointerCapture?.(e.pointerId);
+    swipeRef.current.dragging = false;
+    const dx = swipeRef.current.x;
+    const wasSwipe = swipeRef.current.isSwipe;
+    swipeRef.current.isSwipe = false;
+    if (wasSwipe) {
+      if (dx < -swipeThreshold) {
+        // Swipe left = No
+        if (phase === 'answer') {
+          setSwipe({ x: 0, committed: true, hint: 'left' });
+          onAnswer(false);
+        } else {
+          // Snap back if not in answer phase.
+          setSwipe({ x: 0, committed: false, hint: null });
+        }
+      } else if (dx > swipeThreshold) {
+        // Swipe right = Yes
+        if (phase === 'answer') {
+          setSwipe({ x: 0, committed: true, hint: 'right' });
+          onAnswer(true);
+        } else {
+          setSwipe({ x: 0, committed: false, hint: null });
+        }
+      } else {
+        // Not far enough — spring back.
+        setSwipe({ x: 0, committed: false, hint: null });
+      }
+    } else {
+      // It was a tap/click — flip the card.
+      setSwipe({ x: 0, committed: false, hint: null });
+      if (phase === 'question') onReveal();
+      else if (phase === 'answer') onHide();
+    }
+  }, [phase, onReveal, onHide, onAnswer]);
+
+  const handlePointerCancel = useCallback((e: React.PointerEvent) => {
+    containerRef.current?.releasePointerCapture?.(e.pointerId);
+    swipeRef.current.dragging = false;
+    swipeRef.current.isSwipe = false;
+    setSwipe({ x: 0, committed: false, hint: null });
+  }, []);
+
   return (
     <div
       className="flex flex-1 items-center justify-center"
       style={{ perspective: '1600px' }}
     >
-      <div className="w-full" style={{ transformStyle: 'preserve-3d' }}>
+      {/* Swipe hint glow — appears during a drag to whisper the outcome. */}
+      <AnimatePresence>
+        {swipe.hint && !swipe.committed && (
+          <motion.div
+            aria-hidden
+            key={swipe.hint}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.12 * m }}
+            className={
+              'pointer-events-none fixed inset-y-0 z-20 w-56 ' +
+              (swipe.hint === 'right'
+                ? 'right-0 bg-gradient-to-l from-positive/20 to-transparent'
+                : 'left-0 bg-gradient-to-r from-negative/15 to-transparent')
+            }
+          />
+        )}
+      </AnimatePresence>
+
+      <div
+        ref={containerRef}
+        role="button"
+        aria-label={revealed ? 'Hide answer' : 'Show answer'}
+        className="w-full cursor-pointer select-none"
+        style={{ transformStyle: 'preserve-3d', touchAction: 'pan-y' }}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onPointerCancel={handlePointerCancel}
+      >
         <AnimatePresence mode="wait" initial={false}>
           <motion.div
             key={revealed ? 'back' : 'front'}
-            initial={{ rotateX: -92, opacity: 0, scale: 0.97 }}
-            animate={{ rotateX: 0, opacity: 1, scale: 1 }}
-            exit={{ rotateX: 92, opacity: 0, scale: 0.97 }}
-            transition={{ duration: 0.32 * m, ease: [0.16, 1, 0.3, 1] }}
+            initial={{ rotateX: -92, opacity: 0, scale: 0.97, x: swipe.x }}
+            animate={{ rotateX: 0, opacity: 1, scale: 1, x: swipe.x }}
+            exit={{ rotateX: 92, opacity: 0, scale: 0.97, x: swipe.x }}
+            transition={{
+              x: { duration: 0 },
+              rotateX: { duration: 0.32 * m, ease: [0.16, 1, 0.3, 1] },
+              opacity: { duration: 0.32 * m, ease: [0.16, 1, 0.3, 1] },
+              scale: { duration: 0.32 * m, ease: [0.16, 1, 0.3, 1] },
+            }}
             style={{ transformOrigin: 'center center' }}
             className={
               'rounded-3xl border bg-surface px-8 py-12 ' +
