@@ -45,6 +45,13 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', resolvedTheme === 'dark');
+    // Update the theme-color meta tag so the browser chrome (e.g. mobile status bar)
+    // matches the current palette.
+    const meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) {
+      const colour = resolvedTheme === 'dark' ? '#0a0a0b' : '#f8f6f3';
+      meta.setAttribute('content', colour);
+    }
   }, [resolvedTheme]);
 
   useEffect(() => {

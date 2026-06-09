@@ -2,6 +2,7 @@ node_modules/
 dist/
 *.tsbuildinfo
 .vite/
+.dev-dist/
 .DS_Store
 .npmrc
 

@@ -29,13 +29,14 @@ import {
   restoreBackup,
   takeAutoBackup,
 } from '../db/backups';
-import { MoonIcon, SunIcon, UploadIcon } from '../components/ui/icons';
+import { MoonIcon, SunIcon, UploadIcon, DownloadIcon } from '../components/ui/icons';
 import type { BackupFile } from '../db/types';
 import { formatDate, formatDateTime } from '../utils/datetime';
 import { useGradingMode } from '../state/gradingMode';
 import { useAutoOptimiseDefault } from '../state/optimiseSetting';
 import { useDashboardSort, type DashboardSort } from '../state/dashboardSort';
 import { useSidebarSettings, DEFAULT_NAV_ITEMS } from '../state/sidebarSettings';
+import { useInstallPrompt } from '../hooks/useInstallPrompt';
 import { MIN_OPTIMISE_REVIEWS } from '../fsrs/optimise';
 import {
   requestPersistentStorage,
@@ -56,6 +57,7 @@ const SETTINGS_SECTIONS = [
   { id: 'settings-study', label: 'Study & scheduling' },
   { id: 'settings-shortcuts', label: 'Keyboard shortcuts' },
   { id: 'settings-pomodoro', label: 'Pomodoro timer' },
+  { id: 'settings-install', label: 'Install' },
   { id: 'settings-export', label: 'Import & export' },
   { id: 'settings-backups', label: 'Automatic backups' },
 ];
@@ -657,6 +659,18 @@ export function Settings() {
         </div>
       </section>
 
+      {/* Install */}
+      <section
+        id="settings-install"
+        className="mb-8 rounded-2xl border border-line bg-surface p-6"
+      >
+        <h2 className="mb-1 font-display text-xl">Install</h2>
+        <p className="mb-5 text-sm text-ink-soft">
+          Add Lacuna to your home screen for quick access and offline use.
+        </p>
+        <InstallPanel />
+      </section>
+
       {/* Data portability */}
       <section
         id="settings-export"
@@ -947,6 +961,38 @@ export function Settings() {
           </motion.div>
         </div>
       </aside>
+    </div>
+  );
+}
+
+function InstallPanel() {
+  const { isInstallable, isInstalled, promptInstall } = useInstallPrompt();
+
+  if (isInstalled) {
+    return (
+      <p className="text-sm text-ink-soft">
+        Lacuna is installed on this device and can be used offline.
+      </p>
+    );
+  }
+
+  if (!isInstallable) {
+    return (
+      <p className="text-sm text-ink-soft">
+        Your browser does not support installing web apps, or Lacuna is already installed.
+      </p>
+    );
+  }
+
+  return (
+    <div className="flex items-center justify-between gap-3">
+      <p className="text-sm text-ink-soft">
+        Install Lacuna as a standalone app for offline access and a native-like experience.
+      </p>
+      <Button variant="secondary" onClick={promptInstall}>
+        <DownloadIcon width={18} height={18} />
+        Install
+      </Button>
     </div>
   );
 }
