@@ -7,6 +7,7 @@ import type {
   BackupSnapshot,
   Card,
   Deck,
+  Folder,
   SessionHistoryEntry,
   UserPerformance,
 } from '../db/types';
@@ -16,6 +17,17 @@ import { computeStudyStats, type StudyStats } from '../fsrs/stats';
 
 export function useDecks(): Deck[] | undefined {
   return useLiveQuery(() => db.decks.orderBy('createdAt').toArray(), []);
+}
+
+export function useFolders(): Folder[] | undefined {
+  return useLiveQuery(() => db.folders.orderBy('createdAt').toArray(), []);
+}
+
+export function useFolder(folderId: string | undefined): Folder | undefined {
+  return useLiveQuery(
+    () => (folderId ? db.folders.get(folderId) : undefined),
+    [folderId],
+  );
 }
 
 export function useDeck(deckId: string | undefined): Deck | undefined {

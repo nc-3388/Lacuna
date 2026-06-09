@@ -102,6 +102,20 @@ export interface Deck {
   colour?: string;
   /** Epoch ms of the most recent review (or deck creation), for dashboard priority. */
   lastInteractedAt?: number;
+  /**
+   * Optional folder id for grouping decks. Null or undefined means the deck is
+   * at the top level (not in any folder).
+   */
+  folderId?: string | null;
+}
+
+/** A folder for grouping decks hierarchically. */
+export interface Folder {
+  id: string;
+  name: string;
+  /** Parent folder id, or null for a top-level folder. */
+  parentId: string | null;
+  createdAt: number;
 }
 
 export interface Card {
@@ -214,4 +228,5 @@ export interface BackupFile {
   assets: BackupAsset[];
   sessionHistory: SessionHistoryEntry[];
   userPerformance: UserPerformance[];
+  folders?: Folder[];
 }

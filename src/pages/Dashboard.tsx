@@ -1,25 +1,30 @@
 import { useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { AnimatePresence, m as motion } from 'motion/react';
-import { useDashboardData } from '../state/useData';
+import { useDashboardData, useFolders } from '../state/useData';
 import { useDashboardSort, type DashboardSort } from '../state/dashboardSort';
 import { StudySignals } from '../components/dashboard/StudySignals';
 import { ReviewHeatmap } from '../components/dashboard/ReviewHeatmap';
 import {
   createDeck,
   createDeckWithCards,
+  createFolder,
   deleteDecks,
+  deleteFolder,
   mergeDecks,
+  moveDecksToFolder,
   restoreDecks,
   snapshotDecks,
   updateDeck,
+  updateFolder,
 } from '../db/repository';
 import { DECK_COLOURS } from '../db/types';
 import { Button } from '../components/ui/Button';
 import { ProgressBar } from '../components/ui/ProgressBar';
 import { useToast } from '../components/ui/Toast';
+import { FolderIcon } from '../components/ui/icons';
 import { UnifiedImportPanel } from '../components/import/UnifiedImportPanel';
-import { CheckIcon, FlaskIcon, MergeIcon, PlayIcon, PlusIcon, TrashIcon } from '../components/ui/icons';
+import { CheckIcon, ChevronDownIcon, FlaskIcon, MergeIcon, PlayIcon, PlusIcon, TrashIcon } from '../components/ui/icons';
 import type { ParsedCard } from '../db/import';
 import { relativeExam } from '../utils/datetime';
 import { progressNoun } from '../fsrs/objective';
@@ -33,6 +38,7 @@ export function Dashboard() {
   const summaries = dashboardData?.summaries;
   const stats = dashboardData?.stats;
   const allCards = dashboardData?.allCards;
+  const folders = useFolders();
   const navigate = useNavigate();
   const { notify } = useToast();
   const [dashboardSort] = useDashboardSort();
@@ -47,6 +53,14 @@ export function Dashboard() {
   const [mergeTarget, setMergeTarget] = useState<string | null>(null);
   const [motionSpeed] = useMotionSpeed();
   const m = speedMultiplier(motionSpeed);
+
+  // Folder management
+  const [creatingFolder, setCreatingFolder] = useState(false);
+  const [newFolderName, setNewFolderName] = useState('');
+  const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
+  const [renamingFolder, setRenamingFolder] = useState<string | null>(null);
+  const [renameFolderName, setRenameFolderName] = useState('');
+  const [moveIntoFolder, setMoveIntoFolder] = useState<string | null>(null);
 
   const allSelected = decks ? decks.length > 0 && decks.every((d) => selected.has(d.id)) : false;
 
@@ -150,6 +164,64 @@ export function Dashboard() {
     });
   }
 
+  // Folder management handlers
+  async function handleCreateFolder() {
+    if (!newFolderName.trim()) return;
+    await createFolder(newFolderName);
+    setNewFolderName('');
+    setCreatingFolder(false);
+    notify('Folder created.', 'positive');
+  }
+
+  async function handleRenameFolder(id: string) {
+    if (!renameFolderName.trim()) return;
+    await updateFolder(id, { name: renameFolderName.trim() });
+    setRenamingFolder(null);
+    setRenameFolderName('');
+    notify('Folder renamed.', 'positive');
+  }
+
+  async function handleDeleteFolder(id: string) {
+    await deleteFolder(id);
+    notify('Folder deleted.', 'neutral');
+  }
+
+  async function handleMoveToFolder(folderId: string | null) {
+    const ids = [...selected];
+    if (ids.length === 0) return;
+    await moveDecksToFolder(ids, folderId);
+    setMoveIntoFolder(null);
+    notify(`${ids.length} deck${ids.length === 1 ? '' : 's'} moved.`, 'positive');
+  }
+
+  function toggleFolderExpanded(id: string) {
+    setExpandedFolders((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  }
+
+  // Group active decks by folder
+  const { groupedDecks, ungroupedDecks } = useMemo(() => {
+    const ungrouped: Deck[] = [];
+    const grouped: Record<string, Deck[]> = {};
+    for (const deck of activeDecks) {
+      if (deck.folderId) {
+        (grouped[deck.folderId] ??= []).push(deck);
+      } else {
+        ungrouped.push(deck);
+      }
+    }
+    return { groupedDecks: grouped, ungroupedDecks: ungrouped };
+  }, [activeDecks]);
+
+  // Top-level folders (not nested under another folder)
+  const topFolders = useMemo(
+    () => (folders ?? []).filter((f) => !f.parentId),
+    [folders],
+  );
+
   return (
     <div className="mx-auto max-w-6xl px-6 py-10 md:px-10">
       <header className="mb-10 flex flex-wrap items-end justify-between gap-4">
@@ -168,6 +240,16 @@ export function Dashboard() {
               {selectMode ? 'Done' : 'Select'}
             </Button>
           )}
+          <Button
+            variant="secondary"
+            onClick={() => {
+              setCreatingFolder(true);
+              setNewFolderName('');
+            }}
+          >
+            <FolderIcon width={18} height={18} />
+            New folder
+          </Button>
           <Button variant="primary" onClick={startCreating}>
             <PlusIcon width={18} height={18} />
             New deck
@@ -301,6 +383,44 @@ export function Dashboard() {
         )}
       </AnimatePresence>
 
+      {/* Inline new-folder composer */}
+      <AnimatePresence>
+        {creatingFolder && (
+          <motion.div
+            initial={{ opacity: 0, height: 0, marginBottom: 0 }}
+            animate={{ opacity: 1, height: 'auto', marginBottom: 24 }}
+            exit={{ opacity: 0, height: 0, marginBottom: 0 }}
+            transition={{ duration: 0.2 * m, ease: [0.16, 1, 0.3, 1] }}
+            className="overflow-hidden"
+          >
+            <div className="rounded-2xl border border-line-strong bg-surface p-5">
+              <label className="block text-sm text-ink-soft">
+                Folder name
+                <input
+                  autoFocus
+                  value={newFolderName}
+                  onChange={(e) => setNewFolderName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && newFolderName.trim()) handleCreateFolder();
+                    if (e.key === 'Escape') setCreatingFolder(false);
+                  }}
+                  placeholder="e.g. Semester 1"
+                  className="mt-2 w-full rounded-lg border border-line-strong bg-surface px-3 py-2.5 text-ink outline-none focus:border-accent"
+                />
+              </label>
+              <div className="mt-4 flex justify-end gap-2">
+                <Button variant="ghost" onClick={() => setCreatingFolder(false)}>
+                  Cancel
+                </Button>
+                <Button variant="primary" onClick={handleCreateFolder} disabled={!newFolderName.trim()}>
+                  Create
+                </Button>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Selection action bar */}
       {selectMode && (
         <motion.div
@@ -331,7 +451,16 @@ export function Dashboard() {
               {allSelected ? 'Deselect all' : 'Select all'}
             </button>
             <span className="text-sm text-ink-faint">{selected.size} selected</span>
-            <div className="ml-auto flex gap-2">
+            <div className="ml-auto flex flex-wrap gap-2">
+              <Button
+                size="sm"
+                variant="secondary"
+                disabled={selected.size === 0}
+                onClick={() => setMoveIntoFolder(moveIntoFolder ? null : 'choose')}
+              >
+                <FolderIcon width={16} height={16} />
+                Move to folder
+              </Button>
               <Button
                 size="sm"
                 variant="secondary"
@@ -352,6 +481,50 @@ export function Dashboard() {
               </Button>
             </div>
           </div>
+
+          {/* Inline move-to-folder chooser */}
+          <AnimatePresence>
+            {moveIntoFolder && selected.size > 0 && (
+              <motion.div
+                initial={{ opacity: 0, height: 0, marginTop: 0 }}
+                animate={{ opacity: 1, height: 'auto', marginTop: 12 }}
+                exit={{ opacity: 0, height: 0, marginTop: 0 }}
+                transition={{ duration: 0.22 * m, ease: [0.16, 1, 0.3, 1] }}
+                className="overflow-hidden"
+              >
+                <div className="border-t border-line pt-3">
+                  <p className="mb-3 text-sm text-ink-soft">
+                    Choose a folder to move the selected decks into.
+                  </p>
+                  <div className="flex flex-col gap-2">
+                    <button
+                      type="button"
+                      onClick={() => handleMoveToFolder(null)}
+                      className="flex cursor-pointer items-center gap-3 rounded-lg border border-line px-3 py-2.5 text-left transition-colors hover:border-line-strong"
+                    >
+                      <span className="text-sm">Top level (no folder)</span>
+                    </button>
+                    {topFolders.map((folder) => (
+                      <button
+                        key={folder.id}
+                        type="button"
+                        onClick={() => handleMoveToFolder(folder.id)}
+                        className="flex cursor-pointer items-center gap-3 rounded-lg border border-line px-3 py-2.5 text-left transition-colors hover:border-line-strong"
+                      >
+                        <FolderIcon width={16} height={16} />
+                        <span className="text-sm">{folder.name}</span>
+                      </button>
+                    ))}
+                  </div>
+                  <div className="mt-4 flex justify-end gap-2">
+                    <Button size="sm" variant="ghost" onClick={() => setMoveIntoFolder(null)}>
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
 
           {/* Inline merge chooser */}
           <AnimatePresence>
@@ -415,38 +588,157 @@ export function Dashboard() {
         </motion.div>
       )}
 
-      {/* Deck grid */}
+      {/* Deck grid — grouped by folder */}
       {!decks ? (
         <DeckSkeleton motionMultiplier={m} />
       ) : decks.length === 0 ? (
         <EmptyState onCreate={startCreating} motionMultiplier={m} />
       ) : (
         <>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {activeDecks.slice(0, 3).map((deck, index) => (
-              <motion.div
-                key={deck.id}
+          {/* Ungrouped decks */}
+          {ungroupedDecks.length > 0 && (
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {ungroupedDecks.map((deck, index) => (
+                <motion.div
+                  key={deck.id}
+                  layout
+                  className="h-full"
+                  initial={{ opacity: 0, y: 12 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{
+                    duration: 0.24 * m,
+                    delay: Math.min(index * 0.04, 0.2) * m,
+                    layout: { duration: 0.18 * m, ease: [0.16, 1, 0.3, 1] },
+                  }}
+                >
+                  <DeckCard
+                    deck={deck}
+                    summary={summaries?.[deck.id]}
+                    selectMode={selectMode}
+                    selected={selected.has(deck.id)}
+                    onToggleSelected={() => toggleSelected(deck.id)}
+                    motionMultiplier={m}
+                  />
+                </motion.div>
+              ))}
+            </div>
+          )}
+
+          {/* Folders with grouped decks */}
+          {topFolders.map((folder) => {
+            const folderDecks = groupedDecks[folder.id] ?? [];
+            if (folderDecks.length === 0 && !selectMode) return null;
+            const expanded = expandedFolders.has(folder.id);
+            return (
+              <motion.section
+                key={folder.id}
                 layout
-                className="h-full"
                 initial={{ opacity: 0, y: 12 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{
-                  duration: 0.24 * m,
-                  delay: Math.min(index * 0.04, 0.2) * m,
-                  layout: { duration: 0.18 * m, ease: [0.16, 1, 0.3, 1] },
-                }}
+                transition={{ duration: 0.24 * m, ease: [0.16, 1, 0.3, 1] }}
+                className={cn('mt-6', ungroupedDecks.length === 0 && 'mt-0')}
               >
-                <DeckCard
-                  deck={deck}
-                  summary={summaries?.[deck.id]}
-                  selectMode={selectMode}
-                  selected={selected.has(deck.id)}
-                  onToggleSelected={() => toggleSelected(deck.id)}
-                  motionMultiplier={m}
-                />
-              </motion.div>
-            ))}
-          </div>
+                <div className="mb-4 flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => toggleFolderExpanded(folder.id)}
+                    className="flex items-center gap-2 text-sm uppercase tracking-[0.18em] text-ink-faint transition-colors hover:text-ink"
+                  >
+                    <motion.span
+                      animate={{ rotate: expanded ? 0 : -90 }}
+                      transition={{ duration: 0.15 * m }}
+                    >
+                      <ChevronDownIcon width={14} height={14} />
+                    </motion.span>
+                    {renamingFolder === folder.id ? (
+                      <input
+                        autoFocus
+                        value={renameFolderName}
+                        onChange={(e) => setRenameFolderName(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') handleRenameFolder(folder.id);
+                          if (e.key === 'Escape') {
+                            setRenamingFolder(null);
+                            setRenameFolderName('');
+                          }
+                        }}
+                        onBlur={() => handleRenameFolder(folder.id)}
+                        className="rounded border border-line-strong bg-surface px-2 py-1 text-sm normal-case tracking-normal text-ink outline-none focus:border-accent"
+                      />
+                    ) : (
+                      <span className="flex items-center gap-2">
+                        <FolderIcon width={16} height={16} />
+                        {folder.name}
+                        <span className="text-[11px] normal-case tracking-normal text-ink-faint">
+                          {folderDecks.length} deck{folderDecks.length === 1 ? '' : 's'}
+                        </span>
+                      </span>
+                    )}
+                  </button>
+                  {!selectMode && renamingFolder !== folder.id && (
+                    <div className="ml-auto flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setRenamingFolder(folder.id);
+                          setRenameFolderName(folder.name);
+                        }}
+                        className="rounded p-1 text-xs text-ink-faint transition-colors hover:bg-ink/5 hover:text-ink"
+                        title="Rename folder"
+                      >
+                        Rename
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteFolder(folder.id)}
+                        className="rounded p-1 text-xs text-ink-faint transition-colors hover:bg-ink/5 hover:text-rose-600"
+                        title="Delete folder"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  )}
+                </div>
+                <AnimatePresence>
+                  {expanded && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: 'auto' }}
+                      exit={{ opacity: 0, height: 0 }}
+                      transition={{ duration: 0.2 * m, ease: [0.16, 1, 0.3, 1] }}
+                      className="overflow-hidden"
+                    >
+                      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                        {folderDecks.map((deck, index) => (
+                          <motion.div
+                            key={deck.id}
+                            layout
+                            className="h-full"
+                            initial={{ opacity: 0, y: 12 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{
+                              duration: 0.24 * m,
+                              delay: Math.min(index * 0.04, 0.2) * m,
+                              layout: { duration: 0.18 * m, ease: [0.16, 1, 0.3, 1] },
+                            }}
+                          >
+                            <DeckCard
+                              deck={deck}
+                              summary={summaries?.[deck.id]}
+                              selectMode={selectMode}
+                              selected={selected.has(deck.id)}
+                              onToggleSelected={() => toggleSelected(deck.id)}
+                              motionMultiplier={m}
+                            />
+                          </motion.div>
+                        ))}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </motion.section>
+            );
+          })}
 
           {archivedDecks.length > 0 && (
             <motion.section

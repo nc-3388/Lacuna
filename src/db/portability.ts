@@ -11,6 +11,7 @@ import type {
   BackupFile,
   Card,
   Deck,
+  Folder,
   SessionHistoryEntry,
   UserPerformance,
   ImageAsset,
@@ -22,15 +23,16 @@ import {
   referencedAssetHashesInCards,
 } from './assets';
 
-export const BACKUP_VERSION = 4;
+export const BACKUP_VERSION = 5;
 
 /** Gather the whole database into a single backup object. */
 export async function exportDatabase(): Promise<BackupFile> {
-  const [decks, cards, sessionHistory, userPerformance] = await Promise.all([
+  const [decks, cards, sessionHistory, userPerformance, folders] = await Promise.all([
     db.decks.toArray(),
     db.cards.toArray(),
     db.sessionHistory.toArray(),
     db.userPerformance.toArray(),
+    db.folders.toArray(),
   ]);
   const assets = await assetsForBackup(referencedAssetHashesInCards(cards));
   return {
@@ -42,6 +44,7 @@ export async function exportDatabase(): Promise<BackupFile> {
     assets,
     sessionHistory,
     userPerformance,
+    folders,
   };
 }
 
@@ -117,11 +120,9 @@ export async function importBackup(
   const importedAssets = [
     ...assets.map(backupAssetToImageAsset),
     ...extractedAssets,
-  ];
-
-  await db.transaction(
+  ];      await db.transaction(
     'rw',
-    [db.decks, db.cards, db.sessionHistory, db.userPerformance, db.assets],
+    [db.decks, db.cards, db.sessionHistory, db.userPerformance, db.assets, db.folders],
     async () => {
       // Deduplicate by hash so bulkPut never encounters a constraint conflict.
       const dedupedAssets = Array.from(
@@ -134,6 +135,7 @@ export async function importBackup(
           db.sessionHistory.clear(),
           db.userPerformance.clear(),
           db.assets.clear(),
+          db.folders.clear(),
         ]);
         await db.decks.bulkAdd(decks);
         await db.cards.bulkAdd(cards);
@@ -143,6 +145,10 @@ export async function importBackup(
         await db.sessionHistory.bulkAdd(
           backup.sessionHistory.map(({ id: _id, ...rest }) => rest as SessionHistoryEntry),
         );
+        // Restore folders if present in the backup.
+        if (backup.folders && backup.folders.length > 0) {
+          await db.folders.bulkAdd(backup.folders);
+        }
         return;
       }
 
@@ -170,6 +176,26 @@ export async function importBackup(
       }
       await db.decks.bulkPut(mergedDecks);
       if (dedupedAssets.length) await db.assets.bulkPut(dedupedAssets);
+
+      // Merge folders: add incoming folders that don't exist locally.
+      if (backup.folders && backup.folders.length > 0) {
+        const existingFolders = new Map(
+          (await db.folders.toArray()).map((f) => [f.id, f]),
+        );
+        const mergedFolders: Folder[] = [];
+        for (const incoming of backup.folders) {
+          const existing = existingFolders.get(incoming.id);
+          if (!existing) {
+            mergedFolders.push(incoming);
+          } else {
+            // Prefer newer folder (by createdAt) or keep existing on tie.
+            mergedFolders.push(
+              incoming.createdAt >= existing.createdAt ? incoming : existing,
+            );
+          }
+        }
+        await db.folders.bulkPut(mergedFolders);
+      }
 
       // Merge cards (most recent lastReviewed wins, falling back to createdAt).
       const existingCards = new Map((await db.cards.toArray()).map((c) => [c.id, c]));

@@ -1,17 +1,20 @@
+import { useState } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { AnimatePresence, m as motion } from 'motion/react';
 import { useTheme } from '../../state/ThemeContext';
-import { useDecks, useDeckSummaries, useStudyStats } from '../../state/useData';
+import { useDecks, useDeckSummaries, useFolders, useStudyStats } from '../../state/useData';
 import { useSidebarSettings } from '../../state/sidebarSettings';
 import { cn } from '../ui/cn';
 import { useMotionSpeed, speedMultiplier } from '../../state/motionSpeed';
 import {
   ChartIcon,
+  ChevronDownIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
   DashboardIcon,
   FlameIcon,
   FlaskIcon,
+  FolderIcon,
   MoonIcon,
   PlayIcon,
   SearchIcon,
@@ -110,8 +113,20 @@ export function Sidebar({ collapsed, onToggleCollapsed }: SidebarProps) {
   const [motionSpeed] = useMotionSpeed();
   const m = speedMultiplier(motionSpeed);
 
+  const [expandedSidebarFolders, setExpandedSidebarFolders] = useState<Set<string>>(new Set());
+
   // Filter archived decks unless the user explicitly wants them in the sidebar.
   const visibleDecks = decks?.filter((d) => sidebarSettings.showArchived || !d.archived) ?? [];
+  const folders = useFolders();
+  const topFolders = folders?.filter((f) => !f.parentId) ?? [];
+
+  function toggleSidebarFolder(id: string) {
+    setExpandedSidebarFolders((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  }
 
   return (
     <aside
@@ -176,7 +191,7 @@ export function Sidebar({ collapsed, onToggleCollapsed }: SidebarProps) {
           ))}
       </nav>
 
-      {/* Deck list */}
+      {/* Deck list — grouped by folder */}
       <div className={cn(
         'flex min-h-0 flex-1 flex-col px-3',
         sidebarSettings.compactMode ? 'mt-3' : 'mt-6',
@@ -199,17 +214,13 @@ export function Sidebar({ collapsed, onToggleCollapsed }: SidebarProps) {
           sidebarSettings.compactMode ? 'gap-0' : 'gap-0.5',
         )}>
           <AnimatePresence initial={false}>
-            {visibleDecks.map((deck, index) => {
-              // Stay highlighted for the deck itself and any of its sub-routes
-              // (cards, new card, deck settings, learn), not just the exact page.
-              const base = `/deck/${deck.id}`;
-              const active =
-                location.pathname === base ||
-                location.pathname.startsWith(`${base}/`);
-              const eligible = summaries?.[deck.id]?.eligible ?? 0;
+            {/* Folders */}
+            {topFolders.map((folder, index) => {
+              const folderDecks = visibleDecks.filter((d) => d.folderId === folder.id);
+              const expanded = expandedSidebarFolders.has(folder.id);
               return (
                 <motion.div
-                  key={deck.id}
+                  key={folder.id}
                   initial={{ opacity: 0, x: -8 }}
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: -8 }}
@@ -220,53 +231,176 @@ export function Sidebar({ collapsed, onToggleCollapsed }: SidebarProps) {
                   }}
                   layout
                 >
-                  <NavLink
-                    to={`/deck/${deck.id}`}
-                    title={collapsed ? deck.name : undefined}
+                  <button
+                    type="button"
+                    onClick={() => toggleSidebarFolder(folder.id)}
+                    title={collapsed ? folder.name : undefined}
                     className={cn(
-                      'flex items-center gap-3 rounded-lg transition-all duration-150',
+                      'flex w-full items-center gap-3 rounded-lg transition-all duration-150',
                       sidebarSettings.compactMode
                         ? 'px-3 py-1.5 text-xs'
                         : 'px-3 py-2 text-sm',
                       collapsed ? 'justify-center px-0' : 'hover:translate-x-0.5',
-                      active
-                        ? 'bg-accent-soft text-accent'
-                        : 'text-ink-soft hover:bg-ink/5 hover:text-ink',
+                      'text-ink-soft hover:bg-ink/5 hover:text-ink',
                     )}
                   >
-                    <span
-                      className={cn(
-                        'shrink-0 rounded-full border',
-                        sidebarSettings.compactMode ? 'h-2 w-2' : 'h-2.5 w-2.5',
-                        active ? 'border-accent bg-accent' : 'border-transparent bg-line-strong',
-                      )}
-                      style={deck.colour ? { backgroundColor: deck.colour } : undefined}
-                    />
+                    {!collapsed && (
+                      <motion.span
+                        animate={{ rotate: expanded ? 0 : -90 }}
+                        transition={{ duration: 0.15 * m }}
+                        className="shrink-0 text-ink-faint"
+                      >
+                        <ChevronDownIcon width={12} height={12} />
+                      </motion.span>
+                    )}
+                    <FolderIcon width={sidebarSettings.compactMode ? 14 : 16} height={sidebarSettings.compactMode ? 14 : 16} />
                     {!collapsed && (
                       <span className="flex flex-1 items-center gap-2">
-                        <span className="truncate">{deck.name}</span>
-                        {sidebarSettings.showDueCounts && eligible > 0 && (
-                          <span className={cn(
-                            'ml-auto shrink-0 rounded-full bg-accent/10 px-1.5 py-0 text-[10px] font-medium tabular text-accent',
-                            sidebarSettings.compactMode && 'text-[9px]',
-                          )}>
-                            {eligible}
-                          </span>
-                        )}
-                        {deck.archived && (
-                          <span className={cn(
-                            'ml-1 shrink-0 rounded border border-ink/10 px-1 text-[9px] text-ink-faint',
-                            sidebarSettings.compactMode && 'hidden',
-                          )}>
-                            Archived
-                          </span>
-                        )}
+                        <span className="truncate">{folder.name}</span>
+                        <span className={cn(
+                          'ml-auto shrink-0 text-[10px] text-ink-faint',
+                          sidebarSettings.compactMode && 'text-[9px]',
+                        )}>
+                          {folderDecks.length}
+                        </span>
                       </span>
                     )}
-                  </NavLink>
+                  </button>
+                  <AnimatePresence>
+                    {expanded && !collapsed && (
+                      <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        exit={{ opacity: 0, height: 0 }}
+                        transition={{ duration: 0.18 * m, ease: [0.16, 1, 0.3, 1] }}
+                        className="overflow-hidden"
+                      >
+                        {folderDecks.map((deck) => {
+                          const base = `/deck/${deck.id}`;
+                          const active =
+                            location.pathname === base ||
+                            location.pathname.startsWith(`${base}/`);
+                          const eligible = summaries?.[deck.id]?.eligible ?? 0;
+                          return (
+                            <NavLink
+                              key={deck.id}
+                              to={`/deck/${deck.id}`}
+                              className={cn(
+                                'flex items-center gap-3 rounded-lg transition-all duration-150',
+                                sidebarSettings.compactMode
+                                  ? 'px-3 py-1.5 pl-8 text-xs'
+                                  : 'px-3 py-2 pl-9 text-sm',
+                                active
+                                  ? 'bg-accent-soft text-accent'
+                                  : 'text-ink-soft hover:bg-ink/5 hover:text-ink',
+                              )}
+                            >
+                              <span
+                                className={cn(
+                                  'shrink-0 rounded-full border',
+                                  sidebarSettings.compactMode ? 'h-2 w-2' : 'h-2.5 w-2.5',
+                                  active ? 'border-accent bg-accent' : 'border-transparent bg-line-strong',
+                                )}
+                                style={deck.colour ? { backgroundColor: deck.colour } : undefined}
+                              />
+                              <span className="flex flex-1 items-center gap-2">
+                                <span className="truncate">{deck.name}</span>
+                                {sidebarSettings.showDueCounts && eligible > 0 && (
+                                  <span className={cn(
+                                    'ml-auto shrink-0 rounded-full bg-accent/10 px-1.5 py-0 text-[10px] font-medium tabular text-accent',
+                                    sidebarSettings.compactMode && 'text-[9px]',
+                                  )}>
+                                    {eligible}
+                                  </span>
+                                )}
+                                {deck.archived && (
+                                  <span className={cn(
+                                    'ml-1 shrink-0 rounded border border-ink/10 px-1 text-[9px] text-ink-faint',
+                                    sidebarSettings.compactMode && 'hidden',
+                                  )}>
+                                    Archived
+                                  </span>
+                                )}
+                              </span>
+                            </NavLink>
+                          );
+                        })}
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                 </motion.div>
               );
             })}
+
+            {/* Ungrouped decks */}
+            {visibleDecks
+              .filter((d) => !d.folderId)
+              .map((deck, index) => {
+                const base = `/deck/${deck.id}`;
+                const active =
+                  location.pathname === base ||
+                  location.pathname.startsWith(`${base}/`);
+                const eligible = summaries?.[deck.id]?.eligible ?? 0;
+                return (
+                  <motion.div
+                    key={deck.id}
+                    initial={{ opacity: 0, x: -8 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: -8 }}
+                    transition={{
+                      duration: 0.18 * m,
+                      delay: Math.min((topFolders.length + index) * 0.02, 0.15) * m,
+                      ease: [0.16, 1, 0.3, 1],
+                    }}
+                    layout
+                  >
+                    <NavLink
+                      to={`/deck/${deck.id}`}
+                      title={collapsed ? deck.name : undefined}
+                      className={cn(
+                        'flex items-center gap-3 rounded-lg transition-all duration-150',
+                        sidebarSettings.compactMode
+                          ? 'px-3 py-1.5 text-xs'
+                          : 'px-3 py-2 text-sm',
+                        collapsed ? 'justify-center px-0' : 'hover:translate-x-0.5',
+                        active
+                          ? 'bg-accent-soft text-accent'
+                          : 'text-ink-soft hover:bg-ink/5 hover:text-ink',
+                      )}
+                    >
+                      <span
+                        className={cn(
+                          'shrink-0 rounded-full border',
+                          sidebarSettings.compactMode ? 'h-2 w-2' : 'h-2.5 w-2.5',
+                          active ? 'border-accent bg-accent' : 'border-transparent bg-line-strong',
+                        )}
+                        style={deck.colour ? { backgroundColor: deck.colour } : undefined}
+                      />
+                      {!collapsed && (
+                        <span className="flex flex-1 items-center gap-2">
+                          <span className="truncate">{deck.name}</span>
+                          {sidebarSettings.showDueCounts && eligible > 0 && (
+                            <span className={cn(
+                              'ml-auto shrink-0 rounded-full bg-accent/10 px-1.5 py-0 text-[10px] font-medium tabular text-accent',
+                              sidebarSettings.compactMode && 'text-[9px]',
+                            )}>
+                              {eligible}
+                            </span>
+                          )}
+                          {deck.archived && (
+                            <span className={cn(
+                              'ml-1 shrink-0 rounded border border-ink/10 px-1 text-[9px] text-ink-faint',
+                              sidebarSettings.compactMode && 'hidden',
+                            )}>
+                              Archived
+                            </span>
+                          )}
+                        </span>
+                      )}
+                    </NavLink>
+                  </motion.div>
+                );
+              })}
           </AnimatePresence>
           {visibleDecks.length === 0 && !collapsed && (
             <motion.p

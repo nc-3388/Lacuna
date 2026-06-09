@@ -6,6 +6,7 @@ import type {
   Card,
   CardType,
   Deck,
+  Folder,
   Grade,
   ReviewLog,
   SessionHistoryEntry,
@@ -195,6 +196,70 @@ export async function mergeDecks(sourceIds: string[], targetId: string): Promise
       await db.decks.update(targetId, { lastInteractedAt: now });
     },
   );
+}
+
+// ---------------------------------------------------------------------------
+// Folders
+// ---------------------------------------------------------------------------
+
+export async function createFolder(name: string, parentId?: string | null): Promise<Folder> {
+  try {
+    const folder: Folder = {
+      id: makeId(),
+      name: name.trim() || 'Untitled folder',
+      parentId: parentId ?? null,
+      createdAt: Date.now(),
+    };
+    await db.folders.add(folder);
+    return folder;
+  } catch (err) {
+    throw friendlyDbError(err);
+  }
+}
+
+export async function updateFolder(id: string, changes: Partial<Folder>): Promise<void> {
+  try {
+    await db.folders.update(id, changes);
+  } catch (err) {
+    throw friendlyDbError(err);
+  }
+}
+
+/** Move a deck into (or out of) a folder. Pass null to move to top level. */
+export async function moveDeckToFolder(deckId: string, folderId: string | null): Promise<void> {
+  try {
+    await db.decks.update(deckId, { folderId });
+  } catch (err) {
+    throw friendlyDbError(err);
+  }
+}
+
+/** Move many decks into (or out of) a folder at once. */
+export async function moveDecksToFolder(deckIds: string[], folderId: string | null): Promise<void> {
+  await db.transaction('rw', db.decks, async () => {
+    await db.decks.where('id').anyOf(deckIds).modify({ folderId });
+  });
+}
+
+/**
+ * Delete a folder. Its child decks are moved to the top level (folderId set to null).
+ * Child folders are re-parented to the deleted folder's parent (or top level).
+ */
+export async function deleteFolder(id: string): Promise<void> {
+  await db.transaction('rw', db.folders, db.decks, async () => {
+    const target = await db.folders.get(id);
+    if (!target) return;
+    // Re-parent child folders to the deleted folder's parent.
+    await db.folders.where('parentId').equals(id).modify({ parentId: target.parentId });
+    // Move decks out of this folder to the top level (or parent folder).
+    await db.decks.where('folderId').equals(id).modify({ folderId: target.parentId });
+    await db.folders.delete(id);
+  });
+}
+
+/** All folders in creation order. */
+export async function listFolders(): Promise<Folder[]> {
+  return db.folders.orderBy('createdAt').toArray();
 }
 
 // ---------------------------------------------------------------------------

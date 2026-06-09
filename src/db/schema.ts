@@ -8,6 +8,7 @@ import type {
   AppStateEntry,
   ImageAsset,
   BackupSnapshot,
+  Folder,
 } from './types';
 import {
   migrateCardRecord,
@@ -31,6 +32,7 @@ export class LacunaDatabase extends Dexie {
   backups!: Table<BackupSnapshot, number>;
   appState!: Table<AppStateEntry, string>;
   assets!: Table<ImageAsset, string>;
+  folders!: Table<Folder, string>;
 
   constructor() {
     super('lacuna');
@@ -125,10 +127,25 @@ export class LacunaDatabase extends Dexie {
           offset += batchSize;
         }
       });
+
+    // Version 5: add folders for hierarchical deck grouping. Folders are nested
+    // via parentId. Decks gain a folderId that links them into a folder.
+    // New indexes are added on the decks table for fast folder-scoped queries.
+    this.version(5)
+      .stores({
+        decks: 'id, createdAt, examDate, folderId',
+        cards: 'id, deckId, type, lastReviewed',
+        sessionHistory: '++id, deckId, timestamp',
+        userPerformance: 'deckId',
+        backups: '++id, createdAt',
+        appState: 'key',
+        assets: 'hash, createdAt',
+        folders: 'id, parentId, createdAt',
+      });
   }
 }
 
-export const CURRENT_SCHEMA_VERSION = 4;
+export const CURRENT_SCHEMA_VERSION = 5;
 
 export const db = new LacunaDatabase();
 
@@ -290,6 +307,7 @@ export async function readAllDataFromVersion(
     assets,
     sessionHistory: (raw.data['sessionHistory'] ?? []) as SessionHistoryEntry[],
     userPerformance: (raw.data['userPerformance'] ?? []) as UserPerformance[],
+    folders: (raw.data['folders'] ?? []) as Folder[],
   };
 }
 
