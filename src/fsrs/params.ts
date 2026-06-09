@@ -22,7 +22,7 @@ export const MAX_REQUEST_RETENTION = 0.97;
 
 /** Clamp a target-retention value to the supported range. */
 export function clampRequestRetention(value: number): number {
-  if (!Number.isFinite(value)) return DEFAULT_REQUEST_RETENTION;
+  if (Number.isNaN(value)) return DEFAULT_REQUEST_RETENTION;
   return Math.min(MAX_REQUEST_RETENTION, Math.max(MIN_REQUEST_RETENTION, value));
 }
 
