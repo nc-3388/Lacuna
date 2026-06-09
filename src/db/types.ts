@@ -83,6 +83,11 @@ export interface Deck {
    */
   newCardsPerDay?: number;
   /**
+   * Maximum number of reviews (including re-reviews) to serve per day for this deck.
+   * Undefined or 0 means unlimited (the default).
+   */
+  maxReviewsPerDay?: number;
+  /**
    * When true the deck is archived: retained in full but hidden from active study,
    * the global "Today" session and the dashboard's study denominators. Used as one
    * of the explicit choices once an exam date has passed.

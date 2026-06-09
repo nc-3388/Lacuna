@@ -112,7 +112,7 @@ export function SessionReport({
 }: {
   summary: SessionSummary;
   onReturn: () => void;
-  /** Offered only when the user can keep studying (goal not yet reached). */
+  /** Offered when the user can keep studying (goal not reached or limit was reached). */
   onContinue?: () => void;
 }) {
   const [motionSpeed] = useMotionSpeed();
@@ -181,11 +181,21 @@ export function SessionReport({
           </motion.div>
         )}
         <p className="mb-1 text-sm uppercase tracking-[0.18em] text-ink-faint">
-          {summary.reachedGoal ? 'Goal reached' : 'Session complete'}
+          {summary.reachedGoal ? 'Goal reached' : summary.limitReached ? 'Daily limit reached' : 'Session complete'}
         </p>
         <h1 className="mb-8 font-display text-4xl tracking-tight md:text-5xl">
-          {summary.reachedGoal ? 'You’ve reached your goal' : 'Nice work'}
+          {summary.reachedGoal
+            ? 'You’ve reached your goal'
+            : summary.limitReached
+              ? 'You’ve hit your daily limit'
+              : 'Nice work'}
         </h1>
+        {summary.limitReached && (
+          <p className="mb-6 text-sm text-ink-soft">
+            You have reached the daily review limit for this deck. You can continue
+            studying if you wish, or come back tomorrow.
+          </p>
+        )}
 
         {/* Progress before/after with animated fill */}
         <div className="mb-6 rounded-2xl border border-line bg-surface p-6">
@@ -271,7 +281,7 @@ export function SessionReport({
         <div className="flex flex-wrap gap-3">
           {onContinue && (
             <Button variant="secondary" size="lg" onClick={onContinue}>
-              Keep studying
+              {summary.limitReached ? 'Continue anyway' : 'Keep studying'}
             </Button>
           )}
           <Button variant="primary" size="lg" onClick={onReturn}>

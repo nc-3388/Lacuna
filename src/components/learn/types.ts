@@ -18,4 +18,6 @@ export interface SessionSummary {
   objectiveLabel: string;
   focusFraction: number;
   reachedGoal: boolean;
+  /** True when the session ended because the daily review limit was reached. */
+  limitReached: boolean;
 }

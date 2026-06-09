@@ -63,6 +63,7 @@ export function DeckSettings() {
   const [examValue, setExamValue] = useState('');
   const [objective, setObjective] = useState<ExamObjective>('expectedMarks');
   const [newPerDay, setNewPerDay] = useState('');
+  const [maxReviewsPerDay, setMaxReviewsPerDay] = useState('');
   const [retention, setRetention] = useState(DEFAULT_REQUEST_RETENTION);
   const [colour, setColour] = useState<string | undefined>(undefined);
   const [loaded, setLoaded] = useState(false);
@@ -77,10 +78,10 @@ export function DeckSettings() {
     if (loaded || !deck) return;
     setName(deck.name);
     setExamValue(toDateTimeLocalValue(deck.examDate));
-    setObjective(deck.examObjective);
-    setNewPerDay(deck.newCardsPerDay ? String(deck.newCardsPerDay) : '');
-    setRetention(clampRequestRetention(deck.fsrsParameters.requestRetention));
-    setColour(deck.colour);
+    setObjective(deck.examObjective);      setNewPerDay(deck.newCardsPerDay ? String(deck.newCardsPerDay) : '');
+      setMaxReviewsPerDay(deck.maxReviewsPerDay ? String(deck.maxReviewsPerDay) : '');
+      setRetention(clampRequestRetention(deck.fsrsParameters.requestRetention));
+      setColour(deck.colour);
     setLoaded(true);
   }, [deck, loaded]);
 
@@ -108,11 +109,17 @@ export function DeckSettings() {
       newPerDay.trim() === '' || !Number.isFinite(parsedCap) || parsedCap <= 0
         ? undefined
         : parsedCap;
+    const parsedReviews = Math.floor(Number(maxReviewsPerDay));
+    const maxReviewsPerDayValue =
+      maxReviewsPerDay.trim() === '' || !Number.isFinite(parsedReviews) || parsedReviews <= 0
+        ? undefined
+        : parsedReviews;
     await updateDeck(deck.id, {
       name: name.trim() || deck.name,
       examDate: Number.isNaN(ms) ? deck.examDate : ms,
       examObjective: objective,
       newCardsPerDay,
+      maxReviewsPerDay: maxReviewsPerDayValue,
       colour,
       fsrsParameters: {
         ...deck.fsrsParameters,
@@ -245,6 +252,23 @@ export function DeckSettings() {
                   Caps how many never-seen cards a study session introduces each day, so a
                   large deck does not overwhelm you. Leave blank for unlimited. Reviews of
                   cards you have already started are never capped.
+                </span>
+              </label>
+
+              <label className="block text-sm text-ink-soft">
+                Maximum reviews per day
+                <input
+                  type="number"
+                  min={0}
+                  inputMode="numeric"
+                  value={maxReviewsPerDay}
+                  onChange={(e) => setMaxReviewsPerDay(e.target.value)}
+                  placeholder="Unlimited"
+                  className="mt-2 w-full rounded-lg border border-line-strong bg-surface px-3 py-2.5 text-ink outline-none focus:border-accent"
+                />
+                <span className="mt-1 block text-xs text-ink-faint">
+                  Caps how many cards you can review in a single day for this deck, including
+                  re-reviews of cards you have already started. Leave blank for unlimited.
                 </span>
               </label>
 

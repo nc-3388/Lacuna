@@ -63,6 +63,7 @@ interface AnswerSnapshot {
   progressBefore: number;
   eventsLen: number;
   deckId: string;
+  deckReviews: number;
 }
 
 export function LearnMode() {
@@ -124,6 +125,10 @@ export function LearnMode() {
   const lastAnswer = useRef<AnswerSnapshot | null>(null);
   // Guards against a double key-press / click submitting the same card twice.
   const submitting = useRef(false);
+  // Per-deck review counters for the daily workload cap.
+  const reviewsByDeck = useRef<Map<string, number>>(new Map());
+  // When the user clicks "Continue anyway" after hitting a daily limit.
+  const [limitOverride, setLimitOverride] = useState(false);
   // Cache sessionProgress so repeated calls while the card pool is unchanged don't recompute.
   // Stable refs for values that async callbacks must read fresh (avoid stale closures).
   const phaseRef = useRef<Phase>(phase);
@@ -156,7 +161,7 @@ export function LearnMode() {
   }, []);
 
   const finish = useCallback(
-    (reachedGoal: boolean) => {
+    (reachedGoal: boolean, limitReached = false) => {
       if (!mountedRef.current) return;
       const ctx = ctxRef.current;
       if (!ctx) return;
@@ -172,6 +177,7 @@ export function LearnMode() {
         objectiveLabel: objectiveLabel(),
         focusFraction: focus,
         reachedGoal,
+        limitReached,
       });
       setCanUndo(false);
       lastAnswer.current = null;
@@ -227,15 +233,15 @@ export function LearnMode() {
     perfRef.current = new Map();
     decksRef.current = new Map();
     ctxRef.current = null;
-    cardsRef.current = [];
-    setCanUndo(false);
-    setSummary(null);
-    setEditing(false);
-    setMenuOpen(false);
-    setHintsOpen(false);
-    setNavOpen(false);
-    setFocusMode(false);
-    setPhase('loading');
+    cardsRef.current = [];      setCanUndo(false);
+      setSummary(null);
+      setEditing(false);
+      setMenuOpen(false);
+      setHintsOpen(false);
+      setNavOpen(false);
+      setFocusMode(false);
+      setLimitOverride(false);
+      setPhase('loading');
     (async () => {
       let decks: Deck[];
       let cards: Card[];
@@ -262,6 +268,8 @@ export function LearnMode() {
       const ctx = makeSessionContext(decks, cramMode ? 'cram' : 'objective');
       ctxRef.current = ctx;
       cardsRef.current = cards;
+      reviewsByDeck.current = new Map();
+      setLimitOverride(false);
       setSingleDeck((prev) => {
         const next = deckId ? decks[0] : null;
         if (prev?.id === next?.id) return prev;
@@ -282,6 +290,7 @@ export function LearnMode() {
           objectiveLabel: 'Predicted readiness across all decks',
           focusFraction: 1,
           reachedGoal: true,
+          limitReached: false,
         });
         setPhase('finished');
         return;
@@ -298,6 +307,7 @@ export function LearnMode() {
           objectiveLabel: deckId ? progressHeading(decks[0]) : 'Predicted readiness across all decks',
           focusFraction: 1,
           reachedGoal: true,
+          limitReached: false,
         });
         setPhase('finished');
       } else {
@@ -391,24 +401,37 @@ export function LearnMode() {
 
       events.current = [...events.current, { grade, correct, responseTimeSec: t, distracted }];
 
+      // Increment the per-deck review counter.
+      const deckReviews = (reviewsByDeck.current.get(deck.id) ?? 0) + 1;
+      reviewsByDeck.current.set(deck.id, deckReviews);
+
       lastAnswer.current = {
         undo: { cardBefore: cardNow, perfBefore, sessionHistoryId, deckId: deck.id },
         cooldowns: cooldownsSnapshot,
         progressBefore: progressSnapshot,
         eventsLen,
         deckId: deck.id,
+        deckReviews,
       };
       setCanUndo(true);
 
       progressCacheRef.current.dirty = true;
       setProgress(cachedSessionProgress(nextCards, ctx));
+
+      // Check whether this deck has reached its daily review limit.
+      const limit = deck.maxReviewsPerDay;
+      if (!limitOverride && limit && limit > 0 && deckReviews >= limit) {
+        finish(false, true);
+        return;
+      }
+
         if (sessionComplete(nextCards, ctx)) finish(true);
         else serveNext();
       } finally {
         submitting.current = false;
       }
     },
-    [distraction, finish, serveNext, cachedSessionProgress],
+    [distraction, finish, serveNext, cachedSessionProgress, limitOverride],
   );
 
   const undoLast = useCallback(async () => {
@@ -424,6 +447,10 @@ export function LearnMode() {
       cooldowns.current = snap.cooldowns;
       if (snap.undo.perfBefore) perfRef.current.set(snap.deckId, snap.undo.perfBefore);
       events.current = events.current.slice(0, snap.eventsLen);
+      // Decrement the per-deck review counter on undo.
+      const prevReviews = snap.deckReviews - 1;
+      if (prevReviews > 0) reviewsByDeck.current.set(snap.deckId, prevReviews);
+      else reviewsByDeck.current.delete(snap.deckId);
       lastAnswer.current = null;
       setCanUndo(false);
       progressCacheRef.current.dirty = true;
@@ -654,7 +681,7 @@ export function LearnMode() {
               summary={summary}
               onReturn={backOut}
               onContinue={
-                summary.reachedGoal
+                summary.reachedGoal && !summary.limitReached
                   ? undefined
                   : () => {
                       const ctx = ctxRef.current;
@@ -662,6 +689,7 @@ export function LearnMode() {
                       events.current = [];
                       progressBefore.current = cachedSessionProgress(cardsRef.current, ctx);
                       setSummary(null);
+                      setLimitOverride(true);
                       serveNext();
                     }
               }
