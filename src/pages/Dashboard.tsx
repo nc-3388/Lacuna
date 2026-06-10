@@ -430,26 +430,26 @@ export function Dashboard() {
           className="mb-6 rounded-xl border border-line-strong bg-surface px-4 py-3"
         >
           <div className="flex flex-wrap items-center gap-3">
-            <button
-              type="button"
-              onClick={toggleAll}
-              aria-pressed={allSelected}
-              className="flex items-center gap-2 text-sm text-ink-soft transition-colors hover:text-ink"
+          <button
+            type="button"
+            onClick={toggleAll}
+            aria-pressed={allSelected}
+            className="flex min-h-11 items-center gap-2 text-sm text-ink-soft transition-colors hover:text-ink active:text-ink"
+          >
+            <span
+              className={cn(
+                'grid h-6 w-6 place-items-center rounded-full border transition-colors',
+                allSelected
+                  ? 'border-accent bg-accent text-accent-fg'
+                  : 'border-line-strong',
+              )}
             >
-              <span
-                className={cn(
-                  'grid h-6 w-6 place-items-center rounded-full border transition-colors',
-                  allSelected
-                    ? 'border-accent bg-accent text-accent-fg'
-                    : 'border-line-strong',
-                )}
-              >
-                {allSelected && (
-                  <CheckIcon width={14} height={14} />
-                )}
-              </span>
-              {allSelected ? 'Deselect all' : 'Select all'}
-            </button>
+              {allSelected && (
+                <CheckIcon width={14} height={14} />
+              )}
+            </span>
+            {allSelected ? 'Deselect all' : 'Select all'}
+          </button>
             <span className="text-sm text-ink-faint">{selected.size} selected</span>
             <div className="ml-auto flex flex-wrap gap-2">
               <Button
@@ -676,26 +676,25 @@ export function Dashboard() {
                     )}
                   </button>
                   {!selectMode && renamingFolder !== folder.id && (
-                    <div className="ml-auto flex items-center gap-1">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setRenamingFolder(folder.id);
-                          setRenameFolderName(folder.name);
-                        }}
-                        className="rounded p-1 text-xs text-ink-faint transition-colors hover:bg-ink/5 hover:text-ink"
-                        title="Rename folder"
-                      >
-                        Rename
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteFolder(folder.id)}
-                        className="rounded p-1 text-xs text-ink-faint transition-colors hover:bg-ink/5 hover:text-rose-600"
-                        title="Delete folder"
-                      >
-                        Delete
-                      </button>
+                    <div className="ml-auto flex items-center gap-1">        <button
+          type="button"
+          onClick={() => {
+            setRenamingFolder(folder.id);
+            setRenameFolderName(folder.name);
+          }}
+          className="min-h-11 rounded px-2 py-1 text-xs text-ink-faint transition-colors hover:bg-ink/5 hover:text-ink active:bg-ink/10"
+          title="Rename folder"
+        >
+          Rename
+        </button>
+        <button
+          type="button"
+          onClick={() => handleDeleteFolder(folder.id)}
+          className="min-h-11 rounded px-2 py-1 text-xs text-ink-faint transition-colors hover:bg-ink/5 hover:text-rose-600 active:bg-ink/10"
+          title="Delete folder"
+        >
+          Delete
+        </button>
                     </div>
                   )}
                 </div>
@@ -825,15 +824,16 @@ function DeckCard({
       )}
     >
       {colourBar}
-      {selectMode && (
-        <span
-          className={cn(
-            'absolute right-4 top-4 grid h-6 w-6 place-items-center rounded-full border transition-colors',
-            selected ? 'border-accent bg-accent text-accent-fg' : 'border-line-strong',
-          )}
-        >
-          {selected && <CheckIcon width={14} height={14} />}
-        </span>
+      {selectMode && (      <span
+        className={cn(
+          'absolute right-2 top-2 grid h-9 w-9 place-items-center rounded-full border transition-colors p-1',
+          selected
+            ? 'border-accent bg-accent text-accent-fg'
+            : 'border-line-strong',
+        )}
+      >
+        {selected && <CheckIcon width={14} height={14} />}
+      </span>
       )}
 
       <div
