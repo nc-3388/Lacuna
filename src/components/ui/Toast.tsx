@@ -180,7 +180,7 @@ function ToastBar({ toast, onDismiss, motionMultiplier }: { toast: ToastItem; on
             toast.onAction?.();
             onDismiss();
           }}
-          className="shrink-0 font-medium text-accent underline underline-offset-2 transition-opacity hover:opacity-80"
+          className="shrink-0 font-medium text-accent underline underline-offset-2 transition-opacity hover:opacity-80 active:opacity-80"
         >
           {toast.actionLabel}
         </button>

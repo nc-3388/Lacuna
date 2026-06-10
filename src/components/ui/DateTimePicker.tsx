@@ -427,7 +427,7 @@ export function DateTimePicker({ value, onChange, label, timeZone }: DateTimePic
                   setSlideDir(-1);
                   setViewDate(new Date(fromDateTimeLocalValue(`${year}-${pad(month)}-01T00:00`, timeZone)));
                 }}
-                className="flex h-8 w-8 items-center justify-center rounded-lg text-ink-soft transition-colors hover:bg-ink/5 hover:text-ink"
+                className="flex h-11 w-11 items-center justify-center rounded-lg text-ink-soft transition-colors hover:bg-ink/5 hover:text-ink active:bg-ink/5 active:text-ink"
                 aria-label="Previous month"
               >
                 <ChevronLeftIcon width={16} height={16} />
@@ -437,7 +437,7 @@ export function DateTimePicker({ value, onChange, label, timeZone }: DateTimePic
                 onClick={() =>
                   setPickerMode((m) => (m === 'days' ? 'months' : 'days'))
                 }
-                className="rounded-lg px-3 py-1 text-sm font-medium text-ink transition-colors hover:bg-ink/5"
+                className="flex min-h-11 items-center justify-center rounded-lg px-3 py-1 text-sm font-medium text-ink transition-colors hover:bg-ink/5 active:bg-ink/5"
                 aria-label="Open month and year selector"
               >
                 {MONTHS[month]} {year}
@@ -448,7 +448,7 @@ export function DateTimePicker({ value, onChange, label, timeZone }: DateTimePic
                   setSlideDir(1);
                   setViewDate(new Date(fromDateTimeLocalValue(`${year}-${pad(month + 2)}-01T00:00`, timeZone)));
                 }}
-                className="flex h-8 w-8 items-center justify-center rounded-lg text-ink-soft transition-colors hover:bg-ink/5 hover:text-ink"
+                className="flex h-11 w-11 items-center justify-center rounded-lg text-ink-soft transition-colors hover:bg-ink/5 hover:text-ink active:bg-ink/5 active:text-ink"
                 aria-label="Next month"
               >
                 <ChevronRightIcon width={16} height={16} />
@@ -514,7 +514,7 @@ export function DateTimePicker({ value, onChange, label, timeZone }: DateTimePic
                             !isSelected &&
                               !isToday &&
                               cell.currentMonth &&
-                              'hover:bg-ink/5',
+                              'hover:bg-ink/5 active:bg-ink/5',
                             isFocused &&
                               !isSelected &&
                               'ring-2 ring-inset ring-accent/50',
@@ -544,7 +544,7 @@ export function DateTimePicker({ value, onChange, label, timeZone }: DateTimePic
                     <button
                       type="button"
                       onClick={() => setPickerMode('years')}
-                      className="text-xs font-medium text-accent transition-opacity hover:opacity-80"
+                      className="text-xs font-medium text-accent transition-opacity hover:opacity-80 active:opacity-80"
                     >
                       {year}
                     </button>
@@ -567,9 +567,9 @@ export function DateTimePicker({ value, onChange, label, timeZone }: DateTimePic
                             'rounded-lg px-2 py-2.5 text-xs font-medium transition-colors',
                             isSelected
                               ? 'bg-accent text-accent-fg'
-                              : isCurrent
+                              :                              isCurrent
                                 ? 'bg-accent-soft text-accent'
-                                : 'text-ink-soft hover:bg-ink/5 hover:text-ink',
+                                : 'text-ink-soft hover:bg-ink/5 hover:text-ink active:bg-ink/5 active:text-ink',
                           )}
                         >
                           {m.slice(0, 3)}
@@ -605,9 +605,9 @@ export function DateTimePicker({ value, onChange, label, timeZone }: DateTimePic
                             'rounded-lg px-2 py-2.5 text-xs font-medium transition-colors',
                             isSelected
                               ? 'bg-accent text-accent-fg'
-                              : isCurrent
+                              :                              isCurrent
                                 ? 'bg-accent-soft text-accent'
-                                : 'text-ink-soft hover:bg-ink/5 hover:text-ink',
+                                : 'text-ink-soft hover:bg-ink/5 hover:text-ink active:bg-ink/5 active:text-ink',
                           )}
                         >
                           {y}
@@ -676,7 +676,7 @@ export function DateTimePicker({ value, onChange, label, timeZone }: DateTimePic
                   onChange(ms);
                   setViewDate(new Date(ms));
                 }}
-                className="text-xs font-medium text-accent transition-opacity hover:opacity-80"
+                className="text-xs font-medium text-accent transition-opacity hover:opacity-80 active:opacity-80"
               >
                 Jump to today
               </button>
@@ -692,7 +692,7 @@ export function DateTimePicker({ value, onChange, label, timeZone }: DateTimePic
                   onChange(ms);
                   setViewDate(new Date(ms));
                 }}
-                className="text-xs font-medium text-ink-soft transition-opacity hover:text-ink"
+                className="text-xs font-medium text-ink-soft transition-opacity hover:text-ink active:text-ink"
               >
                 Now
               </button>

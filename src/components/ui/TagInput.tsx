@@ -56,7 +56,7 @@ export function TagInput({ tags, onChange, suggestions = [], placeholder }: TagI
               type="button"
               onClick={() => removeTag(tag)}
               aria-label={`Remove ${tag}`}
-              className="transition-opacity hover:opacity-70"
+              className="transition-opacity hover:opacity-70 active:opacity-70"
             >
               <CloseIcon width={11} height={11} />
             </button>
@@ -79,7 +79,7 @@ export function TagInput({ tags, onChange, suggestions = [], placeholder }: TagI
               type="button"
               onClick={() => addTag(s)}
               whileTap={{ scale: 0.92 }}
-              className="rounded-full border border-line px-2 py-0.5 text-xs text-ink-soft transition-colors hover:border-accent hover:text-accent"
+              className="rounded-full border border-line px-2 py-0.5 text-xs text-ink-soft transition-colors hover:border-accent hover:text-accent active:border-accent active:text-accent"
             >
               {s}
             </motion.button>
