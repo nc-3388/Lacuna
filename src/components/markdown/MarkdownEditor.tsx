@@ -297,7 +297,7 @@ export function MarkdownEditor({
             type="button"
             title={a.title}
             onClick={() => runAction(a)}
-            className="h-8 min-w-8 rounded-md px-2 font-mono text-xs text-ink-soft transition-colors hover:bg-ink/5 hover:text-accent"
+            className="min-h-11 min-w-11 rounded-md px-2 font-mono text-xs text-ink-soft transition-colors hover:bg-ink/5 hover:text-accent active:bg-ink/10"
           >
             {a.label}
           </button>
@@ -307,7 +307,7 @@ export function MarkdownEditor({
             type="button"
             title={clozeAction.title}
             onClick={() => runAction(clozeAction)}
-            className="h-8 rounded-md px-2 font-mono text-xs text-accent transition-colors hover:bg-accent-soft"
+            className="min-h-11 rounded-md px-2 font-mono text-xs text-accent transition-colors hover:bg-accent-soft active:bg-accent-soft"
           >
             {clozeAction.label}
           </button>
@@ -316,7 +316,7 @@ export function MarkdownEditor({
           type="button"
           title="Insert image"
           onClick={() => fileInputRef.current?.click()}
-          className="flex h-8 items-center gap-1 rounded-md px-2 text-xs text-ink-soft transition-colors hover:bg-ink/5 hover:text-accent"
+          className="flex min-h-11 items-center gap-1 rounded-md px-2 text-xs text-ink-soft transition-colors hover:bg-ink/5 hover:text-accent active:bg-ink/10"
         >
           <ImageIcon width={15} height={15} />
         </button>
@@ -337,7 +337,7 @@ export function MarkdownEditor({
               type="button"
               onClick={() => setMobileTab(tab)}
               className={cn(
-                'h-8 rounded-md px-2 text-xs capitalize',
+                'min-h-11 rounded-md px-2 text-xs capitalize',
                 mobileTab === tab ? 'bg-accent-soft text-accent' : 'text-ink-faint',
               )}
             >

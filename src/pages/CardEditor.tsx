@@ -370,10 +370,10 @@ export function CardEditor() {
                   type="button"
                   onClick={() => setType(t)}
                   className={cn(
-                    'flex-1 rounded-lg border px-4 py-2.5 text-sm transition-colors',
+                    'flex-1 min-h-11 rounded-lg border px-4 py-2.5 text-sm transition-colors',
                     type === t
                       ? 'border-accent bg-accent-soft text-accent'
-                      : 'border-line text-ink-soft hover:border-line-strong',
+                      : 'border-line text-ink-soft hover:border-line-strong active:bg-ink/10',
                   )}
                 >
                   {t === 'front_back' ? 'Front / Back' : 'Cloze deletion'}
