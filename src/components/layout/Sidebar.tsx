@@ -47,21 +47,20 @@ function NavItem({
 }) {
   const [motionSpeed] = useMotionSpeed();
   const m = speedMultiplier(motionSpeed);
-  return (
-    <NavLink
-      to={to}
-      end={end}
-      title={collapsed ? label : undefined}
-      className={({ isActive }) =>
-        cn(
-          'group relative flex items-center gap-3 rounded-lg transition-all duration-150',
-          compact ? 'px-3 py-2 text-xs' : 'px-3 py-2.5 text-sm',
-          collapsed ? 'justify-center px-0' : 'hover:translate-x-0.5',
-          isActive
-            ? 'bg-accent-soft text-accent'
-            : 'text-ink-soft hover:bg-ink/5 hover:text-ink',
-        )
-      }
+  return (        <NavLink
+          to={to}
+          end={end}
+          title={collapsed ? label : undefined}
+          className={({ isActive }) =>
+            cn(
+              'group relative flex min-h-11 items-center gap-3 rounded-lg transition-all duration-150',
+              compact ? 'px-3 py-2 text-xs' : 'px-3 py-2.5 text-sm',
+              collapsed ? 'justify-center px-0' : 'hover:translate-x-0.5',
+              isActive
+                ? 'bg-accent-soft text-accent'
+                : 'text-ink-soft hover:bg-ink/5 hover:text-ink',
+            )
+          }
     >
       {({ isActive }) => (
         <>
@@ -236,7 +235,7 @@ export function Sidebar({ collapsed, onToggleCollapsed }: SidebarProps) {
                     onClick={() => toggleSidebarFolder(folder.id)}
                     title={collapsed ? folder.name : undefined}
                     className={cn(
-                      'flex w-full items-center gap-3 rounded-lg transition-all duration-150',
+                      'flex w-full min-h-11 items-center gap-3 rounded-lg transition-all duration-150',
                       sidebarSettings.compactMode
                         ? 'px-3 py-1.5 text-xs'
                         : 'px-3 py-2 text-sm',
@@ -286,7 +285,7 @@ export function Sidebar({ collapsed, onToggleCollapsed }: SidebarProps) {
                               key={deck.id}
                               to={`/deck/${deck.id}`}
                               className={cn(
-                                'flex items-center gap-3 rounded-lg transition-all duration-150',
+                                'flex min-h-11 items-center gap-3 rounded-lg transition-all duration-150',
                                 sidebarSettings.compactMode
                                   ? 'px-3 py-1.5 pl-8 text-xs'
                                   : 'px-3 py-2 pl-9 text-sm',
@@ -358,7 +357,7 @@ export function Sidebar({ collapsed, onToggleCollapsed }: SidebarProps) {
                       to={`/deck/${deck.id}`}
                       title={collapsed ? deck.name : undefined}
                       className={cn(
-                        'flex items-center gap-3 rounded-lg transition-all duration-150',
+                        'flex min-h-11 items-center gap-3 rounded-lg transition-all duration-150',
                         sidebarSettings.compactMode
                           ? 'px-3 py-1.5 text-xs'
                           : 'px-3 py-2 text-sm',
