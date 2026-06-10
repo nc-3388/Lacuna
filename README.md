@@ -78,3 +78,9 @@ See `SPEC.md` for the full set of design decisions.
 
 React 18, TypeScript, Vite, Tailwind CSS v4, Dexie (IndexedDB), Motion, Recharts, react-markdown with
 remark-gfm / remark-math / rehype-katex / rehype-highlight.
+
+### Testing
+
+Vitest with `fake-indexeddb` for database and FSRS layer tests, `@testing-library/react` and
+`happy-dom` for UI component and hook tests. The test suite covers the FSRS engine, forward
+simulation, import/export, asset handling, and UI components. Run `npm test` to execute.

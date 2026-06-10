@@ -1,6 +1,7 @@
 import { AnimatePresence, m as motion } from 'motion/react';
 import { SHORTCUT_GROUPS } from '../../state/shortcuts';
 import { useShortcutBindings, formatBinding } from '../../state/shortcutBindings';
+import { useFocusTrap } from '../../hooks/useFocusTrap';
 import { CloseIcon } from './icons';
 
 /**
@@ -8,6 +9,7 @@ import { CloseIcon } from './icons';
  * the shared SHORTCUT_GROUPS registry so it always matches the real handlers.
  */
 export function KeyHints({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const trapRef = useFocusTrap(open);
   const { bindings } = useShortcutBindings();
 
   // Build shortcut groups from live bindings so the cheatsheet never drifts.
@@ -57,6 +59,7 @@ export function KeyHints({ open, onClose }: { open: boolean; onClose: () => void
     <AnimatePresence>
       {open && (
         <motion.div
+          ref={trapRef}
           className="fixed inset-0 z-[60] flex items-center justify-center p-4"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -67,6 +70,10 @@ export function KeyHints({ open, onClose }: { open: boolean; onClose: () => void
               onClose();
             }
           }}
+          data-testid="keyhints-dialog"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Keyboard shortcuts"
         >
           <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
 

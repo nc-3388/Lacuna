@@ -1,5 +1,21 @@
 # Lacuna — version 0.0.2
 
+> **GitHub Release Note for v0.0.2**
+>
+> This patch release focuses on reliability, test coverage, and visual polish.
+>
+> **What's new**
+> - Smoother page transitions and toast animations throughout the app.
+> - Added a comprehensive unit-test suite covering UI components, hooks, and state modules.
+>
+> **Bug fixes**
+> - Fixed image-asset round-trip handling in test environments (`fake-indexeddb`) by storing assets as `Uint8Array` and converting back to `Blob` on demand.
+> - Fixed `usePomodoro` settings parsing so `0` is handled correctly.
+> - Fixed a typo in the Dashboard copy ("examotion" → "exam").
+> - Prevented test-suite race conditions by disabling parallel test-file execution.
+>
+> **Full changelog below**
+
 ## 0.0.2 — Bug fixes, test suite hardening, and visual polish
 
 - Fixed `fake-indexeddb` Blob round-trip issue by storing image assets as `Uint8Array` and converting back to `Blob` via `toBlob()` when DOM APIs need one. Added `blobToArrayBuffer` and `blobToText` helpers for robust cross-environment Blob reading.
@@ -9,6 +25,15 @@
 - Fixed typo in Dashboard copy: "examotion" → "exam".
 - Smoother page transitions in `AppShell` — added subtle scale animation (0.995 → 1) alongside the existing fade-and-lift, with a slightly longer duration for a more settled feel.
 - Smoother toast exit animation with refined timing and easing.
+
+---
+
+## Planned for 0.0.3
+
+- Expand test coverage to page-level flows (Learn mode, Dashboard, Deck view) and integration tests for the import/export engine.
+- Refine mobile touch interactions — spring-tuning on swipe gestures, bottom-sheet behaviour, and touch-target feedback.
+- Accessibility audit: focus management in modals and drawers, ARIA live regions for toasts, and screen-reader labels on icon-only controls.
+- Performance: virtualise the card list for large decks and investigate image lazy-loading in Markdown renders.
 
 ---
 

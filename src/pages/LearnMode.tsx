@@ -1139,8 +1139,10 @@ function TouchMenuSheet({
   onClose: () => void;
   m: number;
 }) {
+  const trapRef = useFocusTrap(true);
   return (
     <motion.div
+      ref={trapRef}
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}

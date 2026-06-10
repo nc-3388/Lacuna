@@ -81,7 +81,17 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   return (
     <ToastContext.Provider value={{ notify }}>
       {children}
-      <div className="fixed bottom-6 right-6 z-[60] flex flex-col gap-2 will-change-transform">
+      {/* A live region for screen-reader announcements so toasts are spoken even
+          when the user is not focused on the toast stack. aria-live="polite"
+          queues the announcement so it never interrupts the user. We render the
+          text of the most recent toast here so screen readers can announce it. */}
+      <div aria-live="polite" aria-atomic="true" className="sr-only">
+        {toasts.length > 0 ? toasts[toasts.length - 1].message : ''}
+      </div>
+      <div
+        className="fixed bottom-6 right-6 z-[60] flex flex-col gap-2 will-change-transform"
+        aria-label="Notifications"
+      >
         <AnimatePresence>
           {toasts.map((t) => (
             <ToastBar key={t.id} toast={t} onDismiss={() => dismiss(t.id)} motionMultiplier={m} />

@@ -309,9 +309,11 @@ invisible grader.
 
 ### ImageAsset / BackupAsset
 - `ImageAsset { hash, blob, mimeType, width, height, createdAt }` — a card image stored as a
-  binary `Blob` in the `assets` table, keyed by the SHA-256 of its bytes so identical images
-  are stored once. Card Markdown carries only a `lacuna-asset://<hash>` reference, resolved to
-  an object URL at render time and cached per hash for the app lifetime (revoked only at
+  `Uint8Array` in the `assets` table, keyed by the SHA-256 of its bytes so identical images
+  are stored once. The `Blob | Uint8Array` type allows backward compatibility, but the
+  implementation always stores `Uint8Array` for cross-environment consistency (including
+  `fake-indexeddb`). Card Markdown carries only a `lacuna-asset://<hash>` reference, resolved to
+  an object URL at render time via `toBlob()` and cached per hash for the app lifetime (revoked only at
   app teardown). This keeps reactive card reads small, stops base64 inflating exports and
   quota, and avoids the create/revoke churn on every card flip during a fast Learn session.
 - `BackupAsset { hash, data(base64), mimeType, width, height, createdAt }` — the JSON-safe form
@@ -631,10 +633,10 @@ Front/back Markdown is rendered with GFM, maths (KaTeX), syntax highlighting, an
   heading, lists, code, link, image, cloze auto-index, inline/block maths); a cloze editor
   can preview the revealed answer.
 - **Tags** input with deck-wide suggestions.
-- **Images** are downscaled to ≤ 1280 px, re-encoded (~0.8 quality), stored as a binary `Blob`
+-  **Images** are downscaled to ≤ 1280 px, re-encoded (~0.8 quality), stored as a `Uint8Array`
   in the `assets` table (deduplicated by SHA-256 hash), and referenced from the Markdown as
   `lacuna-asset://<hash>` — **not** base64 data URIs. The render path resolves references to
-  object URLs on display and revokes them on unmount. This keeps card rows small (base64 inflates
+  object URLs on display via `toBlob()` and revokes them on unmount. This keeps card rows small (base64 inflates
   payloads ~⅓ and dragged full image data through every reactive read) and keeps exports lean.
 - **Validation:** front required; back required for front/back; at least one cloze for cloze.
 - **Quick capture:** "Save & add another" keeps the page open, clears content, retains type

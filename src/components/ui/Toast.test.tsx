@@ -31,7 +31,7 @@ describe('ToastProvider', () => {
       </ToastProvider>
     );
     fireEvent.click(screen.getByText('Notify'));
-    await waitFor(() => expect(screen.getByText('Hello world')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText('Hello world', { selector: 'span' })).toBeInTheDocument());
   });
 
   it('shows different tones', async () => {
