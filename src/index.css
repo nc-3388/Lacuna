@@ -151,6 +151,17 @@
     background-color: hsl(var(--accent) / 0.25);
   }
 
+  /* Inputs already have their own native selection styling; our global
+     ::selection rule can create a muddy double-highlight effect inside form
+     fields. Revert to the browser's native system colours so selection remains
+     visible and clean. */
+  input::selection,
+  textarea::selection,
+  select::selection {
+    background-color: Highlight;
+    color: HighlightText;
+  }
+
   /* Refined, theme-aware scrollbars. */
   * {
     scrollbar-width: thin;

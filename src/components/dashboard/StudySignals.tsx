@@ -359,17 +359,18 @@ export function StudySignals({ stats, decks }: StudySignalsProps) {
             </div>
 
             {/* Detail panel — always visible, defaults to today so touch users see it */}
-            <AnimatePresence mode="popLayout">
-              <motion.div
-                key={forecast[detailDay].dayStart}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -8 }}
-                transition={{ duration: 0.35 * m, ease: [0.4, 0, 0.2, 1] }}
-              >
-                <DayDetail day={forecast[detailDay]} deckMap={deckMap} index={detailDay} motionMultiplier={m} />
-              </motion.div>
-            </AnimatePresence>
+            <motion.div layout className="mt-3">
+              <AnimatePresence mode="popLayout">                  <motion.div
+                  key={forecast[detailDay].dayStart}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -8 }}
+                  transition={{ duration: 0.35 * m, ease: [0.4, 0, 0.2, 1] }}
+                >
+                  <DayDetail day={forecast[detailDay]} deckMap={deckMap} index={detailDay} motionMultiplier={m} />
+                </motion.div>
+              </AnimatePresence>
+            </motion.div>
           </>
         )}
       </div>
