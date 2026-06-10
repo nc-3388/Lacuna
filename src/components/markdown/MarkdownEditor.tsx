@@ -290,7 +290,7 @@ export function MarkdownEditor({
       )}
 
       {/* Toolbar */}
-      <div className="flex flex-wrap items-center gap-1 border-b border-line px-2 py-1.5">
+      <div className="flex items-center gap-1 overflow-x-auto border-b border-line px-2 py-1.5 scrollbar-hide">
         {actions.map((a) => (
           <button
             key={a.title}

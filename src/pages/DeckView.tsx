@@ -69,6 +69,10 @@ export function DeckView() {
   const [motionSpeed] = useMotionSpeed();
   const m = speedMultiplier(motionSpeed);
 
+  // Swipe-to-study gesture state
+  const swipeStartRef = useRef<{ x: number; y: number } | null>(null);
+  const swipeCommittedRef = useRef(false);
+
   // Distinct tags across the deck, for the filter row.
   const allTags = useMemo(() => {
     const set = new Set<string>();
@@ -194,8 +198,51 @@ export function DeckView() {
     });
   }
 
+  // Swipe-to-study: rightward swipe on the main container starts a study session.
+  const SWIPE_THRESHOLD = 80;
+  const SWIPE_MAX_Y = 60;
+
+  const INTERACTIVE_SELECTOR = 'button, a, input, textarea, select, [contenteditable]';
+
+  function handlePointerDown(e: React.PointerEvent) {
+    const target = e.target as HTMLElement;
+    if (target.closest(INTERACTIVE_SELECTOR)) {
+      swipeStartRef.current = null;
+      return;
+    }
+    swipeStartRef.current = { x: e.clientX, y: e.clientY };
+    swipeCommittedRef.current = false;
+  }
+
+  function handlePointerMove(e: React.PointerEvent) {
+    if (!swipeStartRef.current || swipeCommittedRef.current) return;
+    const dx = e.clientX - swipeStartRef.current.x;
+    const dy = e.clientY - swipeStartRef.current.y;
+    if (Math.abs(dy) > SWIPE_MAX_Y) {
+      swipeStartRef.current = null;
+      return;
+    }
+    if (dx > SWIPE_THRESHOLD) {
+      swipeCommittedRef.current = true;
+      swipeStartRef.current = null;
+      startStudy();
+    }
+  }
+
+  function handlePointerUp() {
+    swipeStartRef.current = null;
+    swipeCommittedRef.current = false;
+  }
+
   return (
-    <div className="mx-auto max-w-5xl px-6 py-8 md:px-10">
+    <div
+      className="mx-auto max-w-5xl px-6 py-8 md:px-10"
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={handlePointerUp}
+      onPointerLeave={handlePointerUp}
+      style={{ touchAction: 'pan-y' }}
+    >
       {/* Breadcrumb */}
       <Link
         to="/"
