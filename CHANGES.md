@@ -1,3 +1,17 @@
+# Lacuna — version 0.0.2
+
+## 0.0.2 — Bug fixes, test suite hardening, and visual polish
+
+- Fixed `fake-indexeddb` Blob round-trip issue by storing image assets as `Uint8Array` and converting back to `Blob` via `toBlob()` when DOM APIs need one. Added `blobToArrayBuffer` and `blobToText` helpers for robust cross-environment Blob reading.
+- Added `fileParallelism: false` to `vitest.config.ts` so database tests sharing `fake-indexeddb` state do not race each other.
+- Added comprehensive unit tests for UI components (`Button`, `Toggle`, `Toast`, `TagInput`, `FadeInView`, `DateTimePicker`, `ProgressBar`), hooks (`usePomodoro`, `useFocusTrap`, `useLongPress`, `useInstallPrompt`, `useStorageQuotaWarning`), and state modules (`sidebarSettings`, `dashboardSort`, `gradingMode`, `inputMode`, `motionSpeed`, `optimiseSetting`, `shortcutBindings`, `shortcuts`).
+- Fixed `usePomodoro` settings parsing to use `??` instead of `||` for proper falsy handling.
+- Fixed typo in Dashboard copy: "examotion" → "exam".
+- Smoother page transitions in `AppShell` — added subtle scale animation (0.995 → 1) alongside the existing fade-and-lift, with a slightly longer duration for a more settled feel.
+- Smoother toast exit animation with refined timing and easing.
+
+---
+
 # Lacuna — production hardening (round two)
 
 British English throughout. Changes are grouped by work-order task.

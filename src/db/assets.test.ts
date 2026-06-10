@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { db } from './schema';
 import {
   assetUrl,
+  blobToText,
   extractMarkdownAssets,
   referencedAssetHashes,
   resolveAssetMarkdown,
@@ -10,6 +11,10 @@ import {
 } from './assets';
 import { createCard, createDeck } from './repository';
 import { exportDatabase, importBackup } from './portability';
+
+vi.mock('../utils/compressImage', () => ({
+  compressImageBlob: vi.fn(async (blob: Blob) => ({ blob, width: 0, height: 0 })),
+}));
 
 async function reset() {
   await Promise.all([
@@ -75,7 +80,7 @@ describe('image assets', () => {
 
     expect(await db.assets.count()).toBe(1);
     const imported = (await db.assets.get(asset.hash))!;
-    expect(await imported.blob.text()).toBe('backup-image');
+    expect(await blobToText(imported.blob)).toBe('backup-image');
     const card = (await db.cards.toArray())[0];
     expect(card.front).toContain(assetUrl(asset.hash));
   });

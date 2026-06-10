@@ -27,14 +27,14 @@ export const DEFAULT_NAV_ITEMS: SidebarNavItem[] = [
   { id: 'settings', label: 'Settings', visible: true },
 ];
 
-const DEFAULTS: SidebarSettings = {
+export const DEFAULTS: SidebarSettings = {
   showDueCounts: true,
   showArchived: true,
   compactMode: false,
   navItems: DEFAULT_NAV_ITEMS,
 };
 
-function readStored(): SidebarSettings {
+export function readStored(): SidebarSettings {
   try {
     const raw = localStorage.getItem(KEY);
     if (raw) {

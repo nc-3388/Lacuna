@@ -17,7 +17,7 @@ import {
   type LegacyDeck,
 } from './migrations';
 import { savePreMigrationSnapshot } from './preMigrationSnapshots';
-import { bytesToBase64 } from './assets';
+import { blobToArrayBuffer, bytesToBase64 } from './assets';
 
 /**
  * Lacuna's IndexedDB database. A single Dexie instance owns every store.
@@ -301,7 +301,7 @@ export async function readAllDataFromVersion(
   const assetsRaw = (raw.data['assets'] ?? []) as ImageAsset[];
   const assets = await Promise.all(
     assetsRaw.map(async (a) => {
-      const buf = new Uint8Array(await a.blob.arrayBuffer());
+      const buf = new Uint8Array(await blobToArrayBuffer(a.blob));
       return {
         hash: a.hash,
         data: bytesToBase64(buf),

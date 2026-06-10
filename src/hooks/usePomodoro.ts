@@ -24,9 +24,9 @@ export function loadPomodoroSettings(): PomodoroSettings {
     if (raw) {
       const parsed = JSON.parse(raw) as Partial<PomodoroSettings>;
       return {
-        workMinutes: Math.max(1, Math.min(120, Number(parsed.workMinutes) || DEFAULT_SETTINGS.workMinutes)),
-        shortBreakMinutes: Math.max(1, Math.min(60, Number(parsed.shortBreakMinutes) || DEFAULT_SETTINGS.shortBreakMinutes)),
-        longBreakMinutes: Math.max(1, Math.min(60, Number(parsed.longBreakMinutes) || DEFAULT_SETTINGS.longBreakMinutes)),
+        workMinutes: Math.max(1, Math.min(120, Number(parsed.workMinutes) ?? DEFAULT_SETTINGS.workMinutes)),
+        shortBreakMinutes: Math.max(1, Math.min(60, Number(parsed.shortBreakMinutes) ?? DEFAULT_SETTINGS.shortBreakMinutes)),
+        longBreakMinutes: Math.max(1, Math.min(60, Number(parsed.longBreakMinutes) ?? DEFAULT_SETTINGS.longBreakMinutes)),
         autoStartBreaks: typeof parsed.autoStartBreaks === 'boolean' ? parsed.autoStartBreaks : DEFAULT_SETTINGS.autoStartBreaks,
       };
     }

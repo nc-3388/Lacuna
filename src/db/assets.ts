@@ -36,8 +36,61 @@ function bytesToBlob(bytes: Uint8Array, mimeType: string): Blob {
   const buffer = bytes.buffer.slice(
     bytes.byteOffset,
     bytes.byteOffset + bytes.byteLength,
-  ) as ArrayBuffer;
+  ) as unknown as ArrayBuffer;
   return new Blob([buffer], { type: mimeType });
+}
+
+/**
+ * Ensure a value is a native Blob. fake-indexeddb loses Blob data during
+ * structuredClone, so we store images as Uint8Array and convert back to Blob
+ * whenever a DOM API (e.g. URL.createObjectURL) needs one.
+ */
+export function toBlob(data: Blob | Uint8Array | ArrayBuffer, mimeType?: string): Blob {
+  if (data instanceof Blob) return data;
+  if (data instanceof Uint8Array) {
+    const buffer = data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength) as ArrayBuffer;
+    return new Blob([buffer as unknown as BlobPart], { type: mimeType });
+  }
+  return new Blob([data as ArrayBuffer], { type: mimeType });
+}
+
+/**
+ * Read a Blob (or Blob-like object) as an ArrayBuffer. Handles native Blobs,
+ * ArrayBuffer/TypedArray views, and the custom objects returned by fake-indexeddb
+ * which may not be recognised as native Blobs by FileReader.
+ */
+export async function blobToArrayBuffer(blob: Blob | ArrayBufferView | ArrayBuffer): Promise<ArrayBuffer> {
+  // If it already is an ArrayBuffer, return it directly.
+  if (blob instanceof ArrayBuffer) {
+    return blob;
+  }
+
+  // If it is a TypedArray / Node Buffer, slice its underlying buffer.
+  if (ArrayBuffer.isView(blob)) {
+    const view = blob as ArrayBufferView;
+    return view.buffer.slice(view.byteOffset, view.byteOffset + view.byteLength) as ArrayBuffer;
+  }
+
+  // Native Blob with arrayBuffer method.
+  if (typeof (blob as Blob).arrayBuffer === 'function') {
+    try {
+      return await (blob as Blob).arrayBuffer();
+    } catch {
+      // Fall through to Response-based fallback.
+    }
+  }
+
+  // Use Response as a robust, spec-compliant way to read any Blob-like body.
+  return new Response(blob as BodyInit).arrayBuffer();
+}
+
+/**
+ * Read a Blob (or Blob-like object) as a UTF-8 text string.
+ * Works with native Blobs and the non-native objects returned by fake-indexeddb.
+ */
+export async function blobToText(blob: Blob | ArrayBufferView | ArrayBuffer): Promise<string> {
+  const buffer = await blobToArrayBuffer(blob);
+  return new TextDecoder().decode(buffer);
 }
 
 function hex(bytes: Uint8Array): string {
@@ -45,7 +98,7 @@ function hex(bytes: Uint8Array): string {
 }
 
 export async function sha256Blob(blob: Blob): Promise<string> {
-  const digest = await crypto.subtle.digest('SHA-256', await blob.arrayBuffer());
+  const digest = await crypto.subtle.digest('SHA-256', await blobToArrayBuffer(blob));
   return hex(new Uint8Array(digest));
 }
 
@@ -115,7 +168,7 @@ export async function storeImageBlob(
   const hash = await sha256Blob(blob);
   const asset: ImageAsset = {
     hash,
-    blob,
+    blob: new Uint8Array(await blobToArrayBuffer(blob)),
     mimeType,
     width,
     height,
@@ -153,7 +206,7 @@ async function assetFromDataUri(uri: string, mimeType: string): Promise<ImageAss
       const hash = await sha256Blob(compressed.blob);
       return {
         hash,
-        blob: compressed.blob,
+        blob: new Uint8Array(await blobToArrayBuffer(compressed.blob)),
         mimeType: compressed.blob.type || mimeType,
         width: compressed.width,
         height: compressed.height,
@@ -164,13 +217,27 @@ async function assetFromDataUri(uri: string, mimeType: string): Promise<ImageAss
       const dims = await getImageDimensions(blob);
       if (dims) {
         const hash = await sha256Blob(blob);
-        return { hash, blob, mimeType, width: dims.width, height: dims.height, createdAt: Date.now() };
+        return {
+          hash,
+          blob: new Uint8Array(await blobToArrayBuffer(blob)),
+          mimeType,
+          width: dims.width,
+          height: dims.height,
+          createdAt: Date.now(),
+        };
       }
     }
   }
 
   const hash = await sha256Blob(blob);
-  return { hash, blob, mimeType, width: 0, height: 0, createdAt: Date.now() };
+  return {
+    hash,
+    blob: new Uint8Array(await blobToArrayBuffer(blob)),
+    mimeType,
+    width: 0,
+    height: 0,
+    createdAt: Date.now(),
+  };
 }
 
 export async function extractMarkdownAssets(
@@ -222,7 +289,7 @@ export async function resolveAssetMarkdown(markdown: string): Promise<{
       replacements.push({ from: assetUrl(hash), to: MISSING_ASSET_SVG });
       continue;
     }
-    const url = URL.createObjectURL(asset.blob);
+    const url = URL.createObjectURL(toBlob(asset.blob, asset.mimeType));
     objectUrls.push(url);
     replacements.push({ from: assetUrl(hash), to: url });
   }
@@ -238,7 +305,7 @@ export async function assetsForBackup(hashes: string[]): Promise<BackupAsset[]> 
   return Promise.all(
     assets.map(async (asset) => ({
       hash: asset.hash,
-      data: bytesToBase64(new Uint8Array(await asset.blob.arrayBuffer())),
+      data: bytesToBase64(new Uint8Array(await blobToArrayBuffer(asset.blob))),
       mimeType: asset.mimeType,
       width: asset.width,
       height: asset.height,
@@ -250,7 +317,7 @@ export async function assetsForBackup(hashes: string[]): Promise<BackupAsset[]> 
 export function backupAssetToImageAsset(asset: BackupAsset): ImageAsset {
   return {
     hash: asset.hash,
-    blob: bytesToBlob(base64ToBytes(asset.data), asset.mimeType),
+    blob: base64ToBytes(asset.data),
     mimeType: asset.mimeType,
     width: asset.width,
     height: asset.height,

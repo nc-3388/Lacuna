@@ -5,7 +5,7 @@
 // lifetime of the app, revoking the lot only at teardown.
 
 import { db } from './schema';
-import { assetUrl, referencedAssetHashes } from './assets';
+import { assetUrl, referencedAssetHashes, toBlob } from './assets';
 
 const MAX_SIZE = 200;
 
@@ -77,7 +77,7 @@ export async function resolveAssetUrl(hash: string): Promise<string | null> {
     try {
       const asset = await db.assets.get(hash);
       if (!asset) return null;
-      const url = URL.createObjectURL(asset.blob);
+      const url = URL.createObjectURL(toBlob(asset.blob, asset.mimeType));
       if (cache.size >= MAX_SIZE) evictOldest();
       cache.set(hash, url);
       addFront(hash);

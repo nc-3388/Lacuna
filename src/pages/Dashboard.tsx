@@ -54,8 +54,6 @@ export function Dashboard() {
   const [mergeTarget, setMergeTarget] = useState<string | null>(null);
   const [motionSpeed] = useMotionSpeed();
   const m = speedMultiplier(motionSpeed);
-  const isTouchMode = useIsTouchMode();
-
   // Folder management
   const [creatingFolder, setCreatingFolder] = useState(false);
   const [newFolderName, setNewFolderName] = useState('');
@@ -294,7 +292,7 @@ export function Dashboard() {
             <h2 className="font-display text-xl">Study today</h2>
             <p className="text-sm leading-relaxed text-balance text-ink-soft">
               {totalEligible} card{totalEligible === 1 ? '' : 's'} ready across all your
-              decks, ordered by what moves you furthest before each examotion.
+              decks, ordered by what moves you furthest before each exam.
             </p>
           </div>
           <Button variant="primary" size="lg" className="w-full sm:w-auto" onClick={() => navigate('/learn')}>
@@ -1099,7 +1097,7 @@ function EmptyState({ onCreate, motionMultiplier }: { onCreate: () => void; moti
       </div>
       <h2 className="mb-2 font-display text-2xl">No decks yet</h2>
       <p className="mb-6 max-w-sm text-ink-soft">
-        Create your first deck to begin building a revision schedule tuned to your examotion.
+        Create your first deck to begin building a revision schedule tuned to your exam.
       </p>
       <Button variant="primary" onClick={onCreate}>
         <PlusIcon width={18} height={18} />

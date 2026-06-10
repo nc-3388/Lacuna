@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { AnimatePresence, m as motion, useMotionValue, useSpring, useTransform } from 'motion/react';
+
+import { AnimatePresence, m as motion, useMotionValue, useSpring } from 'motion/react';
 import { CardContent } from './CardContent';
 import { Button } from '../ui/Button';
 import { useToast } from '../ui/Toast';
@@ -54,8 +54,6 @@ export function CardList({ cards, deck, allDecks, onNewCard, onEditCard }: CardL
   const [expandedCardId, setExpandedCardId] = useState<string | null>(null);
   const [motionSpeed] = useMotionSpeed();
   const m = speedMultiplier(motionSpeed);
-  const isTouchMode = useIsTouchMode();
-
   useEffect(() => {
     setExpandedCardId(null);
   }, [deck.id]);
@@ -530,7 +528,6 @@ function CardRow({
   const [hovered, setHovered] = useState(false);
   const m = motionMultiplier ?? 1;
   const isTouchMode = useIsTouchMode();
-  const navigate = useNavigate();
   const showBack = hovered;
 
   // Lazy-render: only parse the back side when it is actually visible.

@@ -181,10 +181,13 @@ export interface UserPerformance {
   totalCorrectReviews: number;
 }
 
-/** Binary image asset stored separately from card Markdown and deduplicated by hash. */
+/** Binary image asset stored separately from card Markdown and deduplicated by hash.
+ *  We store the raw bytes as Uint8Array because fake-indexeddb (and some browser
+ *  IndexedDB implementations) do not reliably preserve Blob objects through
+ *  structuredClone.  DOM APIs that need a Blob receive one via `toBlob()`. */
 export interface ImageAsset {
   hash: string;
-  blob: Blob;
+  blob: Blob | Uint8Array;
   mimeType: string;
   width: number;
   height: number;
