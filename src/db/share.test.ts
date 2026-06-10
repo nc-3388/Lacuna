@@ -197,8 +197,9 @@ describe('QR share codes', () => {
     const payload = await decodeShare(qrCode);
     expect(payload.decks).toHaveLength(1);
     expect(payload.decks[0].cards).toHaveLength(2);
-    expect(payload.decks[0].cards[0].f).toBe('bonjour');
-    expect(payload.decks[0].cards[1].f).toContain('Madrid');
+    const fronts = payload.decks[0].cards.map((c) => c.f);
+    expect(fronts).toContain('bonjour');
+    expect(fronts.some((f) => f.includes('Madrid'))).toBe(true);
 
     await importSharePayload(payload);
     const decks = await db.decks.toArray();

@@ -1,3 +1,42 @@
+# Lacuna — version 0.0.3
+
+> **GitHub Release Note for v0.0.3**
+>
+> This patch release expands test coverage to page-level flows, adds virtualisation for large card lists, and polishes mobile gesture interactions.
+>
+> **What's new**
+> - Page-level integration tests for CardList, Dashboard, SharePage, SessionReport, and LearnSkeleton.
+> - Lightweight dependency-free virtual card list for decks with more than 50 cards.
+> - Haptic feedback on all major mobile gestures (swipe, long-press, grade, tray actions).
+> - Spring physics on card swipe snap-back and bottom-sheet drag handles.
+>
+> **Bug fixes**
+> - Fixed image-asset handling in `fake-indexeddb` test environments (continued from v0.0.2).
+> - Fixed pre-existing `touchstart` type error in Dashboard.
+> - Fixed DeckSearchOverlay props destructuring bug.
+>
+> **Full changelog below**
+
+## 0.0.3 — Page-level tests, card list virtualisation, and mobile gesture polish
+
+- Added page-level integration tests:
+  - `CardList.test.tsx`: empty state, card rendering, select mode, selection toggling, card expansion, import panel, new card button.
+  - `Dashboard.test.tsx`: skeleton, empty state, deck cards, select mode, folder rendering, header buttons.
+  - `SharePage.test.tsx`: loading, empty state, deck list, selection, import section.
+  - `SessionReport.test.tsx`: goal reached, stat values, progress bar, chart rendering, back button, daily limit, distractions.
+  - `LearnMode.test.tsx`: LearnSkeleton rendering, header and main structure.
+- Added `useVirtualList` hook — a lightweight dependency-free virtual list with window scroll tracking, binary search for visible ranges, and dynamic item measurement via `ResizeObserver` / `getBoundingClientRect`.
+- Integrated virtualisation into `CardList` with a threshold of 50 cards. Small decks render as a simple grid; large decks use absolute positioning with `translateY` to keep only visible cards in the DOM.
+- Added `skipAnimation` prop to `CardRow` so cards that scroll back into view do not re-trigger entrance animations.
+- Added `src/utils/haptic.ts` — a haptic feedback utility with light, medium, and strong vibration patterns via `navigator.vibrate`.
+- Triggered haptic feedback on gesture commits: long-press (`hapticStrong`), swipe-to-grade (`hapticMedium`), swipe-to-study (`hapticMedium`), mastery gestures (`hapticMedium`), card tray open/close (`hapticLight`), and tray actions (`hapticLight` / `hapticMedium`).
+- Added spring physics to `FlipCard` swipe (`stiffness: 480`, `damping: 32`) for snap-back instead of abrupt reset.
+- Polished `TouchMenuSheet` drag handle with drag-to-close gesture, keyboard accessibility (Enter/Space to close), and a larger touch target.
+- Fixed pre-existing `touchstart` type error in `Dashboard.tsx` (`MouseEvent` → `Event`).
+- Fixed `DeckSearchOverlay` props destructuring bug.
+
+---
+
 # Lacuna — version 0.0.2
 
 > **GitHub Release Note for v0.0.2**
