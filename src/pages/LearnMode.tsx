@@ -1029,7 +1029,7 @@ export function LearnMode() {
   );
 }
 
-function LearnSkeleton() {
+export function LearnSkeleton() {
   return (
     <div className="flex min-h-screen flex-col bg-paper">
       <header className="sticky top-0 z-10 border-b border-line bg-paper/85 backdrop-blur">

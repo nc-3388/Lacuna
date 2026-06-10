@@ -20,6 +20,7 @@ interface Match {
 interface DeckSearchOverlayProps {
   cards: Card[];
   onClose: () => void;
+  onQueryChange?: (query: string) => void;
 }
 
 function escapeRegex(str: string): string {
@@ -34,10 +35,15 @@ export function DeckSearchOverlay({ cards, onClose }: DeckSearchOverlayProps) {
   const [replacing, setReplacing] = useState(false);
   const { notify } = useToast();
   const findInputRef = useRef<HTMLInputElement>(null);
+  const onQueryChange = props.onQueryChange;
 
   useEffect(() => {
     findInputRef.current?.focus();
   }, []);
+
+  useEffect(() => {
+    onQueryChange?.(query);
+  }, [query, onQueryChange]);
 
   const matches = useMemo(() => {
     const trimmed = query.trim();
