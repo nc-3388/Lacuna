@@ -4,6 +4,7 @@ export type InputMode = 'keyboard' | 'touch' | 'auto';
 
 const KEY = 'lacuna.inputMode';
 const FONT_SCALE_KEY = 'lacuna-font-scale';
+const FONT_SCALE_USER_SET_KEY = 'lacuna-font-scale-user-set';
 
 function isTouchDevice(): boolean {
   if (typeof window === 'undefined') return false;
@@ -28,16 +29,14 @@ export function writeInputMode(mode: InputMode): void {
 
 /**
  * Set the default font scale when the input mode changes, but only if the user
- * has not explicitly chosen a font scale. We detect this by checking whether
- * the current font scale matches one of the named steps.
+ * has never explicitly chosen a font scale themselves.
  */
 function autoSetFontScaleForMode(mode: InputMode): void {
   const resolved = resolveInputMode(mode);
-  const current = Number(localStorage.getItem(FONT_SCALE_KEY) ?? '1');
-  // Only auto-set to Large when switching to touch if the current scale is the default
-  // (1.0). Never force-reset to Normal when switching to keyboard, to avoid clobbering
-  // an explicit user choice.
-  if (resolved === 'touch' && current === 1) {
+  const userHasSetScale = localStorage.getItem(FONT_SCALE_USER_SET_KEY) === '1';
+  // Only auto-set to Large when switching to touch and the user has never manually
+  // set a font scale. Never force-reset to Normal when switching to keyboard.
+  if (resolved === 'touch' && !userHasSetScale) {
     localStorage.setItem(FONT_SCALE_KEY, '1.15');
     document.documentElement.style.fontSize = '115%';
     window.dispatchEvent(new CustomEvent('lacuna:font-scale', { detail: 1.15 }));

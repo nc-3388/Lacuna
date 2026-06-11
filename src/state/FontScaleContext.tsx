@@ -11,6 +11,7 @@ import {
 // every rem-based size in the app grows or shrinks together. Mirrors ThemeContext.
 
 const STORAGE_KEY = 'lacuna-font-scale';
+export const FONT_SCALE_USER_SET_KEY = 'lacuna-font-scale-user-set';
 
 export const FONT_SCALE_MIN = 0.85;
 export const FONT_SCALE_MAX = 1.35;
@@ -67,7 +68,14 @@ export function FontScaleProvider({ children }: { children: ReactNode }) {
     return () => window.removeEventListener('lacuna:font-scale', handler);
   }, []);
 
-  const setScale = useCallback((next: number) => setScaleState(clamp(next)), []);
+  const setScale = useCallback((next: number) => {
+    try {
+      localStorage.setItem(FONT_SCALE_USER_SET_KEY, '1');
+    } catch {
+      // Persistence is best-effort.
+    }
+    setScaleState(clamp(next));
+  }, []);
 
   return (
     <FontScaleContext.Provider value={{ scale, setScale }}>
