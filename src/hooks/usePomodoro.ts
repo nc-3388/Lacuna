@@ -18,15 +18,20 @@ const DEFAULT_SETTINGS: PomodoroSettings = {
 
 const STORAGE_KEY = 'lacuna-pomodoro-settings';
 
+function toNumber(value: unknown, fallback: number): number {
+  const n = Number(value);
+  return Number.isNaN(n) ? fallback : n;
+}
+
 export function loadPomodoroSettings(): PomodoroSettings {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw) as Partial<PomodoroSettings>;
       return {
-        workMinutes: Math.max(1, Math.min(120, Number(parsed.workMinutes) ?? DEFAULT_SETTINGS.workMinutes)),
-        shortBreakMinutes: Math.max(1, Math.min(60, Number(parsed.shortBreakMinutes) ?? DEFAULT_SETTINGS.shortBreakMinutes)),
-        longBreakMinutes: Math.max(1, Math.min(60, Number(parsed.longBreakMinutes) ?? DEFAULT_SETTINGS.longBreakMinutes)),
+        workMinutes: Math.max(1, Math.min(120, toNumber(parsed.workMinutes, DEFAULT_SETTINGS.workMinutes))),
+        shortBreakMinutes: Math.max(1, Math.min(60, toNumber(parsed.shortBreakMinutes, DEFAULT_SETTINGS.shortBreakMinutes))),
+        longBreakMinutes: Math.max(1, Math.min(60, toNumber(parsed.longBreakMinutes, DEFAULT_SETTINGS.longBreakMinutes))),
         autoStartBreaks: typeof parsed.autoStartBreaks === 'boolean' ? parsed.autoStartBreaks : DEFAULT_SETTINGS.autoStartBreaks,
       };
     }

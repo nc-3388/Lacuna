@@ -109,7 +109,7 @@ export function useVirtualList({
       heights[i] = h;
       current += h + gap;
     }
-    const total = current - gap;
+    const total = Math.max(0, current - gap);
 
     // Find visible range
     const startOffset = scrollOffset;

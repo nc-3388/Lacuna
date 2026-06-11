@@ -13,8 +13,8 @@ vi.mock('react-router-dom', () => ({
   ),
 }));
 
-let mockDashboardData: any = undefined;
-let mockFolders: any = undefined;
+let mockDashboardData: unknown = undefined;
+let mockFolders: unknown = undefined;
 
 vi.mock('../state/useData', () => ({
   useDashboardData: () => mockDashboardData,
@@ -97,7 +97,7 @@ const mockDeck: Deck = {
   timeZone: 'UTC',
   createdAt: Date.now(),
   fsrsVersion: 6,
-  fsrsParameters: { requestRetention: 0.9, maximumInterval: 36500, easyBonus: 1.3, hardFactor: 0.85, w: Array(19).fill(0), enableFuzz: false, enableShortTerm: true } as any,
+  fsrsParameters: { requestRetention: 0.9, w: Array(21).fill(0) },
   examObjective: 'expectedMarks',
   lastInteractedAt: Date.now(),
 };
@@ -142,7 +142,7 @@ describe('Dashboard', () => {
       decks: [],
       allCards: [],
       summaries: {},
-      stats: { totalCards: 0, reviewsToday: 0, streakDays: 0, forecastMinutes: 0 },
+      stats: { reviewedToday: 0, streak: 0, forecast: [] },
     };
     render(<Dashboard />);
     expect(screen.getByText('No decks yet')).toBeInTheDocument();
@@ -156,7 +156,7 @@ describe('Dashboard', () => {
       summaries: {
         'deck-1': { count: 1, mastery: 0.5, unreviewed: 1, eligible: 0 },
       },
-      stats: { totalCards: 1, reviewsToday: 0, streakDays: 0, forecastMinutes: 0 },
+      stats: { reviewedToday: 0, streak: 0, forecast: [] },
     };
     render(<Dashboard />);
     expect(screen.getByText('Test Deck')).toBeInTheDocument();
@@ -170,7 +170,7 @@ describe('Dashboard', () => {
       summaries: {
         'deck-1': { count: 1, mastery: 0.5, unreviewed: 1, eligible: 0 },
       },
-      stats: { totalCards: 1, reviewsToday: 0, streakDays: 0, forecastMinutes: 0 },
+      stats: { reviewedToday: 0, streak: 0, forecast: [] },
     };
     render(<Dashboard />);
     fireEvent.click(screen.getByText('Select'));
@@ -183,7 +183,7 @@ describe('Dashboard', () => {
       decks: [],
       allCards: [],
       summaries: {},
-      stats: { totalCards: 0, reviewsToday: 0, streakDays: 0, forecastMinutes: 0 },
+      stats: { reviewedToday: 0, streak: 0, forecast: [] },
     };
     render(<Dashboard />);
     expect(screen.getByText('New deck')).toBeInTheDocument();
@@ -194,7 +194,7 @@ describe('Dashboard', () => {
       decks: [],
       allCards: [],
       summaries: {},
-      stats: { totalCards: 0, reviewsToday: 0, streakDays: 0, forecastMinutes: 0 },
+      stats: { reviewedToday: 0, streak: 0, forecast: [] },
     };
     render(<Dashboard />);
     expect(screen.getByText('New folder')).toBeInTheDocument();
@@ -202,7 +202,7 @@ describe('Dashboard', () => {
 
   it('renders folders when they exist', () => {
     mockFolders = [
-      { id: 'folder-1', name: 'Science', createdAt: Date.now() },
+      { id: 'folder-1', name: 'Science', parentId: null, createdAt: Date.now() },
     ];
     const deckInFolder = { ...mockDeck, folderId: 'folder-1' };
     mockDashboardData = {
@@ -211,7 +211,7 @@ describe('Dashboard', () => {
       summaries: {
         'deck-1': { count: 1, mastery: 0.5, unreviewed: 1, eligible: 0 },
       },
-      stats: { totalCards: 1, reviewsToday: 0, streakDays: 0, forecastMinutes: 0 },
+      stats: { reviewedToday: 0, streak: 0, forecast: [] },
     };
     render(<Dashboard />);
     expect(screen.getByText('Science')).toBeInTheDocument();

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { m as motion } from 'motion/react';
 import { updateCard } from '../../db/repository';
 import { useToast } from '../ui/Toast';
@@ -80,14 +80,14 @@ export function DeckSearchOverlay({ cards, onClose, onQueryChange }: DeckSearchO
     setCurrentIndex(0);
   }, [query, caseSensitive]);
 
-  function goToMatch(delta: number) {
+  const goToMatch = useCallback((delta: number) => {
     setCurrentIndex((prev) => {
       const next = prev + delta;
       if (next < 0) return matches.length - 1;
       if (next >= matches.length) return 0;
       return next;
     });
-  }
+  }, [matches.length]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -109,7 +109,7 @@ export function DeckSearchOverlay({ cards, onClose, onQueryChange }: DeckSearchO
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [onClose, matches.length]);
+  }, [onClose, goToMatch]);
 
   async function handleReplaceAll() {
     const trimmedQuery = query.trim();

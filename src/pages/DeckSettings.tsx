@@ -354,10 +354,10 @@ export function DeckSettings() {
             className="rounded-2xl border border-negative/30 bg-negative/5 p-6"
           >
             <div className="mb-1 text-sm font-medium text-negative">Danger zone</div>
-            <p className="mb-4 text-sm text-ink-soft">
-              Deleting this deck removes all of its cards and history. You will have a
-              moment to undo.
-            </p>
+      <p className="mb-4 text-sm text-ink-soft">
+        Deleting this deck removes all of its cards and history. You will have a
+        moment to undo.
+      </p>
             <Button variant="danger" size="sm" onClick={handleDelete}>
               Delete deck
             </Button>
@@ -487,7 +487,7 @@ function OptimisationPanel({ deck, cards }: { deck: Deck; cards: Card[] }) {
         <div className="min-w-0">
           <h2 className="font-display text-xl">Scheduling optimisation</h2>
           <p className="mt-1 text-sm text-ink-soft">
-            Fit this deck's FSRS weights to its own review history. Optimisation runs off the
+            Fit this deck&apos;s FSRS weights to its own review history. Optimisation runs off the
             main thread and is applied only when you confirm; a restore point is taken first.
           </p>
         </div>

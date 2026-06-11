@@ -37,13 +37,13 @@ vi.mock('../../fsrs/leech', () => ({
 }));
 
 vi.mock('../ui/icons', () => ({
-  CheckIcon: (props: any) => <svg data-testid="check-icon" {...props} />,
-  EditIcon: (props: any) => <svg data-testid="edit-icon" {...props} />,
-  FlagIcon: (props: any) => <svg data-testid="flag-icon" {...props} />,
-  PlusIcon: (props: any) => <svg data-testid="plus-icon" {...props} />,
-  TagIcon: (props: any) => <svg data-testid="tag-icon" {...props} />,
-  TrashIcon: (props: any) => <svg data-testid="trash-icon" {...props} />,
-  UploadIcon: (props: any) => <svg data-testid="upload-icon" {...props} />,
+  CheckIcon: (props: React.SVGProps<SVGSVGElement>) => <svg data-testid="check-icon" {...props} />,
+  EditIcon: (props: React.SVGProps<SVGSVGElement>) => <svg data-testid="edit-icon" {...props} />,
+  FlagIcon: (props: React.SVGProps<SVGSVGElement>) => <svg data-testid="flag-icon" {...props} />,
+  PlusIcon: (props: React.SVGProps<SVGSVGElement>) => <svg data-testid="plus-icon" {...props} />,
+  TagIcon: (props: React.SVGProps<SVGSVGElement>) => <svg data-testid="tag-icon" {...props} />,
+  TrashIcon: (props: React.SVGProps<SVGSVGElement>) => <svg data-testid="trash-icon" {...props} />,
+  UploadIcon: (props: React.SVGProps<SVGSVGElement>) => <svg data-testid="upload-icon" {...props} />,
 }));
 
 vi.mock('../markdown/MarkdownView', () => ({
@@ -73,7 +73,7 @@ const mockDeck: Deck = {
   timeZone: 'UTC',
   createdAt: Date.now(),
   fsrsVersion: 6,
-  fsrsParameters: { requestRetention: 0.9, maximumInterval: 36500, easyBonus: 1.3, hardFactor: 0.85, w: Array(19).fill(0), enableFuzz: false, enableShortTerm: true } as any,
+  fsrsParameters: { requestRetention: 0.9, w: Array(21).fill(0) },
   examObjective: 'expectedMarks',
   lastInteractedAt: Date.now(),
 };

@@ -228,25 +228,27 @@ export function LearnMode() {
     // Reset all session refs so navigating deck -> deck does not leave stale state.
     cooldowns.current = new Map();
     events.current = [];
-    lastAnswer.current = null;      if (feedbackTimer.current) window.clearTimeout(feedbackTimer.current);
-      feedbackTimer.current = null;
-      setFeedback(null);
-      setFeedbackSource(null);
+    lastAnswer.current = null;
+    if (feedbackTimer.current) window.clearTimeout(feedbackTimer.current);
+    feedbackTimer.current = null;
+    setFeedback(null);
+    setFeedbackSource(null);
     submitting.current = false;
     progressBefore.current = 0;
     perfRef.current = new Map();
     decksRef.current = new Map();
     ctxRef.current = null;
-    cardsRef.current = [];      setCanUndo(false);
-      setSummary(null);
-      setEditing(false);
-      setMenuOpen(false);
-      setHintsOpen(false);
-      setNavOpen(false);
-      setFocusMode(false);
-      setLimitOverride(false);
-      setPhase('loading');
-    (async () => {
+    cardsRef.current = [];
+    setCanUndo(false);
+    setSummary(null);
+    setEditing(false);
+    setMenuOpen(false);
+    setHintsOpen(false);
+    setNavOpen(false);
+    setFocusMode(false);
+    setLimitOverride(false);
+    setPhase('loading');
+    void (async () => {
       let decks: Deck[];
       let cards: Card[];
       if (deckId) {
@@ -436,7 +438,7 @@ export function LearnMode() {
         submitting.current = false;
       }
     },
-    [distraction, finish, serveNext, cachedSessionProgress, limitOverride],
+    [distraction, finish, serveNext, cachedSessionProgress, limitOverride, m],
   );
 
   const undoLast = useCallback(async () => {
@@ -627,22 +629,22 @@ export function LearnMode() {
           return;
         }
         if (gradingMode === 'manual') {
-          if (keyMatches(e, bindings.again)) { e.preventDefault(); answer(1); }
-          else if (keyMatches(e, bindings.hard)) { e.preventDefault(); answer(2); }
-          else if (keyMatches(e, bindings.good)) { e.preventDefault(); answer(3); }
-          else if (keyMatches(e, bindings.easy)) { e.preventDefault(); answer(4); }
+          if (keyMatches(e, bindings.again)) { e.preventDefault(); void answer(1); }
+          else if (keyMatches(e, bindings.hard)) { e.preventDefault(); void answer(2); }
+          else if (keyMatches(e, bindings.good)) { e.preventDefault(); void answer(3); }
+          else if (keyMatches(e, bindings.easy)) { e.preventDefault(); void answer(4); }
         } else if (keyMatches(e, bindings.yes) || e.code === 'ArrowRight') {
           e.preventDefault();
-          answer(true);
+          void answer(true);
         } else if (keyMatches(e, bindings.no) || e.code === 'ArrowLeft') {
           e.preventDefault();
-          answer(false);
+          void answer(false);
         }
       }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [phase, reveal, hide, answer, canUndo, undoLast, navOpen, editing, current, openEdit, hintsOpen, gradingMode, bindings]);
+  }, [phase, reveal, hide, answer, canUndo, undoLast, navOpen, editing, current, openEdit, hintsOpen, gradingMode, bindings, m]);
 
   // Clear any pending feedback timer if the session unmounts mid-flash.
   useEffect(
@@ -971,23 +973,23 @@ export function LearnMode() {
                       }}
                     >
                       <motion.div variants={buttonReveal(m)}>
-                        <Button variant="danger" size="lg" className="w-full" onClick={() => answer(1, 'keyboard')}>
+                        <Button variant="danger" size="lg" className="w-full" onClick={() => void answer(1, 'keyboard')}>
                           <CloseIcon width={18} height={18} />
                           Again
                         </Button>
                       </motion.div>
                       <motion.div variants={buttonReveal(m)}>
-                        <Button variant="secondary" size="lg" className="w-full" onClick={() => answer(2, 'keyboard')}>
+                        <Button variant="secondary" size="lg" className="w-full" onClick={() => void answer(2, 'keyboard')}>
                           Hard
                         </Button>
                       </motion.div>
                       <motion.div variants={buttonReveal(m)}>
-                        <Button variant="secondary" size="lg" className="w-full" onClick={() => answer(3, 'keyboard')}>
+                        <Button variant="secondary" size="lg" className="w-full" onClick={() => void answer(3, 'keyboard')}>
                           Good
                         </Button>
                       </motion.div>
                       <motion.div variants={buttonReveal(m)}>
-                        <Button variant="primary" size="lg" className="w-full" onClick={() => answer(4, 'keyboard')}>
+                        <Button variant="primary" size="lg" className="w-full" onClick={() => void answer(4, 'keyboard')}>
                           <CheckIcon width={18} height={18} />
                           Easy
                         </Button>
@@ -1004,13 +1006,13 @@ export function LearnMode() {
                       }}
                     >
                       <motion.div variants={buttonReveal(m)} className="flex-1">
-                        <Button variant="danger" size="lg" className="w-full" onClick={() => answer(false, 'keyboard')}>
+                        <Button variant="danger" size="lg" className="w-full" onClick={() => void answer(false, 'keyboard')}>
                           <CloseIcon width={18} height={18} />
                           No
                         </Button>
                       </motion.div>
                       <motion.div variants={buttonReveal(m)} className="flex-1">
-                        <Button variant="primary" size="lg" className="w-full" onClick={() => answer(true, 'keyboard')}>
+                        <Button variant="primary" size="lg" className="w-full" onClick={() => void answer(true, 'keyboard')}>
                           <CheckIcon width={18} height={18} />
                           Yes
                         </Button>
@@ -1328,28 +1330,28 @@ function TouchBottomSheet({
           <div className="mx-auto flex max-w-3xl flex-col items-center gap-3">
             {gradingMode === 'manual' ? (
               <div className="grid w-full grid-cols-2 gap-3">
-                <Button variant="danger" size="lg" className="h-14 w-full" onClick={() => { hapticMedium(); onAnswer(1, 'touch'); }}>
+                <Button variant="danger" size="lg" className="h-14 w-full" onClick={() => { hapticMedium(); void onAnswer(1, 'touch'); }}>
                   <CloseIcon width={20} height={20} />
                   Again
                 </Button>
-                <Button variant="secondary" size="lg" className="h-14 w-full" onClick={() => { hapticLight(); onAnswer(2, 'touch'); }}>
+                <Button variant="secondary" size="lg" className="h-14 w-full" onClick={() => { hapticLight(); void onAnswer(2, 'touch'); }}>
                   Hard
                 </Button>
-                <Button variant="secondary" size="lg" className="h-14 w-full" onClick={() => { hapticLight(); onAnswer(3, 'touch'); }}>
+                <Button variant="secondary" size="lg" className="h-14 w-full" onClick={() => { hapticLight(); void onAnswer(3, 'touch'); }}>
                   Good
                 </Button>
-                <Button variant="primary" size="lg" className="h-14 w-full" onClick={() => { hapticMedium(); onAnswer(4, 'touch'); }}>
+                <Button variant="primary" size="lg" className="h-14 w-full" onClick={() => { hapticMedium(); void onAnswer(4, 'touch'); }}>
                   <CheckIcon width={20} height={20} />
                   Easy
                 </Button>
               </div>
             ) : (
               <div className="flex w-full gap-3">
-                <Button variant="danger" size="lg" className="h-14 flex-1" onClick={() => { hapticMedium(); onAnswer(false, 'touch'); }}>
+                <Button variant="danger" size="lg" className="h-14 flex-1" onClick={() => { hapticMedium(); void onAnswer(false, 'touch'); }}>
                   <CloseIcon width={20} height={20} />
                   No
                 </Button>
-                <Button variant="primary" size="lg" className="h-14 flex-1" onClick={() => { hapticMedium(); onAnswer(true, 'touch'); }}>
+                <Button variant="primary" size="lg" className="h-14 flex-1" onClick={() => { hapticMedium(); void onAnswer(true, 'touch'); }}>
                   <CheckIcon width={20} height={20} />
                   Yes
                 </Button>
@@ -1452,7 +1454,7 @@ function FlipCard({
     swipeXMotion.set(clamped);
     const hint: 'left' | 'right' | null = clamped < -swipeThreshold / 2 ? 'left' : clamped > swipeThreshold / 2 ? 'right' : null;
     setSwipe({ x: clamped, hint });
-  }, [phase]);
+  }, [phase, swipeXMotion]);
 
   const handlePointerUp = useCallback((e: React.PointerEvent) => {
     if (!swipeRef.current.dragging) return;
@@ -1461,15 +1463,16 @@ function FlipCard({
     const dx = swipeRef.current.x;
     const wasSwipe = swipeRef.current.isSwipe;
     swipeRef.current.isSwipe = false;
-    if (wasSwipe) {        if (dx < -swipeThreshold) {
+    if (wasSwipe) {
+      if (dx < -swipeThreshold) {
         // Swipe left = No
         if (phase === 'answer') {
           hapticMedium();
           setHasSwiped(true);
-          try { localStorage.setItem('lacuna.learnHints', '1'); } catch {}
+          try { localStorage.setItem('lacuna.learnHints', '1'); } catch { /* ignore */ }
           swipeXMotion.set(0);
           setSwipe({ x: 0, hint: null });
-          onAnswer(false, 'touch');
+          void onAnswer(false, 'touch');
         } else {
           // Snap back if not in answer phase.
           swipeXMotion.set(0);
@@ -1480,10 +1483,10 @@ function FlipCard({
         if (phase === 'answer') {
           hapticMedium();
           setHasSwiped(true);
-          try { localStorage.setItem('lacuna.learnHints', '1'); } catch {}
+          try { localStorage.setItem('lacuna.learnHints', '1'); } catch { /* ignore */ }
           swipeXMotion.set(0);
           setSwipe({ x: 0, hint: null });
-          onAnswer(true, 'touch');
+          void onAnswer(true, 'touch');
         } else {
           swipeXMotion.set(0);
           setSwipe({ x: 0, hint: null });
@@ -1505,7 +1508,7 @@ function FlipCard({
         else if (phase === 'answer') onHide();
       }
     }
-  }, [phase, onReveal, onHide, onAnswer]);
+  }, [phase, onReveal, onHide, onAnswer, swipeXMotion]);
 
   const handlePointerCancel = useCallback((e: React.PointerEvent) => {
     containerRef.current?.releasePointerCapture?.(e.pointerId);
@@ -1513,7 +1516,7 @@ function FlipCard({
     swipeRef.current.isSwipe = false;
     swipeXMotion.set(0);
     setSwipe({ x: 0, hint: null });
-  }, []);
+  }, [swipeXMotion]);
 
   // Safety net: clear any lingering swipe state when the card flips back to question.
   useEffect(() => {

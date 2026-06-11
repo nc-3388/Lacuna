@@ -171,7 +171,7 @@ export function CardEditor() {
       setDuplicateWarning(dup ?? null);
     }, 600);
     return () => window.clearTimeout(duplicateTimer.current);
-  }, [loaded, deckId, type, front, back, editing, card?.id]);
+  }, [loaded, deckId, type, front, back, editing, card]);
 
   const deckPath = `/deck/${deckId}`;
 

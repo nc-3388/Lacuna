@@ -125,7 +125,7 @@ export function App() {
     if (initStarted.current) return;
     initStarted.current = true;
 
-    (async () => {
+    void (async () => {
       try {
         // Detect any pending schema upgrade and capture a committed snapshot before
         // the destructive migration runs. This must happen before the first Dexie
@@ -168,7 +168,9 @@ export function App() {
 
       setReady(true);
       // Take a daily restore point in the background; never blocks the UI.
-      void autoBackupIfStale();
+      void autoBackupIfStale().catch(() => {
+        // Background backup failures are non-fatal.
+      });
       // Warm the DeckView chunk in the background so the first deck click is instant.
       void import('./pages/DeckView').catch(() => {
         // Pre-warm failures are non-fatal; the lazy import still works on first use.

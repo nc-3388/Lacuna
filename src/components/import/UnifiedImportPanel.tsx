@@ -130,7 +130,7 @@ export function UnifiedImportPanel({
       return;
     }
     let cancelled = false;
-    (async () => {
+    void (async () => {
       try {
         const duplicates = await checkDuplicatesBatch(
           deckId,
@@ -606,7 +606,7 @@ export function UnifiedImportPanel({
         {shareMode ? (
           <Button
             variant="primary"
-            onClick={handleShareInspect}
+            onClick={() => void handleShareInspect()}
             disabled={!canShareImport}
           >
             Read code
@@ -704,7 +704,7 @@ function ShareCodeImport({
                 <Button variant="ghost" onClick={onClear}>
                   Cancel
                 </Button>
-                <Button variant="primary" onClick={onImport} disabled={importing}>
+                <Button variant="primary" onClick={() => void onImport()} disabled={importing}>
                   {importing ? 'Importing…' : 'Add to my decks'}
                 </Button>
               </div>

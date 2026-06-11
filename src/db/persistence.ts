@@ -20,7 +20,8 @@ export interface StoragePersistenceState {
 function hasStorageApi(): boolean {
   return (
     typeof navigator !== 'undefined' &&
-    navigator.storage != null &&
+    navigator.storage !== null &&
+    navigator.storage !== undefined &&
     typeof navigator.storage.persist === 'function' &&
     typeof navigator.storage.persisted === 'function'
   );

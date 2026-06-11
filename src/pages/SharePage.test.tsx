@@ -76,7 +76,7 @@ const mockDeck: Deck = {
   timeZone: 'UTC',
   createdAt: Date.now(),
   fsrsVersion: 6,
-  fsrsParameters: { requestRetention: 0.9, maximumInterval: 36500, easyBonus: 1.3, hardFactor: 0.85, w: Array(19).fill(0), enableFuzz: false, enableShortTerm: true } as any,
+  fsrsParameters: { requestRetention: 0.9, w: Array(21).fill(0) },
   examObjective: 'expectedMarks',
   lastInteractedAt: Date.now(),
 };
