@@ -22,4 +22,6 @@ export interface SessionSummary {
   limitReached: boolean;
   /** True when the session ended because the session time limit was reached. */
   timeLimitReached?: boolean;
+  /** True when this session was a simple mode (no algorithms, YES/NO only). */
+  simpleMode?: boolean;
 }

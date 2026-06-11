@@ -244,45 +244,47 @@ export function SessionReport({
           <Stat index={3} label="Focus" value={`${countFocus}%`} motionMultiplier={m} />
         </div>
 
-        {/* Grade distribution */}
-        <div className="mb-6 rounded-2xl border border-line bg-surface p-6">
-          <h3 className="mb-4 font-display text-xl">How you rated</h3>
-          <div className="h-48">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={gradeData} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
-                <XAxis
-                  dataKey="grade"
-                  stroke={c.inkFaint}
-                  tick={{ fill: c.inkFaint, fontSize: 12 }}
-                  tickLine={false}
-                />
-                <YAxis
-                  allowDecimals={false}
-                  stroke={c.inkFaint}
-                  tick={{ fill: c.inkFaint, fontSize: 11 }}
-                  tickLine={false}
-                  width={32}
-                />
-                <Tooltip
-                  cursor={{ fill: c.line, opacity: 0.4 }}
-                  contentStyle={{
-                    background: c.surface,
-                    border: `1px solid ${c.line}`,
-                    borderRadius: 10,
-                    color: c.ink,
-                    fontSize: 13,
-                  }}
-                  formatter={(v: number) => [v, 'Cards']}
-                />
-                <Bar dataKey="count" radius={[6, 6, 0, 0]}>
-                  {gradeData.map((d) => (
-                    <Cell key={d.g} fill={gradeColour(d.g)} />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
+        {/* Grade distribution — hidden in simple mode (no meaningful grades). */}
+        {!summary.simpleMode && (
+          <div className="mb-6 rounded-2xl border border-line bg-surface p-6">
+            <h3 className="mb-4 font-display text-xl">How you rated</h3>
+            <div className="h-48">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={gradeData} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
+                  <XAxis
+                    dataKey="grade"
+                    stroke={c.inkFaint}
+                    tick={{ fill: c.inkFaint, fontSize: 12 }}
+                    tickLine={false}
+                  />
+                  <YAxis
+                    allowDecimals={false}
+                    stroke={c.inkFaint}
+                    tick={{ fill: c.inkFaint, fontSize: 11 }}
+                    tickLine={false}
+                    width={32}
+                  />
+                  <Tooltip
+                    cursor={{ fill: c.line, opacity: 0.4 }}
+                    contentStyle={{
+                      background: c.surface,
+                      border: `1px solid ${c.line}`,
+                      borderRadius: 10,
+                      color: c.ink,
+                      fontSize: 13,
+                    }}
+                    formatter={(v: number) => [v, 'Cards']}
+                  />
+                  <Bar dataKey="count" radius={[6, 6, 0, 0]}>
+                    {gradeData.map((d) => (
+                      <Cell key={d.g} fill={gradeColour(d.g)} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
           </div>
-        </div>
+        )}
 
         {distractions > 0 && (
           <p className="mb-6 text-sm text-ink-soft">

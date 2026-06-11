@@ -38,6 +38,7 @@ import { SessionReport } from '../components/learn/SessionReport';
 import { useDistraction } from '../components/learn/useDistraction';
 import type { SessionEvent, SessionSummary } from '../components/learn/types';
 import { useGradingMode } from '../state/gradingMode';
+import { useStudyMode } from '../state/studyMode';
 import { useFocusTrap } from '../hooks/useFocusTrap';
 import { useShortcutBindings, keyMatches } from '../state/shortcutBindings';
 import { useMotionSpeed, speedMultiplier, type MotionSpeed } from '../state/motionSpeed';
@@ -94,6 +95,8 @@ export function LearnMode() {
   const m = speedMultiplier(motionSpeed);
   const isTouchMode = useIsTouchMode();
   const { notify } = useToast();
+  const [studyMode] = useStudyMode();
+  const isSimpleMode = studyMode === 'simple';
 
   const isGlobal = !deckId;
 
@@ -124,6 +127,10 @@ export function LearnMode() {
   const [feedback, setFeedback] = useState<'left' | 'right' | null>(null);
   const [feedbackSource, setFeedbackSource] = useState<'touch' | 'keyboard' | null>(null);
   const feedbackTimer = useRef<number | null>(null);
+  // Simple mode: queue of cards that are still unlearned (wrong or unseen).
+  const simpleQueue = useRef<Card[]>([]);
+  const simpleMastered = useRef<Set<string>>(new Set());
+  const simpleWrong = useRef<Set<string>>(new Set());
 
   // Session-only mutable state held in refs so it never triggers re-renders mid-card
   // and so the stable callbacks below always read current values (no stale closures).
@@ -179,39 +186,59 @@ export function LearnMode() {
     const value = sessionProgress(cards, ctx);
     progressCacheRef.current = { dirty: false, value };
     return value;
-  }, []);
-
-  const finish = useCallback(
+  }, []);    const finish = useCallback(
     (reachedGoal: boolean, limitReached = false, timeLimitReached = false) => {
       if (!mountedRef.current) return;
       const ctx = ctxRef.current;
-      if (!ctx) return;
       const total = distraction.sessionMs();
       const focus =
         total <= 0
           ? 1
           : Math.max(0, Math.min(1, (total - distraction.blurredMs()) / total));
+      const masteryAfter = ctx
+        ? cachedSessionProgress(cardsRef.current, ctx)
+        : progressBefore.current;
       setSummary({
         events: events.current,
         masteryBefore: progressBefore.current,
-        masteryAfter: cachedSessionProgress(cardsRef.current, ctx),
+        masteryAfter,
         objectiveLabel: objectiveLabel(),
         focusFraction: focus,
         reachedGoal,
         limitReached,
         timeLimitReached,
+        simpleMode: isSimpleMode,
       });
       setCanUndo(false);
       lastAnswer.current = null;
       if (!mountedRef.current) return;
       setPhase('finished');
     },
-    [objectiveLabel, distraction, cachedSessionProgress],
+    [objectiveLabel, distraction, cachedSessionProgress, isSimpleMode],
   );
 
   /** Present the next eligible card, or finish if the goal has been reached. */
   const serveNext = useCallback(() => {
     if (!mountedRef.current) return;
+
+    if (isSimpleMode) {
+      const remaining = simpleQueue.current.filter((c) => !simpleMastered.current.has(c.id));
+      if (remaining.length === 0) {
+        finish(true);
+        return;
+      }
+      const next = remaining[0];
+      if (!mountedRef.current) return;
+      setCurrent(next);
+      if (!mountedRef.current) return;
+      setPhase('question');
+      setMenuOpen(false);
+      timerStart.current = performance.now();
+      distraction.beginCard();
+      distraction.setAnswerVisible(false);
+      return;
+    }
+
     const ctx = ctxRef.current;
     if (!ctx) return;
     if (sessionComplete(cardsRef.current, ctx)) {
@@ -233,7 +260,7 @@ export function LearnMode() {
     distraction.setAnswerVisible(false);
     // Invalidate progress cache when moving to a new card.
     progressCacheRef.current.dirty = true;
-  }, [finish, distraction]);
+  }, [finish, distraction, isSimpleMode]);
 
   // Stable ref so the initial-load effect never re-runs just because serveNext's
   // callback identity changed (which would reset phase and undo reveal/exit).
@@ -339,7 +366,13 @@ export function LearnMode() {
       progressBefore.current = sessionProgress(cards, ctx);
       setProgress(progressBefore.current);
 
-      if (sessionComplete(cards, ctx)) {
+      if (isSimpleMode) {
+        simpleQueue.current = [...cards];
+        simpleMastered.current = new Set();
+        simpleWrong.current = new Set();
+      }
+
+      if (!isSimpleMode && sessionComplete(cards, ctx)) {
         setSummary({
           events: [],
           masteryBefore: progressBefore.current,
@@ -380,8 +413,6 @@ export function LearnMode() {
 
   const answer = useCallback(
     async (input: boolean | Grade, source: 'touch' | 'keyboard' = 'keyboard') => {
-      // Acquire the guard first so no subsequent call can slip through while we
-      // validate phase / current / ctx. Clear it on every early-return path.
       if (submitting.current) return;
       submitting.current = true;
       const phaseNow = phaseRef.current;
@@ -390,100 +421,120 @@ export function LearnMode() {
         submitting.current = false;
         return;
       }
-      const ctx = ctxRef.current;
-      const deck = decksRef.current.get(cardNow.deckId);
-      if (!ctx || !deck) {
-        submitting.current = false;
-        return;
-      }
+
       try {
-        const manualGrade: Grade | null = typeof input === 'number' ? input : null;
-      const correct: boolean = typeof input === 'number' ? input > 1 : input;
+        const correct: boolean = typeof input === 'number' ? input > 1 : input;
 
-      // Fire the feedback flash immediately, independent of the (async) DB write and
-      // of the next card mounting, so the reward always lands on the keypress.
-      if (feedbackTimer.current) window.clearTimeout(feedbackTimer.current);
-      setFeedbackSource(source);
-      setFeedback(correct ? 'right' : 'left');
-      feedbackTimer.current = window.setTimeout(() => { setFeedback(null); setFeedbackSource(null); }, Math.round(400 * m));
+        if (feedbackTimer.current) window.clearTimeout(feedbackTimer.current);
+        setFeedbackSource(source);
+        setFeedback(correct ? 'right' : 'left');
+        feedbackTimer.current = window.setTimeout(() => { setFeedback(null); setFeedbackSource(null); }, Math.round(400 * m));
 
-      const t = responseTime.current;
-      const distracted = distraction.wasDistracted();
-      const perf = perfRef.current.get(deck.id);
-      const grade: Grade = manualGrade ?? gradeFromResponse(correct, t, perf);
+        const t = responseTime.current;
+        const distracted = distraction.wasDistracted();
 
-      // Snapshot pre-review state for single-step undo.
-      const cooldownsSnapshot = new Map(cooldowns.current);
-      const eventsLen = events.current.length;
-      const progressSnapshot = cachedSessionProgress(cardsRef.current, ctx);
-      const perfBefore = perf ?? null;
+        if (isSimpleMode) {
+          const grade: Grade = correct ? 3 : 1;
+          events.current = [...events.current, { grade, correct, responseTimeSec: t, distracted }];
 
-      const { card: updated, sessionHistoryId } = await recordReview({
-        card: cardNow,
-        deck,
-        grade,
-        responseTimeSec: t,
-        distracted,
-        correct,
-      });
+          if (correct) {
+            simpleMastered.current.add(cardNow.id);
+            simpleWrong.current.delete(cardNow.id);
+          } else {
+            simpleWrong.current.add(cardNow.id);
+            // Re-queue the card at the end so it comes back later.
+            simpleQueue.current = [...simpleQueue.current.filter((c) => c.id !== cardNow.id), cardNow];
+          }
 
-      if (correct && perf) {
-        perfRef.current.set(deck.id, updatePerformance(perf, t));
-      }
+          const remaining = simpleQueue.current.filter((c) => !simpleMastered.current.has(c.id)).length;
+          const total = simpleQueue.current.length;
+          const mastered = simpleMastered.current.size;
+          setProgress(total > 0 ? mastered / total : 1);
 
-      const nextCards = cardsRef.current.map((c) => (c.id === updated.id ? updated : c));
-      cardsRef.current = nextCards;
-
-      // Cooldown bookkeeping: failed cards wait; every other card's cooldown decays.
-      // Scale the cooldown to the card's own deck size.
-      if (grade === 1) {
-        const deckSize = nextCards.filter((c) => c.deckId === deck.id).length;
-        applyCooldown(cooldowns.current, updated.id, deckSize);
-      }
-      decrementCooldowns(cooldowns.current, updated.id);
-
-      events.current = [...events.current, { grade, correct, responseTimeSec: t, distracted }];
-
-      // Increment the per-deck review counter.
-      const deckReviews = (reviewsByDeck.current.get(deck.id) ?? 0) + 1;
-      reviewsByDeck.current.set(deck.id, deckReviews);
-
-      lastAnswer.current = {
-        undo: { cardBefore: cardNow, perfBefore, sessionHistoryId, deckId: deck.id },
-        cooldowns: cooldownsSnapshot,
-        progressBefore: progressSnapshot,
-        eventsLen,
-        deckId: deck.id,
-        deckReviews,
-      };
-      setCanUndo(true);
-
-      progressCacheRef.current.dirty = true;
-      setProgress(cachedSessionProgress(nextCards, ctx));
-
-      // Check whether this deck has reached its daily review limit.
-      const limit = deck.maxReviewsPerDay;
-      if (!limitOverride && limit && limit > 0 && deckReviews >= limit) {
-        finish(false, true);
-        return;
-      }
-
-      // Check whether this deck has reached its daily review goal.
-      const goal = deck.dailyReviewGoal;
-      if (!limitOverride && goal && goal > 0 && deckReviews >= goal) {
-        finish(true);
-        return;
-      }
-
-      // Check whether the session time limit has been exceeded.
-      const timeLimit = deck.sessionTimeLimitMinutes;
-      if (!timeLimitOverride && timeLimit && timeLimit > 0 && sessionStartMs.current > 0) {
-        const elapsedMinutes = (Date.now() - sessionStartMs.current) / 60000;
-        if (elapsedMinutes >= timeLimit) {
-          finish(false, false, true);
+          if (remaining === 0) {
+            finish(true);
+          } else {
+            serveNext();
+          }
           return;
         }
-      }
+
+        const ctx = ctxRef.current;
+        const deck = decksRef.current.get(cardNow.deckId);
+        if (!ctx || !deck) {
+          submitting.current = false;
+          return;
+        }
+
+        const manualGrade: Grade | null = typeof input === 'number' ? input : null;
+        const perf = perfRef.current.get(deck.id);
+        const grade: Grade = manualGrade ?? gradeFromResponse(correct, t, perf);
+
+        const cooldownsSnapshot = new Map(cooldowns.current);
+        const eventsLen = events.current.length;
+        const progressSnapshot = cachedSessionProgress(cardsRef.current, ctx);
+        const perfBefore = perf ?? null;
+
+        const { card: updated, sessionHistoryId } = await recordReview({
+          card: cardNow,
+          deck,
+          grade,
+          responseTimeSec: t,
+          distracted,
+          correct,
+        });
+
+        if (correct && perf) {
+          perfRef.current.set(deck.id, updatePerformance(perf, t));
+        }
+
+        const nextCards = cardsRef.current.map((c) => (c.id === updated.id ? updated : c));
+        cardsRef.current = nextCards;
+
+        if (grade === 1) {
+          const deckSize = nextCards.filter((c) => c.deckId === deck.id).length;
+          applyCooldown(cooldowns.current, updated.id, deckSize);
+        }
+        decrementCooldowns(cooldowns.current, updated.id);
+
+        events.current = [...events.current, { grade, correct, responseTimeSec: t, distracted }];
+
+        const deckReviews = (reviewsByDeck.current.get(deck.id) ?? 0) + 1;
+        reviewsByDeck.current.set(deck.id, deckReviews);
+
+        lastAnswer.current = {
+          undo: { cardBefore: cardNow, perfBefore, sessionHistoryId, deckId: deck.id },
+          cooldowns: cooldownsSnapshot,
+          progressBefore: progressSnapshot,
+          eventsLen,
+          deckId: deck.id,
+          deckReviews,
+        };
+        setCanUndo(true);
+
+        progressCacheRef.current.dirty = true;
+        setProgress(cachedSessionProgress(nextCards, ctx));
+
+        const limit = deck.maxReviewsPerDay;
+        if (!limitOverride && limit && limit > 0 && deckReviews >= limit) {
+          finish(false, true);
+          return;
+        }
+
+        const goal = deck.dailyReviewGoal;
+        if (!limitOverride && goal && goal > 0 && deckReviews >= goal) {
+          finish(true);
+          return;
+        }
+
+        const timeLimit = deck.sessionTimeLimitMinutes;
+        if (!timeLimitOverride && timeLimit && timeLimit > 0 && sessionStartMs.current > 0) {
+          const elapsedMinutes = (Date.now() - sessionStartMs.current) / 60000;
+          if (elapsedMinutes >= timeLimit) {
+            finish(false, false, true);
+            return;
+          }
+        }
 
         if (sessionComplete(nextCards, ctx)) finish(true);
         else serveNext();
@@ -491,7 +542,7 @@ export function LearnMode() {
         submitting.current = false;
       }
     },
-    [distraction, finish, serveNext, cachedSessionProgress, limitOverride, m],
+    [distraction, finish, serveNext, cachedSessionProgress, limitOverride, m, isSimpleMode],
   );
 
   const undoLast = useCallback(async () => {
@@ -545,11 +596,14 @@ export function LearnMode() {
       cardsRef.current = cardsRef.current.map((c) =>
         c.id === current.id ? { ...c, suspended: true } : c,
       );
+      if (isSimpleMode) {
+        simpleQueue.current = simpleQueue.current.filter((c) => c.id !== current.id);
+      }
       afterRemoval();
     } catch (err) {
       notify(err instanceof Error ? err.message : 'Could not suspend the card.', 'negative');
     }
-  }, [current, afterRemoval, notify]);
+  }, [current, afterRemoval, notify, isSimpleMode]);
 
   const buryCurrent = useCallback(async () => {
     if (!current) return;
@@ -559,11 +613,14 @@ export function LearnMode() {
       cardsRef.current = cardsRef.current.map((c) =>
         c.id === current.id ? { ...c, buriedUntil: until } : c,
       );
+      if (isSimpleMode) {
+        simpleQueue.current = simpleQueue.current.filter((c) => c.id !== current.id);
+      }
       afterRemoval();
     } catch (err) {
       notify(err instanceof Error ? err.message : 'Could not bury the card.', 'negative');
     }
-  }, [current, afterRemoval, notify]);
+  }, [current, afterRemoval, notify, isSimpleMode]);
 
   /** Open the in-session editor, pausing the response timer while it is open. */
   const openEdit = useCallback(() => {
@@ -723,7 +780,9 @@ export function LearnMode() {
   }
 
   let headerTitle = singleDeck ? singleDeck.name : 'Today · all decks';
-  if (singleDeck && cramMode) {
+  if (singleDeck && isSimpleMode) {
+    headerTitle = `${singleDeck.name} · Simple learn`;
+  } else if (singleDeck && cramMode) {
     headerTitle = `${singleDeck.name} · Cram mode`;
   } else if (singleDeck && filterParams.length > 0) {
     const labels = filterParams.map((f) => {
@@ -756,18 +815,31 @@ export function LearnMode() {
               summary={summary}
               onReturn={backOut}
               onContinue={
-                summary.reachedGoal && !summary.limitReached && !summary.timeLimitReached
-                  ? undefined
-                  : () => {
-                      const ctx = ctxRef.current;
-                      if (!ctx) return;
-                      events.current = [];
-                      progressBefore.current = cachedSessionProgress(cardsRef.current, ctx);
-                      setSummary(null);
-                      setLimitOverride(true);
-                      setTimeLimitOverride(true);
-                      serveNext();
-                    }
+                summary.reachedGoal && !summary.limitReached && !summary.timeLimitReached && !summary.simpleMode
+                  ? undefined                    : summary.simpleMode
+                    ? () => {
+                        // Restart simple mode: reset all simple state and begin again.
+                        simpleMastered.current = new Set();
+                        simpleWrong.current = new Set();
+                        simpleQueue.current = cardsRef.current.filter(
+                          (c) => !c.suspended && !(c.buriedUntil && c.buriedUntil > Date.now()),
+                        );
+                        events.current = [];
+                        progressBefore.current = 0;
+                        setSummary(null);
+                        setProgress(0);
+                        serveNext();
+                      }
+                    : () => {
+                        const ctx = ctxRef.current;
+                        if (!ctx) return;
+                        events.current = [];
+                        progressBefore.current = cachedSessionProgress(cardsRef.current, ctx);
+                        setSummary(null);
+                        setLimitOverride(true);
+                        setTimeLimitOverride(true);
+                        serveNext();
+                      }
               }
             />
           </motion.div>
@@ -978,6 +1050,18 @@ export function LearnMode() {
       </header>
       )}
 
+      {/* Pill UI for simple mode */}
+      {isSimpleMode && phase !== 'finished' && (
+        <div className="mx-auto mt-4 flex w-full max-w-3xl items-center gap-3 px-6">
+          <span className="text-xs text-ink-faint">Progress:</span>
+          <div className="flex flex-1 gap-2">
+            <Pill label="Wrong" count={simpleWrong.current.size} colour="negative" />
+            <Pill label="Remaining" count={simpleQueue.current.filter((c) => !simpleMastered.current.has(c.id)).length} colour="neutral" />
+            <Pill label="Right" count={simpleMastered.current.size} colour="positive" />
+          </div>
+        </div>
+      )}
+
       {/* Card */}      <main className={`mx-auto flex w-full max-w-3xl flex-1 flex-col px-6 py-8 ${isTouchMode ? 'pb-40' : ''}`}>
         {current && (
           <FlipCard
@@ -1135,6 +1219,35 @@ function buttonReveal(m: number) {
     hidden: { opacity: 0, y: 12, scale: 0.96 },
     visible: { opacity: 1, y: 0, scale: 1, transition: { duration: 0.18 * m, ease: [0.16, 1, 0.3, 1] } },
   };
+}
+
+function Pill({
+  label,
+  count,
+  colour,
+}: {
+  label: string;
+  count: number;
+  colour: 'negative' | 'neutral' | 'positive';
+}) {
+  const bgClass =
+    colour === 'negative'
+      ? 'bg-negative/15 text-negative'
+      : colour === 'positive'
+        ? 'bg-positive/15 text-positive'
+        : 'bg-ink/10 text-ink-soft';
+  return (
+    <motion.div
+      key={`${label}-${count}`}
+      initial={{ scale: 0.95, opacity: 0.8 }}
+      animate={{ scale: 1, opacity: 1 }}
+      transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+      className={`flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ${bgClass}`}
+    >
+      <span>{label}</span>
+      <span className="tabular">{count}</span>
+    </motion.div>
+  );
 }
 
 function NavSidebar({ open, onClose }: { open: boolean; onClose: () => void }) {

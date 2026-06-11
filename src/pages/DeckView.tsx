@@ -46,6 +46,7 @@ import {
   SearchIcon,
   SettingsIcon,
   SparklesIcon,
+  CheckIcon,
 } from '../components/ui/icons';
 import { searchCards, type CardFilter } from '../db/search';
 import { cn } from '../components/ui/cn';
@@ -473,6 +474,14 @@ export function DeckView() {
                       icon={<PlayIcon width={16} height={16} />}
                       label="Study all cards"
                       onClick={() => { setStudyMenuOpen(false); startStudy(); }}
+                    />
+                    <StudyMenuItem
+                      icon={<CheckIcon width={16} height={16} />}
+                      label="Simple learn"
+                      onClick={() => {
+                        setStudyMenuOpen(false);
+                        navigate(`${studyPath}${visibleTag ? '&' : '?'}mode=simple`);
+                      }}
                     />
                     <StudyMenuItem
                       icon={<FlameIcon width={16} height={16} />}
