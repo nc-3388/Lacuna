@@ -9,3 +9,10 @@ dist/
 # Electron
 /release/
 electron/dist-electron/
+
+# wrangler files
+.wrangler
+.dev.vars*
+!.dev.vars.example
+.env*
+!.env.example

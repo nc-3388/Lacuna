@@ -4,6 +4,8 @@ import tailwindcss from '@tailwindcss/vite';
 import { VitePWA } from 'vite-plugin-pwa';
 import { version } from './package.json';
 
+import { cloudflare } from "@cloudflare/vite-plugin";
+
 // Cross-origin isolation headers required by the FSRS WASM trainer worker.
 const crossOriginIsolationHeaders = {
   'Cross-Origin-Opener-Policy': 'same-origin',
@@ -12,34 +14,30 @@ const crossOriginIsolationHeaders = {
 
 // Lacuna is a static, serverless single-page application.
 export default defineConfig({
-  plugins: [
-    react(),
-    tailwindcss(),
-    VitePWA({
-      registerType: 'autoUpdate',
-      manifest: false, // Use the custom manifest in public/
-      workbox: {
-        globPatterns: [
-          '**/*.{js,css,html,ico,png,svg,woff,woff2,ttf,otf,wasm}',
-        ],
-        // Ensure the FSRS WASM module is cached for offline use.
-        runtimeCaching: [
-          {
-            urlPattern: /^.*\.wasm$/i,
-            handler: 'CacheFirst',
-            options: {
-              cacheName: 'wasm-cache',
-              expiration: { maxEntries: 5, maxAgeSeconds: 60 * 60 * 24 * 365 },
-              cacheableResponse: { statuses: [0, 200] },
-            },
+  plugins: [react(), tailwindcss(), VitePWA({
+    registerType: 'autoUpdate',
+    manifest: false, // Use the custom manifest in public/
+    workbox: {
+      globPatterns: [
+        '**/*.{js,css,html,ico,png,svg,woff,woff2,ttf,otf,wasm}',
+      ],
+      // Ensure the FSRS WASM module is cached for offline use.
+      runtimeCaching: [
+        {
+          urlPattern: /^.*\.wasm$/i,
+          handler: 'CacheFirst',
+          options: {
+            cacheName: 'wasm-cache',
+            expiration: { maxEntries: 5, maxAgeSeconds: 60 * 60 * 24 * 365 },
+            cacheableResponse: { statuses: [0, 200] },
           },
-        ],
-      },
-      devOptions: {
-        enabled: true,
-      },
-    }),
-  ],
+        },
+      ],
+    },
+    devOptions: {
+      enabled: true,
+    },
+  }), cloudflare()],
   server: {
     port: 5173,
     headers: crossOriginIsolationHeaders,
