@@ -34,6 +34,7 @@ import { useMotionSpeed, speedMultiplier } from '../../state/motionSpeed';
 import { useIsTouchMode } from '../../state/inputMode';
 import { useVirtualList } from '../../hooks/useVirtualList';
 import type { ParsedCard } from '../../db/import';
+import { importApkgResult, type ApkgImportResult } from '../../db/apkgImport';
 import type { Card, Deck } from '../../db/types';
 
 interface CardListProps {
@@ -193,6 +194,12 @@ export function CardList({ cards, deck, allDecks, onNewCard, onEditCard }: CardL
     notify(`${cards.length} card${cards.length === 1 ? '' : 's'} imported.`, 'positive');
   }
 
+  async function handleApkgImport(result: ApkgImportResult) {
+    await importApkgResult(result, deck.id);
+    setImporting(false);
+    notify(`${result.cards.length} card${result.cards.length === 1 ? '' : 's'} imported from Anki.`, 'positive');
+  }
+
   const handleResume = useCallback(async (card: Card) => {
     const snapshot = await snapshotCards([card.id]);
     await unsuspendCard(card.id);
@@ -285,6 +292,7 @@ export function CardList({ cards, deck, allDecks, onNewCard, onEditCard }: CardL
                 onImport={handleImport}
                 onCancel={() => setImporting(false)}
                 importLabel="Add cards"
+                onApkgImport={handleApkgImport}
               />
             </div>
           </motion.div>

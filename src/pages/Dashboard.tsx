@@ -27,6 +27,7 @@ import { FolderIcon } from '../components/ui/icons';
 import { UnifiedImportPanel } from '../components/import/UnifiedImportPanel';
 import { CheckIcon, ChevronDownIcon, FlaskIcon, MergeIcon, PlayIcon, PlusIcon, TrashIcon } from '../components/ui/icons';
 import type { ParsedCard } from '../db/import';
+import { importApkgResult, type ApkgImportResult } from '../db/apkgImport';
 import { relativeExam } from '../utils/datetime';
 import { progressNoun } from '../fsrs/objective';
 import { cn } from '../components/ui/cn';
@@ -133,6 +134,18 @@ export function Dashboard() {
     setNewColour(undefined);
     setCreating(false);
     notify(`Deck created with ${cards.length} card${cards.length === 1 ? '' : 's'}.`, 'positive');
+    navigate(`/deck/${deck.id}`);
+  }
+
+  async function handleApkgImportNew(result: ApkgImportResult) {
+    const { deck } = await importApkgResult(result);
+    if (newColour) {
+      await updateDeck(deck.id, { colour: newColour });
+    }
+    setNewName('');
+    setNewColour(undefined);
+    setCreating(false);
+    notify(`Deck created with ${result.cards.length} card${result.cards.length === 1 ? '' : 's'} from Anki.`, 'positive');
     navigate(`/deck/${deck.id}`);
   }
 
@@ -529,6 +542,7 @@ export function Dashboard() {
                     onImport={handleImportNew}
                     onCancel={() => setCreating(false)}
                     importLabel="Create & import"
+                    onApkgImport={handleApkgImportNew}
                   />
                 </div>
               )}

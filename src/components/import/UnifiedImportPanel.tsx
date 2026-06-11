@@ -18,6 +18,7 @@ import {
   type UnifiedImportOptions,
 } from '../../db/importEngine';
 import { checkDuplicatesBatch } from '../../db/repository';
+import { parseApkg, type ApkgImportResult } from '../../db/apkgImport';
 import {
   decodeShare,
   importSharePayload,
@@ -43,6 +44,8 @@ interface UnifiedImportPanelProps {
   onShareImport?: (decks: number, cards: number) => void | Promise<void>;
   /** When provided, the panel checks parsed cards against existing cards in this deck and warns about duplicates. */
   deckId?: string;
+  /** Called when an Anki .apkg file is parsed and confirmed. */
+  onApkgImport?: (result: ApkgImportResult) => void | Promise<void>;
 }
 
 // ---------------------------------------------------------------------------
@@ -54,9 +57,10 @@ const MAX_IMPORT_CHARS = 500_000;
 
 const ACCEPTED_FILE_TYPES = [
   '.csv', '.tsv', '.txt', '.json', '.md', '.markdown',
-  '.html', '.xml',
+  '.html', '.xml', '.apkg',
   'text/csv', 'text/plain', 'text/tab-separated-values',
   'application/json', 'text/markdown', 'text/html',
+  'application/octet-stream',
 ].join(',');
 
 // ---------------------------------------------------------------------------
@@ -85,6 +89,7 @@ export function UnifiedImportPanel({
   showShareImport = false,
   onShareImport,
   deckId,
+  onApkgImport,
 }: UnifiedImportPanelProps) {
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
@@ -102,6 +107,11 @@ export function UnifiedImportPanel({
     raw: string;
   } | null>(null);
   const [shareImporting, setShareImporting] = useState(false);
+
+  // APKG state.
+  const [apkgPending, setApkgPending] = useState<ApkgImportResult | null>(null);
+  const [apkgImporting, setApkgImporting] = useState(false);
+  const [apkgError, setApkgError] = useState<string | null>(null);
 
   // Auto-detect format (only when text is short enough for fast detection).
   const detection = useMemo(() => {
@@ -202,10 +212,23 @@ export function UnifiedImportPanel({
 
   const handleFile = useCallback(async (file: File | undefined) => {
     if (!file) return;
+    // Detect APKG by extension or MIME type.
+    const isApkg = file.name.endsWith('.apkg') || file.type === 'application/octet-stream';
+    if (isApkg && onApkgImport) {
+      setApkgError(null);
+      setApkgPending(null);
+      try {
+        const result = await parseApkg(file, { importScheduling: true });
+        setApkgPending(result);
+      } catch (err) {
+        setApkgError(err instanceof Error ? err.message : 'Could not read APKG file.');
+      }
+      return;
+    }
     const content = await file.text();
     setText(content);
     setFormatOverride(null);
-  }, []);
+  }, [onApkgImport]);
 
   // ---- Drag and drop ----
 
@@ -233,6 +256,22 @@ export function UnifiedImportPanel({
     },
     [handleFile],
   );
+
+  // ---- APKG handling ----
+
+  async function handleApkgImport() {
+    if (!apkgPending) return;
+    setApkgImporting(true);
+    try {
+      await onApkgImport?.(apkgPending);
+      setApkgPending(null);
+      setApkgError(null);
+    } catch (err) {
+      setApkgError(err instanceof Error ? err.message : 'Import failed.');
+    } finally {
+      setApkgImporting(false);
+    }
+  }
 
   // ---- Share code handling ----
 
@@ -288,6 +327,7 @@ export function UnifiedImportPanel({
   const hasText = text.trim().length > 0;
   const canImport = result.cards.length > 0 && result.cards.length <= MAX_IMPORT_ROWS;
   const canShareImport = shareMode && hasText;
+  const canApkgImport = apkgPending !== null && apkgPending.cards.length > 0;
 
   return (
     <div className="flex flex-col gap-4">
@@ -596,14 +636,69 @@ export function UnifiedImportPanel({
         </>
       )}
 
+      {/* APKG preview */}
+      <AnimatePresence>
+        {apkgPending && (
+          <motion.div
+            initial={{ opacity: 0, y: 8, height: 0 }}
+            animate={{ opacity: 1, y: 0, height: 'auto' }}
+            exit={{ opacity: 0, y: -6, height: 0 }}
+            transition={{ duration: 0.2 * m, ease: [0.16, 1, 0.3, 1] }}
+            className="overflow-hidden rounded-2xl border border-accent/30 bg-accent-soft/30 p-5 shadow-sm shadow-accent/5"
+          >
+            <h3 className="mb-2 font-display text-lg font-medium text-ink">Anki package ready</h3>
+            <p className="mb-3 text-sm leading-relaxed text-ink-soft">
+              <strong className="text-ink">{apkgPending.cards.length}</strong> card
+              {apkgPending.cards.length === 1 ? '' : 's'} from{' '}
+              <strong className="text-ink">{apkgPending.deckName}</strong>{' '}
+              will be imported with scheduling history.
+            </p>
+            {apkgPending.skippedNotes > 0 && (
+              <p className="mb-2 text-xs text-ink-faint">
+                {apkgPending.skippedNotes} unsupported note type{apkgPending.skippedNotes === 1 ? '' : 's'} skipped.
+              </p>
+            )}
+            {apkgPending.media.size > 0 && (
+              <p className="mb-2 text-xs text-ink-faint">
+                {apkgPending.media.size} image{apkgPending.media.size === 1 ? '' : 's'} will be imported.
+              </p>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* APKG error */}
+      <AnimatePresence>
+        {apkgError && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            className="overflow-hidden"
+          >
+            <div className="rounded-2xl border border-negative/30 bg-negative/5 px-4 py-3 text-sm text-negative">
+              {apkgError}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Action buttons */}
       <div className="flex justify-end gap-2 pt-1">
         {onCancel && (
-          <Button variant="ghost" onClick={onCancel} disabled={busy}>
+          <Button variant="ghost" onClick={onCancel} disabled={busy || apkgImporting}>
             Cancel
           </Button>
         )}
-        {shareMode ? (
+        {apkgPending ? (
+          <Button
+            variant="primary"
+            onClick={() => void handleApkgImport()}
+            disabled={apkgImporting || !canApkgImport}
+          >
+            {apkgImporting ? 'Importing…' : `Import APKG (${apkgPending.cards.length})`}
+          </Button>
+        ) : shareMode ? (
           <Button
             variant="primary"
             onClick={() => void handleShareInspect()}
