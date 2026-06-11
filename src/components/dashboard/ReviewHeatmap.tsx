@@ -80,40 +80,58 @@ export function ReviewHeatmap({ cards }: { cards: Card[] }) {
         </span>
       </div>
       <div className="flex gap-2 overflow-x-auto pb-1">
-        <div className="flex flex-col gap-[3px] pt-[2px] text-[10px] text-ink-faint">
+        <div className="flex flex-col gap-[3px] text-[10px] text-ink-faint">
           {WEEKDAY_LABELS.map((label, i) => (
             <span key={i} className="h-[12px] leading-[12px]">
               {label}
             </span>
           ))}
         </div>
-        <div className="flex gap-[3px]">
-          {columns.map((col, w) => (
-            <motion.div
-              key={w}
-              initial={{ opacity: 0, scaleY: 0.8 }}
-              animate={{ opacity: 1, scaleY: 1 }}
-              transition={{
-                duration: 0.16 * m,
-                delay: Math.min(w * 0.015, 0.3) * m,
-                ease: [0.25, 0.1, 0.25, 1],
-              }}
-              className="flex flex-col gap-[3px] origin-top"
-            >
-              {col.map((cell) => (
-                <span
-                  key={cell.day}
-                  className="h-[12px] w-[12px] rounded-[2px]"
-                  style={cellStyle(cell)}
-                  title={
-                    cell.future
-                      ? undefined
-                      : `${cell.count} review${cell.count === 1 ? '' : 's'} on ${formatDate(cell.day)}`
-                  }
-                />
-              ))}
-            </motion.div>
-          ))}
+        <div className="flex flex-col gap-[3px]">
+          {/* Month labels: show a short month name on the first column of each
+              new month so the calendar is readable without a separate legend. */}
+          <div className="flex gap-[3px] h-[12px] text-[10px] text-ink-faint">
+            {columns.map((col, w) => {
+              const firstDay = new Date(col[0].day);
+              const prev = w > 0 ? new Date(columns[w - 1][0].day) : null;
+              const isNewMonth = !prev || firstDay.getMonth() !== prev.getMonth();
+              return (
+                <span key={w} className="w-[12px] shrink-0 leading-[12px]">
+                  {isNewMonth
+                    ? firstDay.toLocaleDateString('en-GB', { month: 'short' })
+                    : ''}
+                </span>
+              );
+            })}
+          </div>
+          <div className="flex gap-[3px]">
+            {columns.map((col, w) => (
+              <motion.div
+                key={w}
+                initial={{ opacity: 0, scaleY: 0.8 }}
+                animate={{ opacity: 1, scaleY: 1 }}
+                transition={{
+                  duration: 0.16 * m,
+                  delay: Math.min(w * 0.015, 0.3) * m,
+                  ease: [0.25, 0.1, 0.25, 1],
+                }}
+                className="flex flex-col gap-[3px] origin-top"
+              >
+                {col.map((cell) => (
+                  <span
+                    key={cell.day}
+                    className="h-[12px] w-[12px] rounded-[2px]"
+                    style={cellStyle(cell)}
+                    title={
+                      cell.future
+                        ? undefined
+                        : `${cell.count} review${cell.count === 1 ? '' : 's'} on ${formatDate(cell.day)}`
+                    }
+                  />
+                ))}
+              </motion.div>
+            ))}
+          </div>
         </div>
       </div>
       <div className="mt-3 flex items-center justify-end gap-1.5 text-[10px] text-ink-faint">
