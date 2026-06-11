@@ -1,6 +1,6 @@
-# Lacuna — version 0.0.3
+# Lacuna — version 0.0.2
 
-> **GitHub Release Note for v0.0.3**
+> **GitHub Release Note for v0.0.2**
 >
 > This patch release expands test coverage to page-level flows, adds virtualisation for large card lists, and polishes mobile gesture interactions.
 >
@@ -17,7 +17,7 @@
 >
 > **Full changelog below**
 
-## 0.0.3 — Page-level tests, card list virtualisation, and mobile gesture polish
+## 0.0.2 — Page-level tests, card list virtualisation, and mobile gesture polish
 
 - Added page-level integration tests:
   - `CardList.test.tsx`: empty state, card rendering, select mode, selection toggling, card expansion, import panel, new card button.

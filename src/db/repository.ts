@@ -235,6 +235,15 @@ export async function moveDeckToFolder(deckId: string, folderId: string | null):
   }
 }
 
+/** Move a folder into (or out of) another folder. Pass null to move to top level. */
+export async function moveFolder(folderId: string, parentId: string | null): Promise<void> {
+  try {
+    await db.folders.update(folderId, { parentId });
+  } catch (err) {
+    throw friendlyDbError(err);
+  }
+}
+
 /** Move many decks into (or out of) a folder at once. */
 export async function moveDecksToFolder(deckIds: string[], folderId: string | null): Promise<void> {
   await db.transaction('rw', db.decks, async () => {
