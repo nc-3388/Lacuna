@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { AnimatePresence, m as motion, useMotionValue, useSpring, useTransform } from 'motion/react';
+import { AnimatePresence, LayoutGroup, m as motion, useMotionValue, useSpring, useTransform } from 'motion/react';
 import { useDashboardData, useFolders } from '../state/useData';
 import { useDashboardSort, type DashboardSort } from '../state/dashboardSort';
 import { StudySignals } from '../components/dashboard/StudySignals';
@@ -614,11 +614,11 @@ export function Dashboard() {
       ) : decks.length === 0 ? (
         <EmptyState onCreate={startCreating} motionMultiplier={m} />
       ) : (
-        <>
+        <LayoutGroup>
           {/* Ungrouped decks */}
           {ungroupedDecks.length > 0 && (
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {ungroupedDecks.map((deck, index) => (
+              {ungroupedDecks.map((deck) => (
                 <motion.div
                   key={deck.id}
                   layout
@@ -627,8 +627,7 @@ export function Dashboard() {
                   animate={{ opacity: 1, y: 0 }}
                   transition={{
                     duration: 0.24 * m,
-                    delay: Math.min(index * 0.04, 0.2) * m,
-                    layout: { duration: 0.18 * m, ease: [0.16, 1, 0.3, 1] },
+                    layout: { duration: 0.22 * m, ease: [0.16, 1, 0.3, 1] },
                   }}
                 >
                   <DeckCard
@@ -734,7 +733,7 @@ export function Dashboard() {
                       className="overflow-hidden"
                     >
                       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                        {folderDecks.map((deck, index) => (
+                        {folderDecks.map((deck) => (
                           <motion.div
                             key={deck.id}
                             layout
@@ -743,8 +742,7 @@ export function Dashboard() {
                             animate={{ opacity: 1, y: 0 }}
                             transition={{
                               duration: 0.24 * m,
-                              delay: Math.min(index * 0.04, 0.2) * m,
-                              layout: { duration: 0.18 * m, ease: [0.16, 1, 0.3, 1] },
+                              layout: { duration: 0.22 * m, ease: [0.16, 1, 0.3, 1] },
                             }}
                           >
                             <DeckCard
@@ -772,6 +770,8 @@ export function Dashboard() {
 
           {archivedDecks.length > 0 && (
             <motion.section
+              key="archived"
+              layout
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.24 * m, delay: 0.1 * m, ease: [0.16, 1, 0.3, 1] }}
@@ -781,7 +781,7 @@ export function Dashboard() {
                 Archived
               </h2>
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {archivedDecks.map((deck, index) => (
+                {archivedDecks.map((deck) => (
                   <motion.div
                     key={deck.id}
                     layout
@@ -790,8 +790,7 @@ export function Dashboard() {
                     animate={{ opacity: 1, y: 0 }}
                     transition={{
                       duration: 0.24 * m,
-                      delay: Math.min(index * 0.04, 0.2) * m,
-                      layout: { duration: 0.18 * m, ease: [0.16, 1, 0.3, 1] },
+                      layout: { duration: 0.22 * m, ease: [0.16, 1, 0.3, 1] },
                     }}
                   >
                     <DeckCard
@@ -812,7 +811,7 @@ export function Dashboard() {
               </div>
             </motion.section>
           )}
-        </>
+        </LayoutGroup>
       )}
 
       {/* Review activity heatmap, for anyone arriving from Anki */}
