@@ -1,3 +1,50 @@
+# Lacuna — version 0.0.3
+
+> **GitHub Release Note for v0.0.3**
+>
+> This release adds a new algorithm-free study mode, formal card types, and polishes the touch-first experience.
+>
+> **What's new**
+> - **Simple learn mode** — a YES/NO-only study loop with no FSRS algorithms, no DB writes, and a live pill UI (Wrong/Remaining/Right). Perfect for pure memorisation without scheduling.
+> - **Card types** — cards can now be Basic (front/back), Reversed (back/front), or Typing-answer (type the answer before revealing). The typing card shows a live input field and compares the typed answer against the correct answer on reveal.
+> - **Touch-first polish** — default font size auto-switches to Large in touch mode, swipe gestures are configurable in settings, and the text selection focus ring is cleaned up.
+> - **Study options dropdown** — every deck now offers Simple learn, Cram mode, Due cards, New cards, Leech cards, and Flagged cards from a single menu.
+> - **Folder deletion** — folders can now be deleted from the dashboard with a confirmation dialog.
+> - **Share code importing** — fixed Base45 whitespace stripping that corrupted share code decoding for both legacy and compressed formats.
+>
+> **Bug fixes**
+> - Fixed internal text selection ring overlapping the external focus ring.
+> - Fixed share code import showing 0 cards due to Base45 whitespace corruption.
+> - Fixed folder deletion missing from the dashboard.
+> - Fixed touch mode not defaulting to Large font size.
+> - Fixed gesture settings not persisting correctly.
+>
+> **Full changelog below**
+
+## 0.0.3 — Simple learn mode, card types, and touch-first polish
+
+- Added `useStudyMode` hook (`src/state/studyMode.ts`) with `fsrs` and `simple` modes, persisted to `localStorage`.
+- Added Simple learn mode to LearnMode: no FSRS scheduling, no DB writes, YES/NO only. Wrong cards are re-queued at the end of the deck and loop until all cards are marked YES.
+- Added live pill UI in Simple learn mode showing Wrong (red), Remaining (grey), and Right (green) counts that update on every answer.
+- SessionReport skips the grade-distribution chart in Simple mode since grades are not meaningful.
+- Added `simpleMode` flag to `SessionSummary` and `SessionReport` for mode-aware reporting.
+- Added card type selector in CardEditor and CardEditOverlay: Basic (front/back), Reversed (back/front), and Typing-answer.
+- Added `answer` field to Card type for typing-answer cards.
+- Updated `createCard` and `createCardForDeck` in repository.ts to accept and persist `cardType` and `answer`.
+- Updated CardContent to render a typing-answer input field during the question phase and compare answers on reveal.
+- Updated CardEditor and CardEditOverlay with card type selector (dropdown) and conditional answer field for typing cards.
+- Added "Simple learn" to the existing DeckView study dropdown menu (alongside Cram, Due, New, Leech, and Flagged).
+- Fixed Base45 whitespace stripping in share.ts — the Base45 alphabet includes space as a valid character, so stripping all whitespace corrupted the encoding. Only strip whitespace for legacy base64 (LAC0/LAC1) formats.
+- Fixed internal box-shadow ring on `input:focus-visible` in `index.css` so only the external `:focus-visible` ring applies.
+- Added folder delete confirmation dialog in Dashboard with AnimatePresence.
+- Auto-set font scale to Large (1.15) when switching to touch mode from default (1.0); never clobber explicit choices when switching to keyboard mode.
+- Wired `lacuna:font-scale` custom event from `inputMode.ts` to `FontScaleContext` so the Settings page reflects the change immediately.
+- Added gesture settings (swipe left/right action mapping) in Settings and wired them into Dashboard card swipes.
+- Fixed 10 ESLint errors across Dashboard, DeckSettings, and LearnMode.
+- TypeScript is clean; 332 tests pass.
+
+---
+
 # Lacuna — version 0.0.2
 
 > **GitHub Release Note for v0.0.2**

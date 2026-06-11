@@ -19,13 +19,18 @@ export** to back up or move your data as a single JSON file.
   retrievability and serves the card with the greatest Delta-R; **Secure topics** maximises how many
   cards clear 90% on exam day and serves the cheapest card to secure next.
 - **Invisible rating engine** — Yes/No plus a hidden response timer, calibrated per deck.
+- **Simple learn mode** — an algorithm-free YES/NO study loop with no FSRS scheduling, no DB writes,
+  and a live pill UI (Wrong / Remaining / Right). Cards loop until every one is marked correct.
+- **Card types** — Basic (front/back), Reversed (back/front), and Typing-answer (type the answer
+  before revealing, with a comparison on the back).
 - **Cooldown slotting** — failed cards are held back briefly to prevent fatigue.
 - **Continuous Learn mode** with a live, objective-aware progress bar that ends automatically once
   the objective is met, followed by a performance report (including a focus/distraction summary).
 - **Markdown cards** with GitHub-flavoured syntax, code highlighting, **KaTeX maths**, **cloze
   deletions** (`{{c1::answer::hint}}`), and **drag-and-drop images** (downscaled and stored inline).
 - **Analytics** per deck: predicted exam-day trajectory, stability profile, and 30-day review volume.
-- **Decks management** — multi-select delete, cross-deck merge, and bulk card move.
+- **Decks management** — multi-select delete, cross-deck merge, bulk card move, and folder organisation.
+- **Touch-first** with configurable gestures, bottom sheets, and auto-adjusting font size.
 - Default **dark mode** with a light toggle, a collapsible sidebar, and fully responsive layout.
 - British English throughout; no emojis.
 

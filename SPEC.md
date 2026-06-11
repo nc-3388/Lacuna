@@ -1,4 +1,4 @@
-# Lacuna — Specification (v0.0.2)
+# Lacuna — Specification (v0.0.3)
 
 Lacuna is a local-only, exam-driven spaced-revision application built on FSRS-6. Every card
 in a deck is scheduled to peak in recall on the deck's exam day, and a single "objective"
@@ -6,9 +6,10 @@ setting binds the scheduler and the progress bar to the same goal so they can ne
 All data lives on-device (IndexedDB); there is no server, no account and no network
 dependency. The application runs as a web SPA and packages as an Electron desktop app.
 
-**Version 0.0.2** introduces a touch-first redesign (Pomodoro timer, configurable input mode,
-swipe gestures, 44px touch targets, bottom sheets), a storage layer that stores image assets
-as `Uint8Array` for cross-environment consistency, and five bug fixes (see §20).
+**Version 0.0.3** adds a Simple learn mode (algorithm-free YES/NO study loop), formal card
+types (Basic, Reversed, Typing-answer), and further touch-first polish (configurable gestures,
+auto font scaling, cleaned-up focus rings). It also fixes share code importing, folder
+deletion, and a number of UI/UX issues (see §20).
 
 British English throughout. No emojis anywhere in the product or its copy.
 
@@ -648,6 +649,16 @@ Two modes, chosen in Settings (default **silent**):
 - **Manual:** the four FSRS buttons (Again/Hard/Good/Easy) are shown and the user
   grades directly; no inference is applied.
 
+### Study mode (`src/state/studyMode.ts`)
+Two modes, chosen per session via the DeckView study dropdown (default **FSRS**):
+- **FSRS (default):** the full spaced-repetition scheduler with all memory-state tracking,
+  review logging, and objective-driven ordering.
+- **Simple:** an algorithm-free study loop with no FSRS scheduling, no DB writes, and
+  only YES/NO grading. Wrong cards are re-queued at the end of the deck; the session loops
+  until every card has been marked correct. A live pill UI (Wrong / Remaining / Right)
+  updates on every answer. The SessionReport omits the grade-distribution chart since
+  grades are not meaningful in this mode.
+
 ### The invisible timer & grading (`src/fsrs/grading.ts`, silent mode)
 - The response timer **starts on reveal** ("Show answer") and **stops when the answer
   is graded**; it runs continuously and never pauses. (Opening the in-session editor
@@ -780,7 +791,12 @@ background, `::selection` paints cleanly across the cloze mark.
 
 ### Editor (`src/pages/CardEditor.tsx`, full page)
 - Mode is decided by the route (`/cards/new` vs `/cards/:id/edit`).
-- **Card type** selector: Front / Back or Cloze.
+- **Card type** selector: Basic (front/back), Reversed (back/front), Cloze, or Typing-answer.
+  - **Basic:** standard front/back flashcard.
+  - **Reversed:** creates an independent card that tests the back as the prompt.
+  - **Cloze:** front contains `{{c1::hidden answer}}` deletions; back is empty.
+  - **Typing-answer:** the user types their answer during the question phase; on reveal
+    the typed answer is shown alongside the correct answer for comparison.
 - One or two **Markdown editors** with a live preview; a formatting toolbar (bold,
   italic, heading, lists, code, link, image, cloze auto-index, inline/block maths);
   a cloze editor can preview the revealed answer.
@@ -792,12 +808,12 @@ background, `::selection` paints cleanly across the cloze mark.
   them on unmount. This keeps card rows small (base64 inflates payloads ~1/3 and
   dragged full image data through every reactive read) and keeps exports lean.
 - **Validation:** front required; back required for front/back; at least one cloze
-  for cloze.
+  for cloze; answer required for typing-answer.
 - **Quick capture:** "Save & add another" keeps the page open, clears content,
   retains type and tags, refocuses the first field, tallies a per-sitting count,
   and flashes a "Saved" confirmation. A seamless Tab order runs Front -> Back ->
   Save-and-add -> Save. `Ctrl/Cmd+Enter` saves (and, for new cards, keeps going).
-- **Reverse cards:** for a new front/back card, an "Also create reverse" toggle
+- **Reverse cards:** for a new basic card, an "Also create reverse" toggle
   additionally creates an independent card testing the back.
 - **Touch targets:** the toolbar buttons and type-selector are 44px tall with
   active-state colours; on narrow viewports the toolbar scrolls horizontally with
@@ -1070,6 +1086,8 @@ charts below the fold are never invisible. Each chart container is `h-64` with
   `keyboard` otherwise), `touch`, or `keyboard`. The choice drives whether the
   app renders bottom sheets vs. dropdowns, shows or hides swipe hints, and swaps
   hover-only affordances for always-visible ones. Persisted to `localStorage`.
+  Switching to touch mode from the default font scale automatically sets the font
+  scale to Large (1.15); switching back to keyboard never clobbers an explicit choice.
 - **Pomodoro** (v0.0.2): work / short break / long break minutes and
   `autoStartBreaks`. The Pomodoro timer is otherwise fully usable from the Learn
   header.
@@ -1080,6 +1098,8 @@ charts below the fold are never invisible. Each chart container is `h-64` with
 - **Sidebar** (v0.0.2): show due counts (on by default), show archived decks
   (on by default), compact mode (off by default), and per-nav-item visibility
   toggles. Persisted to `localStorage`.
+- **Gesture settings** (v0.0.3): the swipe-left and swipe-right actions on dashboard
+  deck cards can be customised (study / archive). Persisted to `localStorage`.
 - **Import & export:** export all data; import from file with the inline
   Merge / Replace-all chooser described in §13.
 - **Persistent storage:** the app requests `navigator.storage.persist()` on
@@ -1212,7 +1232,47 @@ configuration is at `electron/electron-builder.yml`.
 
 ---
 
-## 20. v0.0.2 changelog
+## 20. v0.0.3 changelog
+
+### New features
+1. **Simple learn mode** — an algorithm-free YES/NO study loop with no FSRS scheduling,
+   no DB writes, and a live pill UI (Wrong / Remaining / Right). Cards are re-queued at
+   the end when marked wrong; the session loops until all cards are correct. The
+   SessionReport skips the grade-distribution chart. Added `useStudyMode` hook
+   (`src/state/studyMode.ts`) with `fsrs` and `simple` modes.
+2. **Card types** — cards can now be Basic, Reversed, Cloze, or Typing-answer. The typing
+   card shows a live input field during the question phase and compares the typed answer
+   against the correct answer on reveal. The card editor and edit overlay both have a
+   type selector and a conditional answer field. Repository functions updated to persist
+   `cardType` and `answer`.
+3. **Simple learn in study dropdown** — the existing DeckView study dropdown now includes
+   Simple learn alongside Cram, Due, New, Leech, and Flagged options.
+4. **Folder deletion** — folders can now be deleted from the dashboard with a
+   confirmation dialog that shows affected deck counts.
+5. **Gesture settings** — swipe actions on dashboard deck cards are configurable in
+   Settings (study / archive).
+
+### Bug fixes
+1. **Text selection focus ring** — removed the internal `box-shadow` ring on
+   `input:focus-visible` so only the external `:focus-visible` ring applies.
+2. **Share code importing** — Base45 whitespace stripping corrupted share codes because
+   the Base45 alphabet includes space as a valid character. Now only legacy base64
+   (LAC0/LAC1) formats strip whitespace.
+3. **Touch font scale** — auto-set font scale to Large (1.15) when switching to touch
+   mode from the default (1.0); never clobber explicit choices when switching to keyboard.
+4. **Font scale sync** — wired a `lacuna:font-scale` custom event so the Settings page
+   reflects font scale changes immediately after input mode switches.
+5. **ESLint errors** — fixed 10 ESLint errors across Dashboard, DeckSettings, and LearnMode.
+
+### Quality
+- TypeScript is clean (`tsc --noEmit`).
+- 332 tests pass across the full suite.
+- All UI changes follow the touch-first design system (44px targets, active states,
+  bottom sheets on touch, keyboard shortcuts on desktop).
+
+---
+
+## 21. v0.0.2 changelog
 
 This release is a **touch-first redesign** layered on top of v0.0.1, plus five
 bug fixes uncovered during the redesign and a storage-layer change for
