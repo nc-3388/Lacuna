@@ -20,4 +20,6 @@ export interface SessionSummary {
   reachedGoal: boolean;
   /** True when the session ended because the daily review limit was reached. */
   limitReached: boolean;
+  /** True when the session ended because the session time limit was reached. */
+  timeLimitReached?: boolean;
 }

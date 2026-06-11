@@ -87,6 +87,8 @@ export function DeckSettings() {
   const [relearningSteps, setRelearningSteps] = useState('');
   const [leechThreshold, setLeechThreshold] = useState('');
   const [leechAction, setLeechAction] = useState<'suspend' | 'tag' | 'none'>('suspend');
+  const [dailyReviewGoal, setDailyReviewGoal] = useState('');
+  const [sessionTimeLimit, setSessionTimeLimit] = useState('');
   const [loaded, setLoaded] = useState(false);
 
   // Re-arm the loaded latch whenever the deck changes so back/forward navigation
@@ -111,6 +113,8 @@ export function DeckSettings() {
     setRelearningSteps(deck.fsrsParameters.relearning_steps.join(', '));
     setLeechThreshold(deck.leechThreshold ? String(deck.leechThreshold) : '');
     setLeechAction(deck.leechAction ?? 'suspend');
+    setDailyReviewGoal(deck.dailyReviewGoal ? String(deck.dailyReviewGoal) : '');
+    setSessionTimeLimit(deck.sessionTimeLimitMinutes ? String(deck.sessionTimeLimitMinutes) : '');
     setLoaded(true);
   }, [deck, loaded]);
 
@@ -153,6 +157,16 @@ export function DeckSettings() {
       leechThreshold.trim() === '' || !Number.isFinite(parsedLeechThreshold) || parsedLeechThreshold <= 0
         ? undefined
         : parsedLeechThreshold;
+    const parsedDailyGoal = Math.floor(Number(dailyReviewGoal));
+    const dailyReviewGoalValue =
+      dailyReviewGoal.trim() === '' || !Number.isFinite(parsedDailyGoal) || parsedDailyGoal <= 0
+        ? undefined
+        : parsedDailyGoal;
+    const parsedTimeLimit = Math.floor(Number(sessionTimeLimit));
+    const sessionTimeLimitValue =
+      sessionTimeLimit.trim() === '' || !Number.isFinite(parsedTimeLimit) || parsedTimeLimit <= 0
+        ? undefined
+        : parsedTimeLimit;
     const learningStepsValue = parseSteps(learningSteps);
     if (learningSteps.trim() && learningStepsValue === null) {
       notify('Invalid learning steps format. Use values like 1m, 10m, 1d.', 'negative');
@@ -173,6 +187,8 @@ export function DeckSettings() {
       colour,
       leechThreshold: leechThresholdValue,
       leechAction,
+      dailyReviewGoal: dailyReviewGoalValue,
+      sessionTimeLimitMinutes: sessionTimeLimitValue,
       fsrsParameters: {
         ...deck.fsrsParameters,
         requestRetention: clampRequestRetention(retention),
@@ -467,6 +483,38 @@ export function DeckSettings() {
                     <span className="mt-1 block text-xs text-ink-faint">
                       Number of lapses (failed reviews) at which a card is treated as a leech.
                       Leave blank for the default of 8.
+                    </span>
+                  </label>
+                  <label className="block text-sm text-ink-soft">
+                    Daily review goal
+                    <input
+                      type="number"
+                      min={0}
+                      inputMode="numeric"
+                      value={dailyReviewGoal}
+                      onChange={(e) => setDailyReviewGoal(e.target.value)}
+                      placeholder="Unlimited"
+                      className="mt-2 w-full rounded-lg border border-line-strong bg-surface px-3 py-2.5 text-ink outline-none focus:border-accent"
+                    />
+                    <span className="mt-1 block text-xs text-ink-faint">
+                      Target number of cards to review per day. When reached, the session
+                      ends with a "Daily goal reached" message. Leave blank for no goal.
+                    </span>
+                  </label>
+                  <label className="block text-sm text-ink-soft">
+                    Session time limit
+                    <input
+                      type="number"
+                      min={0}
+                      inputMode="numeric"
+                      value={sessionTimeLimit}
+                      onChange={(e) => setSessionTimeLimit(e.target.value)}
+                      placeholder="Unlimited"
+                      className="mt-2 w-full rounded-lg border border-line-strong bg-surface px-3 py-2.5 text-ink outline-none focus:border-accent"
+                    />
+                    <span className="mt-1 block text-xs text-ink-faint">
+                      Maximum number of minutes a single study session may run. When the
+                      limit is reached, the session ends gracefully. Leave blank for no limit.
                     </span>
                   </label>
                   <fieldset className="block text-sm text-ink-soft">

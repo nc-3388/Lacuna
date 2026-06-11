@@ -42,6 +42,7 @@ const mockSummary: SessionSummary = {
   focusFraction: 0.95,
   reachedGoal: true,
   limitReached: false,
+  timeLimitReached: false,
 };
 
 describe('SessionReport', () => {

@@ -186,10 +186,24 @@ export class LacunaDatabase extends Dexie {
             Object.assign(card, migrateCardRecord(card as LegacyCard));
           });
       });
+
+    // Version 8: add daily review goal and session time limit per deck.
+    // No new indexes needed; the fields are optional numeric values on the deck record.
+    this.version(8)
+      .stores({
+        decks: 'id, createdAt, examDate, folderId',
+        cards: 'id, deckId, type, lastReviewed',
+        sessionHistory: '++id, deckId, timestamp',
+        userPerformance: 'deckId',
+        backups: '++id, createdAt',
+        appState: 'key',
+        assets: 'hash, createdAt',
+        folders: 'id, parentId, createdAt',
+      });
   }
 }
 
-export const CURRENT_SCHEMA_VERSION = 7;
+export const CURRENT_SCHEMA_VERSION = 8;
 
 export const db = new LacunaDatabase();
 

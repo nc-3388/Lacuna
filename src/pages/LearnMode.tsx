@@ -59,6 +59,14 @@ import { matchesFilter, type CardFilter } from '../db/search';
 
 type Phase = 'loading' | 'question' | 'answer' | 'finished';
 
+const FILTER_LABELS: Record<string, string> = {
+  due: 'due cards',
+  new: 'new cards',
+  leech: 'leeches',
+  flagged: 'flagged cards',
+  suspended: 'suspended cards',
+};
+
 /** What undoing the most recent answer needs to restore (DB + in-session state). */
 interface AnswerSnapshot {
   undo: ReviewUndo;
@@ -138,6 +146,10 @@ export function LearnMode() {
   const reviewsByDeck = useRef<Map<string, number>>(new Map());
   // When the user clicks "Continue anyway" after hitting a daily limit.
   const [limitOverride, setLimitOverride] = useState(false);
+  // When the user clicks "Continue anyway" after hitting a session time limit.
+  const [timeLimitOverride, setTimeLimitOverride] = useState(false);
+  // Session wall-clock start time, used to enforce the per-deck session time limit.
+  const sessionStartMs = useRef(0);
   // Cache sessionProgress so repeated calls while the card pool is unchanged don't recompute.
   // Stable refs for values that async callbacks must read fresh (avoid stale closures).
   const phaseRef = useRef<Phase>(phase);
@@ -170,7 +182,7 @@ export function LearnMode() {
   }, []);
 
   const finish = useCallback(
-    (reachedGoal: boolean, limitReached = false) => {
+    (reachedGoal: boolean, limitReached = false, timeLimitReached = false) => {
       if (!mountedRef.current) return;
       const ctx = ctxRef.current;
       if (!ctx) return;
@@ -187,6 +199,7 @@ export function LearnMode() {
         focusFraction: focus,
         reachedGoal,
         limitReached,
+        timeLimitReached,
       });
       setCanUndo(false);
       lastAnswer.current = null;
@@ -252,6 +265,8 @@ export function LearnMode() {
     setNavOpen(false);
     setFocusMode(false);
     setLimitOverride(false);
+    setTimeLimitOverride(false);
+    sessionStartMs.current = 0;
     setPhase('loading');
     void (async () => {
       let decks: Deck[];
@@ -292,19 +307,29 @@ export function LearnMode() {
       });
 
       if (decks.length === 0 || cards.length === 0) {
-        if (deckId) {
-          navigate(`/deck/${deckId}`);
-          return;
-        }
-        // Global session with nothing to study: show a gentle finished screen.
+        if (cancelled) return;
+        // Show an empty-state screen instead of navigating away so the user
+        // understands what happened and can choose what to do next.
         progressBefore.current = sessionProgress(cards, ctx);
+        const isFiltered = filterParams.length > 0 || tagFilter != null;
+        const filterParts = [
+          ...(tagFilter ? [`tag "${tagFilter}"`] : []),
+          ...(filterParams.length > 0
+            ? filterParams.map((f) => FILTER_LABELS[f] ?? f)
+            : []),
+        ];
+        const filterLabel = filterParts.join(' or ');
         setSummary({
           events: [],
           masteryBefore: progressBefore.current,
           masteryAfter: progressBefore.current,
-          objectiveLabel: 'Predicted readiness across all decks',
+          objectiveLabel: isFiltered
+            ? `No cards matching ${filterLabel} to study`
+            : deckId
+              ? progressHeading(decks[0])
+              : 'Predicted readiness across all decks',
           focusFraction: 1,
-          reachedGoal: true,
+          reachedGoal: false,
           limitReached: false,
         });
         setPhase('finished');
@@ -323,9 +348,11 @@ export function LearnMode() {
           focusFraction: 1,
           reachedGoal: true,
           limitReached: false,
+          timeLimitReached: false,
         });
         setPhase('finished');
       } else {
+        sessionStartMs.current = Date.now();
         serveNextRef.current();
       }
     })();
@@ -439,6 +466,23 @@ export function LearnMode() {
       if (!limitOverride && limit && limit > 0 && deckReviews >= limit) {
         finish(false, true);
         return;
+      }
+
+      // Check whether this deck has reached its daily review goal.
+      const goal = deck.dailyReviewGoal;
+      if (!limitOverride && goal && goal > 0 && deckReviews >= goal) {
+        finish(true);
+        return;
+      }
+
+      // Check whether the session time limit has been exceeded.
+      const timeLimit = deck.sessionTimeLimitMinutes;
+      if (!timeLimitOverride && timeLimit && timeLimit > 0 && sessionStartMs.current > 0) {
+        const elapsedMinutes = (Date.now() - sessionStartMs.current) / 60000;
+        if (elapsedMinutes >= timeLimit) {
+          finish(false, false, true);
+          return;
+        }
       }
 
         if (sessionComplete(nextCards, ctx)) finish(true);
@@ -712,7 +756,7 @@ export function LearnMode() {
               summary={summary}
               onReturn={backOut}
               onContinue={
-                summary.reachedGoal && !summary.limitReached
+                summary.reachedGoal && !summary.limitReached && !summary.timeLimitReached
                   ? undefined
                   : () => {
                       const ctx = ctxRef.current;
@@ -721,6 +765,7 @@ export function LearnMode() {
                       progressBefore.current = cachedSessionProgress(cardsRef.current, ctx);
                       setSummary(null);
                       setLimitOverride(true);
+                      setTimeLimitOverride(true);
                       serveNext();
                     }
               }

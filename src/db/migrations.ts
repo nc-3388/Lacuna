@@ -49,6 +49,8 @@ export function migrateDeckRecord(deck: LegacyDeck): Deck {
     fsrsVersion: FSRS_VERSION,
     fsrsParameters,
     examObjective: deck.examObjective ?? 'expectedMarks',
+    dailyReviewGoal: deck.dailyReviewGoal ?? undefined,
+    sessionTimeLimitMinutes: deck.sessionTimeLimitMinutes ?? undefined,
   };
 }
 

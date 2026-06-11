@@ -137,6 +137,18 @@ export interface Deck {
    * 'none' — surface the badge only, take no action.
    */
   leechAction?: 'suspend' | 'tag' | 'none';
+  /**
+   * Target number of cards to review per day for this deck. When set, the session
+   * ends with a "Daily goal reached" message once the count is hit. Undefined or 0
+   * means no daily goal.
+   */
+  dailyReviewGoal?: number;
+  /**
+   * Maximum number of minutes a single study session may run for this deck.
+   * When set, the session ends gracefully once the time limit is exceeded.
+   * Undefined or 0 means no time limit.
+   */
+  sessionTimeLimitMinutes?: number;
 }
 
 /** A folder for grouping decks hierarchically. */
