@@ -49,7 +49,7 @@ const deck = (newCardsPerDay?: number): Deck => ({
   examDate: NOW + 30 * MS_PER_DAY,
   createdAt: 0,
   fsrsVersion: 6,
-  fsrsParameters: { w: [], requestRetention: 0.9 },
+  fsrsParameters: { w: [], requestRetention: 0.9, enable_fuzz: true, maximum_interval: 36500, learning_steps: ['1m', '10m'], relearning_steps: ['10m'] },
   examObjective: 'expectedMarks',
   newCardsPerDay,
 });

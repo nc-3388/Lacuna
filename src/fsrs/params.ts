@@ -4,7 +4,14 @@
 // parameters including the decay w20). This module only re-exports the default
 // parameter set and the handful of app-level constants used across the codebase.
 
-import { default_w, default_request_retention } from 'ts-fsrs';
+import {
+  default_w,
+  default_request_retention,
+  default_maximum_interval,
+  default_enable_fuzz,
+  default_learning_steps,
+  default_relearning_steps,
+} from 'ts-fsrs';
 import type { FsrsParameters } from '../db/types';
 
 /** FSRS algorithm version persisted alongside each deck's parameters. */
@@ -28,7 +35,14 @@ export function clampRequestRetention(value: number): number {
 
 /** A fresh copy of the default FSRS-6 parameter set for a new (or migrated) deck. */
 export function defaultFsrsParameters(): FsrsParameters {
-  return { w: [...default_w], requestRetention: default_request_retention };
+  return {
+    w: [...default_w],
+    requestRetention: default_request_retention,
+    enable_fuzz: default_enable_fuzz,
+    maximum_interval: default_maximum_interval,
+    learning_steps: [...default_learning_steps],
+    relearning_steps: [...default_relearning_steps],
+  };
 }
 
 /** Difficulty is always clamped to [1, 10]. */

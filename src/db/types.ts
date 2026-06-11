@@ -16,10 +16,22 @@ export type FsrsCardState = 0 | 1 | 2 | 3;
  * The trainable FSRS-6 parameter set persisted per deck. `w` holds the 21
  * FSRS-6 weights (w0..w20); w20 is the trainable decay. `requestRetention` is
  * the target retention ts-fsrs uses when scheduling.
+ *
+ * Additional controls:
+ *   - `enable_fuzz`: adds a small random variation to intervals so cards don't
+ *     cluster on the same day.
+ *   - `maximum_interval`: caps the longest scheduled interval (days).
+ *   - `learning_steps`: learning-stage intervals (e.g. ["1m", "10m"]) before a
+ *     new card graduates to review.
+ *   - `relearning_steps`: relearning-stage intervals after a lapse.
  */
 export interface FsrsParameters {
   w: number[];
   requestRetention: number;
+  enable_fuzz: boolean;
+  maximum_interval: number;
+  learning_steps: string[];
+  relearning_steps: string[];
 }
 
 /**
@@ -113,6 +125,18 @@ export interface Deck {
    * at the top level (not in any folder).
    */
   folderId?: string | null;
+  /**
+   * Number of lapses at which a card is treated as a leech. When undefined, the
+   * global default of 8 is used.
+   */
+  leechThreshold?: number;
+  /**
+   * What to do automatically when a card crosses the leech threshold during review.
+   * 'suspend' — auto-suspend the card (default).
+   * 'tag' — add a 'leech' tag.
+   * 'none' — surface the badge only, take no action.
+   */
+  leechAction?: 'suspend' | 'tag' | 'none';
 }
 
 /** A folder for grouping decks hierarchically. */

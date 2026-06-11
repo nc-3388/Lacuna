@@ -15,6 +15,7 @@ import type {
 import { applyReview, makeEngine } from '../fsrs/fsrs';
 import { defaultFsrsParameters, FSRS_VERSION } from '../fsrs/params';
 import { emptyPerformance, updatePerformance } from '../fsrs/grading';
+import { isLeech } from '../fsrs/leech';
 import { averagePredictedRetrievability } from '../fsrs/progress';
 import { defaultExamDate, getLocalTimeZone } from '../utils/datetime';
 import { scheduleAssetGc } from './assets';
@@ -573,6 +574,20 @@ export async function recordReview(args: RecordReviewArgs): Promise<RecordReview
     state: memory.state,
     history: [...card.history, log],
   };
+
+  // Leech auto-action: if the card just crossed the threshold, act on it.
+  const action = deck.leechAction ?? 'suspend';
+  const threshold = deck.leechThreshold;
+  if (action !== 'none' && isLeech(updatedCard, threshold) && !isLeech(card, threshold)) {
+    if (action === 'suspend') {
+      updatedCard.suspended = true;
+    } else if (action === 'tag') {
+      const tags = updatedCard.tags ?? [];
+      if (!tags.includes('leech')) {
+        updatedCard.tags = [...tags, 'leech'];
+      }
+    }
+  }
 
   const sessionHistoryId = await db.transaction(
     'rw',

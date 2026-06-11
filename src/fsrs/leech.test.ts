@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isLeech, LEECH_LAPSE_THRESHOLD } from './leech';
+import { isLeech, DEFAULT_LEECH_LAPSE_THRESHOLD } from './leech';
 import type { Card } from '../db/types';
 
 function cardWithLapses(lapses: number): Card {
@@ -25,11 +25,11 @@ function cardWithLapses(lapses: number): Card {
 
 describe('isLeech', () => {
   it('is false below the threshold', () => {
-    expect(isLeech(cardWithLapses(LEECH_LAPSE_THRESHOLD - 1))).toBe(false);
+    expect(isLeech(cardWithLapses(DEFAULT_LEECH_LAPSE_THRESHOLD - 1))).toBe(false);
   });
 
   it('is true at and above the threshold', () => {
-    expect(isLeech(cardWithLapses(LEECH_LAPSE_THRESHOLD))).toBe(true);
-    expect(isLeech(cardWithLapses(LEECH_LAPSE_THRESHOLD + 5))).toBe(true);
+    expect(isLeech(cardWithLapses(DEFAULT_LEECH_LAPSE_THRESHOLD))).toBe(true);
+    expect(isLeech(cardWithLapses(DEFAULT_LEECH_LAPSE_THRESHOLD + 5))).toBe(true);
   });
 });

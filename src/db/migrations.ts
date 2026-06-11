@@ -35,10 +35,19 @@ export type LegacyCard = Omit<
  */
 export function migrateDeckRecord(deck: LegacyDeck): Deck {
   const needsReseed = (deck.fsrsVersion ?? 0) < FSRS_VERSION || !deck.fsrsParameters;
+  const baseParams = needsReseed ? defaultFsrsParameters() : deck.fsrsParameters!;
+  // Ensure new fields added in v0.0.3 are present even on decks with older FSRS parameters.
+  const fsrsParameters = {
+    ...baseParams,
+    enable_fuzz: baseParams.enable_fuzz ?? true,
+    maximum_interval: baseParams.maximum_interval ?? 36500,
+    learning_steps: baseParams.learning_steps ?? ['1m', '10m'],
+    relearning_steps: baseParams.relearning_steps ?? ['10m'],
+  };
   return {
     ...deck,
     fsrsVersion: FSRS_VERSION,
-    fsrsParameters: needsReseed ? defaultFsrsParameters() : deck.fsrsParameters!,
+    fsrsParameters,
     examObjective: deck.examObjective ?? 'expectedMarks',
   };
 }

@@ -39,6 +39,18 @@ import { cn } from '../components/ui/cn';
 import { DECK_COLOURS } from '../db/types';
 import type { Card, Deck, ExamObjective } from '../db/types';
 
+/** Parse a comma-separated steps string like "1m, 10m" into a valid step array. */
+export function parseSteps(input: string): string[] | null {
+  const trimmed = input.trim();
+  if (!trimmed) return null;
+  const parts = trimmed.split(/[,\s]+/).filter(Boolean);
+  if (parts.length === 0) return null;
+  const stepPattern = /^\d+[dhm]$/;
+  if (parts.every((p) => stepPattern.test(p))) return parts;
+  // If some parts don't match, fall back to null so the caller can decide.
+  return null;
+}
+
 /** Named anchor points for the target-retention slider. */
 const RETENTION_PRESETS = [
   { label: 'Relaxed', value: 0.85 },
@@ -69,6 +81,12 @@ export function DeckSettings() {
   const [maxReviewsPerDay, setMaxReviewsPerDay] = useState('');
   const [retention, setRetention] = useState(DEFAULT_REQUEST_RETENTION);
   const [colour, setColour] = useState<string | undefined>(undefined);
+  const [enableFuzz, setEnableFuzz] = useState(true);
+  const [maxInterval, setMaxInterval] = useState('');
+  const [learningSteps, setLearningSteps] = useState('');
+  const [relearningSteps, setRelearningSteps] = useState('');
+  const [leechThreshold, setLeechThreshold] = useState('');
+  const [leechAction, setLeechAction] = useState<'suspend' | 'tag' | 'none'>('suspend');
   const [loaded, setLoaded] = useState(false);
 
   // Re-arm the loaded latch whenever the deck changes so back/forward navigation
@@ -82,10 +100,17 @@ export function DeckSettings() {
     setName(deck.name);
     setExamValue(toDateTimeLocalValue(deck.examDate, deck.timeZone));
     setTimeZone(deck.timeZone);
-    setObjective(deck.examObjective);      setNewPerDay(deck.newCardsPerDay ? String(deck.newCardsPerDay) : '');
-      setMaxReviewsPerDay(deck.maxReviewsPerDay ? String(deck.maxReviewsPerDay) : '');
-      setRetention(clampRequestRetention(deck.fsrsParameters.requestRetention));
-      setColour(deck.colour);
+    setObjective(deck.examObjective);
+    setNewPerDay(deck.newCardsPerDay ? String(deck.newCardsPerDay) : '');
+    setMaxReviewsPerDay(deck.maxReviewsPerDay ? String(deck.maxReviewsPerDay) : '');
+    setRetention(clampRequestRetention(deck.fsrsParameters.requestRetention));
+    setColour(deck.colour);
+    setEnableFuzz(deck.fsrsParameters.enable_fuzz ?? true);
+    setMaxInterval(deck.fsrsParameters.maximum_interval ? String(deck.fsrsParameters.maximum_interval) : '');
+    setLearningSteps(deck.fsrsParameters.learning_steps.join(', '));
+    setRelearningSteps(deck.fsrsParameters.relearning_steps.join(', '));
+    setLeechThreshold(deck.leechThreshold ? String(deck.leechThreshold) : '');
+    setLeechAction(deck.leechAction ?? 'suspend');
     setLoaded(true);
   }, [deck, loaded]);
 
@@ -118,6 +143,26 @@ export function DeckSettings() {
       maxReviewsPerDay.trim() === '' || !Number.isFinite(parsedReviews) || parsedReviews <= 0
         ? undefined
         : parsedReviews;
+    const parsedMaxInterval = Math.floor(Number(maxInterval));
+    const maxIntervalValue =
+      maxInterval.trim() === '' || !Number.isFinite(parsedMaxInterval) || parsedMaxInterval <= 0
+        ? deck.fsrsParameters.maximum_interval
+        : parsedMaxInterval;
+    const parsedLeechThreshold = Math.floor(Number(leechThreshold));
+    const leechThresholdValue =
+      leechThreshold.trim() === '' || !Number.isFinite(parsedLeechThreshold) || parsedLeechThreshold <= 0
+        ? undefined
+        : parsedLeechThreshold;
+    const learningStepsValue = parseSteps(learningSteps);
+    if (learningSteps.trim() && learningStepsValue === null) {
+      notify('Invalid learning steps format. Use values like 1m, 10m, 1d.', 'negative');
+      return;
+    }
+    const relearningStepsValue = parseSteps(relearningSteps);
+    if (relearningSteps.trim() && relearningStepsValue === null) {
+      notify('Invalid relearning steps format. Use values like 1m, 10m, 1d.', 'negative');
+      return;
+    }
     await updateDeck(deck.id, {
       name: name.trim() || deck.name,
       examDate: Number.isNaN(ms) ? deck.examDate : ms,
@@ -126,9 +171,15 @@ export function DeckSettings() {
       newCardsPerDay,
       maxReviewsPerDay: maxReviewsPerDayValue,
       colour,
+      leechThreshold: leechThresholdValue,
+      leechAction,
       fsrsParameters: {
         ...deck.fsrsParameters,
         requestRetention: clampRequestRetention(retention),
+        enable_fuzz: enableFuzz,
+        maximum_interval: maxIntervalValue,
+        learning_steps: learningStepsValue ?? deck.fsrsParameters.learning_steps,
+        relearning_steps: relearningStepsValue ?? deck.fsrsParameters.relearning_steps,
       },
     });
     notify('Deck updated.', 'positive');
@@ -335,6 +386,128 @@ export function DeckSettings() {
                       ? 'lighter than the default.'
                       : 'the recommended default.'}
                 </span>
+              </div>
+
+              <div className="block text-sm text-ink-soft">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <div className="font-medium">Interval fuzz</div>
+                    <span className="mt-1 block text-xs text-ink-faint">
+                      Adds a small random variation to scheduled intervals so cards do not cluster
+                      on the same day. Recommended on.
+                    </span>
+                  </div>
+                  <Toggle
+                    checked={enableFuzz}
+                    onChange={setEnableFuzz}
+                    label="Fuzz intervals"
+                  />
+                </div>
+              </div>
+
+              <label className="block text-sm text-ink-soft">
+                Maximum interval
+                <input
+                  type="number"
+                  min={1}
+                  inputMode="numeric"
+                  value={maxInterval}
+                  onChange={(e) => setMaxInterval(e.target.value)}
+                  placeholder={String(deck.fsrsParameters.maximum_interval ?? 36500)}
+                  className="mt-2 w-full rounded-lg border border-line-strong bg-surface px-3 py-2.5 text-ink outline-none focus:border-accent"
+                />
+                <span className="mt-1 block text-xs text-ink-faint">
+                  Caps the longest scheduled interval in days. Cards that would be scheduled beyond
+                  this limit are capped here instead. The default is 36,500 days (~100 years).
+                </span>
+              </label>
+
+              <label className="block text-sm text-ink-soft">
+                Learning steps
+                <input
+                  value={learningSteps}
+                  onChange={(e) => setLearningSteps(e.target.value)}
+                  placeholder="e.g. 1m, 10m"
+                  className="mt-2 w-full rounded-lg border border-line-strong bg-surface px-3 py-2.5 text-ink outline-none focus:border-accent"
+                />
+                <span className="mt-1 block text-xs text-ink-faint">
+                  Intervals for a new card before it graduates to review. Use values like
+                  1m, 10m, 1d, 1h separated by commas or spaces.
+                </span>
+              </label>
+
+              <label className="block text-sm text-ink-soft">
+                Relearning steps
+                <input
+                  value={relearningSteps}
+                  onChange={(e) => setRelearningSteps(e.target.value)}
+                  placeholder="e.g. 10m"
+                  className="mt-2 w-full rounded-lg border border-line-strong bg-surface px-3 py-2.5 text-ink outline-none focus:border-accent"
+                />
+                <span className="mt-1 block text-xs text-ink-faint">
+                  Intervals for a card after it lapses, before it returns to review. Use the same
+                  format as learning steps.
+                </span>
+              </label>
+
+              <div className="block text-sm text-ink-soft">
+                <div className="mb-2 font-medium">Leech detection</div>
+                <div className="flex flex-col gap-3">
+                  <label className="block text-sm text-ink-soft">
+                    Leech threshold
+                    <input
+                      type="number"
+                      min={1}
+                      inputMode="numeric"
+                      value={leechThreshold}
+                      onChange={(e) => setLeechThreshold(e.target.value)}
+                      placeholder="8"
+                      className="mt-2 w-full rounded-lg border border-line-strong bg-surface px-3 py-2.5 text-ink outline-none focus:border-accent"
+                    />
+                    <span className="mt-1 block text-xs text-ink-faint">
+                      Number of lapses (failed reviews) at which a card is treated as a leech.
+                      Leave blank for the default of 8.
+                    </span>
+                  </label>
+                  <fieldset className="block text-sm text-ink-soft">
+                    <legend className="mb-2">When a card becomes a leech</legend>
+                    <div className="flex flex-col gap-2">
+                      <label className="flex cursor-pointer items-center gap-2">
+                        <input
+                          type="radio"
+                          name="leechAction"
+                          value="suspend"
+                          checked={leechAction === 'suspend'}
+                          onChange={(e) => setLeechAction(e.target.value as 'suspend')}
+                          className="accent-accent"
+                        />
+                        <span className="text-sm text-ink-soft">Auto-suspend the card</span>
+                      </label>
+                      <label className="flex cursor-pointer items-center gap-2">
+                        <input
+                          type="radio"
+                          name="leechAction"
+                          value="tag"
+                          checked={leechAction === 'tag'}
+                          onChange={(e) => setLeechAction(e.target.value as 'tag')}
+                          className="accent-accent"
+                        />
+                        <span className="text-sm text-ink-soft">Add a &apos;leech&apos; tag</span>
+                      </label>
+                      <label className="flex cursor-pointer items-center gap-2">
+                        <input
+                          type="radio"
+                          name="leechAction"
+                          value="none"
+                          checked={leechAction === 'none'}
+                          onChange={(e) => setLeechAction(e.target.value as 'none')}
+                          className="accent-accent"
+                        />
+                        <span className="text-sm text-ink-soft">Show the badge only, take no action</span>
+                      </label>
+                    </div>
+                  </fieldset>
+                </div>
               </div>
             </div>
           </motion.section>

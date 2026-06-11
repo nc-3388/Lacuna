@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { searchCards } from './search';
-import { LEECH_LAPSE_THRESHOLD } from '../fsrs/leech';
+import { DEFAULT_LEECH_LAPSE_THRESHOLD } from '../fsrs/leech';
 import type { Card, Deck } from './types';
 
 const NOW = 1_000_000_000_000;
@@ -33,7 +33,7 @@ const deck: Deck = {
   examDate: NOW,
   createdAt: NOW,
   fsrsVersion: 6,
-  fsrsParameters: { w: [], requestRetention: 0.9 },
+  fsrsParameters: { w: [], requestRetention: 0.9, enable_fuzz: true, maximum_interval: 36500, learning_steps: ['1m', '10m'], relearning_steps: ['10m'] },
   examObjective: 'expectedMarks',
 };
 
@@ -60,7 +60,7 @@ describe('searchCards', () => {
   it('filters new, leech, flagged and suspended cards', () => {
     const cards = [
       card('new', { lastReviewed: null, due: null }),
-      card('leech', { lapses: LEECH_LAPSE_THRESHOLD }),
+      card('leech', { lapses: DEFAULT_LEECH_LAPSE_THRESHOLD }),
       card('flag', { flagged: true }),
       card('susp', { suspended: true }),
       card('plain'),
@@ -81,9 +81,9 @@ describe('searchCards', () => {
 
   it('combines multiple filters with AND', () => {
     const cards = [
-      card('both', { flagged: true, lapses: LEECH_LAPSE_THRESHOLD }),
+      card('both', { flagged: true, lapses: DEFAULT_LEECH_LAPSE_THRESHOLD }),
       card('flagOnly', { flagged: true }),
-      card('leechOnly', { lapses: LEECH_LAPSE_THRESHOLD }),
+      card('leechOnly', { lapses: DEFAULT_LEECH_LAPSE_THRESHOLD }),
     ];
     const results = searchCards('', cards, [deck], { filters: ['flagged', 'leech'] });
     expect(results.map((r) => r.card.id)).toEqual(['both']);

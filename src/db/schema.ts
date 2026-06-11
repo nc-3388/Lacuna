@@ -157,10 +157,39 @@ export class LacunaDatabase extends Dexie {
         assets: 'hash, createdAt',
         folders: 'id, parentId, createdAt',
       });
+
+    // Version 7: add advanced FSRS scheduling controls (enable_fuzz, maximum_interval,
+    // learning_steps, relearning_steps) and leech settings (leechThreshold, leechAction).
+    // Existing decks are backfilled with the new FSRS parameter defaults.
+    this.version(7)
+      .stores({
+        decks: 'id, createdAt, examDate, folderId',
+        cards: 'id, deckId, type, lastReviewed',
+        sessionHistory: '++id, deckId, timestamp',
+        userPerformance: 'deckId',
+        backups: '++id, createdAt',
+        appState: 'key',
+        assets: 'hash, createdAt',
+        folders: 'id, parentId, createdAt',
+      })
+      .upgrade(async (tx) => {
+        await tx
+          .table('decks')
+          .toCollection()
+          .modify((deck) => {
+            Object.assign(deck, migrateDeckRecord(deck as LegacyDeck));
+          });
+        await tx
+          .table('cards')
+          .toCollection()
+          .modify((card) => {
+            Object.assign(card, migrateCardRecord(card as LegacyCard));
+          });
+      });
   }
 }
 
-export const CURRENT_SCHEMA_VERSION = 6;
+export const CURRENT_SCHEMA_VERSION = 7;
 
 export const db = new LacunaDatabase();
 

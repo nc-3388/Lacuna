@@ -17,6 +17,7 @@ import {
   type FSRS,
   type Card as TsCard,
   type Grade as TsGrade,
+  type Steps,
 } from 'ts-fsrs';
 import type { Card, FsrsCardState, FsrsParameters, Grade } from '../db/types';
 import { MS_PER_DAY } from './params';
@@ -29,6 +30,10 @@ export function makeEngine(params: FsrsParameters): FSRS {
     w: params.w,
     request_retention: params.requestRetention,
     enable_short_term: true,
+    enable_fuzz: params.enable_fuzz,
+    maximum_interval: params.maximum_interval,
+    learning_steps: params.learning_steps as Steps,
+    relearning_steps: params.relearning_steps as Steps,
   });
 }
 

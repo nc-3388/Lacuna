@@ -201,7 +201,7 @@ export function evaluateParameters(
   options?: EvaluateOptions,
 ): { logLoss: number; scored: number } {
   const engine = fsrs(
-    generatorParameters({ w, request_retention: requestRetention, enable_fuzz: false }),
+    generatorParameters({ w, request_retention: requestRetention, enable_fuzz: false, maximum_interval: 36500, learning_steps: ['1m', '10m'], relearning_steps: ['10m'] }),
   );
 
   let loss = 0;
