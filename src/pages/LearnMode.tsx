@@ -85,7 +85,7 @@ export function LearnMode() {
   const cramMode = searchParams.get('mode') === 'cram';
   const filterParams = useMemo(
     () => searchParams.getAll('filter') as CardFilter[],
-    [searchParams.toString()],
+    [searchParams],
   );
   const navigate = useNavigate();
   const distraction = useDistraction();
@@ -131,6 +131,9 @@ export function LearnMode() {
   const simpleQueue = useRef<Card[]>([]);
   const simpleMastered = useRef<Set<string>>(new Set());
   const simpleWrong = useRef<Set<string>>(new Set());
+  // Typed answer for typing cards.
+  const [typedAnswer, setTypedAnswer] = useState('');
+  const typingInputRef = useRef<HTMLInputElement>(null);
 
   // Session-only mutable state held in refs so it never triggers re-renders mid-card
   // and so the stable callbacks below always read current values (no stale closures).
@@ -233,6 +236,7 @@ export function LearnMode() {
       if (!mountedRef.current) return;
       setPhase('question');
       setMenuOpen(false);
+      setTypedAnswer('');
       timerStart.current = performance.now();
       distraction.beginCard();
       distraction.setAnswerVisible(false);
@@ -255,6 +259,7 @@ export function LearnMode() {
     if (!mountedRef.current) return;
     setPhase('question');
     setMenuOpen(false);
+    setTypedAnswer('');
     timerStart.current = performance.now();
     distraction.beginCard();
     distraction.setAnswerVisible(false);
@@ -338,7 +343,7 @@ export function LearnMode() {
         // Show an empty-state screen instead of navigating away so the user
         // understands what happened and can choose what to do next.
         progressBefore.current = sessionProgress(cards, ctx);
-        const isFiltered = filterParams.length > 0 || tagFilter != null;
+        const isFiltered = filterParams.length > 0 || tagFilter !== null;
         const filterParts = [
           ...(tagFilter ? [`tag "${tagFilter}"`] : []),
           ...(filterParams.length > 0
@@ -392,7 +397,7 @@ export function LearnMode() {
     return () => {
       cancelled = true;
     };
-  }, [deckId, tagFilter, cramMode, filterParams, navigate]);
+  }, [deckId, tagFilter, cramMode, filterParams, navigate, isSimpleMode]);
 
   const reveal = useCallback(() => {
     setPhase((p) => {
@@ -542,7 +547,7 @@ export function LearnMode() {
         submitting.current = false;
       }
     },
-    [distraction, finish, serveNext, cachedSessionProgress, limitOverride, m, isSimpleMode],
+    [distraction, finish, serveNext, cachedSessionProgress, limitOverride, timeLimitOverride, m, isSimpleMode],
   );
 
   const undoLast = useCallback(async () => {
@@ -690,6 +695,12 @@ export function LearnMode() {
           target.tagName === 'TEXTAREA' ||
           target.isContentEditable)
       ) {
+        // Allow Enter in the typing input to submit the answer.
+        if (target.tagName === 'INPUT' && e.key === 'Enter' && currentRef.current?.type === 'typing') {
+          e.preventDefault();
+          reveal();
+          return;
+        }
         return;
       }
       // The edit overlay owns the keyboard entirely while open, so typing into it
@@ -799,6 +810,8 @@ export function LearnMode() {
   }
   const noun = singleDeck ? progressNoun(singleDeck) : 'ready';
 
+  const isTypingCard = current?.type === 'typing';
+
   return (
     <div className="min-h-screen bg-paper">
       <AnimatePresence mode="wait">
@@ -826,6 +839,7 @@ export function LearnMode() {
                         );
                         events.current = [];
                         progressBefore.current = 0;
+                        sessionStartMs.current = Date.now();
                         setSummary(null);
                         setProgress(0);
                         serveNext();
@@ -1077,7 +1091,34 @@ export function LearnMode() {
             onReveal={reveal}
             onHide={hide}
             onAnswer={answer}
+            typedAnswer={typedAnswer}
           />
+        )}
+
+        {/* Typing input for typing cards in question phase */}
+        {isTypingCard && phase === 'question' && (
+          <div className="mx-auto mt-6 w-full max-w-md">
+            <input
+              ref={typingInputRef}
+              type="text"
+              value={typedAnswer}
+              onChange={(e) => setTypedAnswer(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  reveal();
+                }
+              }}
+              placeholder="Type your answer…"
+              className="w-full rounded-lg border border-line-strong bg-surface px-4 py-3 text-ink outline-none transition-colors focus:border-accent"
+              autoFocus
+            />
+            <div className="mt-3 flex justify-center">
+              <Button variant="primary" size="lg" className="w-full" onClick={reveal}>
+                Check answer
+              </Button>
+            </div>
+          </div>
         )}
 
         {/* Controls */}
@@ -1089,6 +1130,7 @@ export function LearnMode() {
             onHide={hide}
             onAnswer={answer}
             m={m}
+            isTypingCard={isTypingCard}
           />
         ) : (
           <div className="mt-8">
@@ -1102,9 +1144,11 @@ export function LearnMode() {
                   transition={{ duration: 0.18 * m, ease: [0.16, 1, 0.3, 1] }}
                   className="flex flex-col items-center gap-2"
                 >
-                  <Button variant="primary" size="lg" className="w-full max-w-sm" onClick={reveal}>
-                    Show answer
-                  </Button>
+                  {!isTypingCard && (
+                    <Button variant="primary" size="lg" className="w-full max-w-sm" onClick={reveal}>
+                      Show answer
+                    </Button>
+                  )}
                 </motion.div>
               ) : (
                 <motion.div
@@ -1474,6 +1518,7 @@ function TouchBottomSheet({
   onHide,
   onAnswer,
   m,
+  isTypingCard,
 }: {
   phase: Phase;
   gradingMode: 'silent' | 'manual';
@@ -1481,6 +1526,7 @@ function TouchBottomSheet({
   onHide: () => void;
   onAnswer: (input: boolean | Grade, source?: 'touch' | 'keyboard') => void;
   m: number;
+  isTypingCard?: boolean;
 }) {
   return (
     <AnimatePresence mode="wait">
@@ -1494,10 +1540,16 @@ function TouchBottomSheet({
           className="fixed bottom-0 left-0 right-0 z-20 rounded-t-3xl border-t border-line-strong bg-surface px-6 py-6 shadow-2xl shadow-black/15"
         >
           <div className="mx-auto flex max-w-3xl flex-col items-center gap-3">
-            <p className="text-sm text-ink-faint">Tap the card to reveal</p>
-            <Button variant="primary" size="lg" className="w-full" onClick={() => { hapticLight(); onReveal(); }}>
-              Show answer
-            </Button>
+            {isTypingCard ? (
+              <p className="text-sm text-ink-faint">Type your answer above, then tap Check</p>
+            ) : (
+              <p className="text-sm text-ink-faint">Tap the card to reveal</p>
+            )}
+            {!isTypingCard && (
+              <Button variant="primary" size="lg" className="w-full" onClick={() => { hapticLight(); onReveal(); }}>
+                Show answer
+              </Button>
+            )}
           </div>
         </motion.div>
       ) : (
@@ -1568,6 +1620,7 @@ function FlipCard({
   onReveal,
   onHide,
   onAnswer,
+  typedAnswer,
 }: {
   card: Card;
   revealed: boolean;
@@ -1581,9 +1634,11 @@ function FlipCard({
   onReveal: () => void;
   onHide: () => void;
   onAnswer: (input: boolean | Grade, source?: 'touch' | 'keyboard') => void;
+  typedAnswer?: string;
 }) {
   const m = speedMultiplier(motionSpeed);
   const isCloze = card.type === 'cloze';
+  const isTyping = card.type === 'typing';
   const [swipe, setSwipe] = useState({ x: 0, hint: null as 'left' | 'right' | null });
   const [hasSwiped, setHasSwiped] = useState(() => {
     try {
@@ -1806,7 +1861,15 @@ function FlipCard({
                 (revealed ? 'text-accent' : 'text-ink-faint')
               }
             >
-              {revealed ? 'Answer' : isCloze ? 'Fill the gap' : 'Question'}
+              {revealed
+                ? isTyping
+                  ? 'Your answer'
+                  : 'Answer'
+                : isCloze
+                  ? 'Fill the gap'
+                  : isTyping
+                    ? 'Type the answer'
+                    : 'Question'}
             </motion.div>
             <motion.div
               initial={{ opacity: 0, y: 10 }}
@@ -1816,6 +1879,28 @@ function FlipCard({
             >
               <CardContent card={card} side={revealed ? 'back' : 'front'} />
             </motion.div>
+            {/* For typing cards in answer phase, show the typed answer and correct answer */}
+            {isTyping && revealed && typedAnswer !== undefined && (
+              <motion.div
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.2 * m, delay: 0.2 * m, ease: [0.16, 1, 0.3, 1] }}
+                className="mx-auto mt-6 max-w-prose border-t border-line pt-6 text-center"
+              >
+                <div className="mb-2 text-[11px] uppercase tracking-[0.2em] text-ink-faint">
+                  Your answer
+                </div>
+                <div className="mb-4 text-lg text-ink">
+                  {typedAnswer.trim() || <span className="italic text-ink-faint">(empty)</span>}
+                </div>
+                <div className="mb-2 text-[11px] uppercase tracking-[0.2em] text-accent">
+                  Correct answer
+                </div>
+                <div className="text-lg text-accent">
+                  <CardContent card={card} side="back" />
+                </div>
+              </motion.div>
+            )}
           </motion.div>
         </AnimatePresence>
       </div>

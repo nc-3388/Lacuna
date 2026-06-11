@@ -66,7 +66,10 @@ export function Dashboard() {
   const [moveIntoFolder, setMoveIntoFolder] = useState<string | null>(null);
   const [deletingFolder, setDeletingFolder] = useState<string | null>(null);
 
-  const allSelected = decks ? decks.length > 0 && decks.every((d) => selected.has(d.id)) : false;
+  const allSelected = useMemo(
+    () => (decks ? decks.length > 0 && decks.every((d) => selected.has(d.id)) : false),
+    [decks, selected],
+  );
 
   const selectedDecks = useMemo(
     () => (decks ?? []).filter((d) => selected.has(d.id)),
@@ -359,12 +362,12 @@ export function Dashboard() {
                         selected={selected.has(deck.id)}
                         onToggleSelected={() => toggleSelected(deck.id)}
                         motionMultiplier={m}
-                        folders={allFolders}
+                        folders={folders ?? []}
                         onMoveToFolder={(deckId, folderId) => {
                           void moveDecksToFolder([deckId], folderId);
                           notify(folderId ? 'Deck moved to folder.' : 'Deck moved to top level.', 'positive');
                         }}
-                        folderPath={getDeckFolderPath(deck, allFolders)}
+                        folderPath={getDeckFolderPath(deck, folders ?? [])}
                       />
                     </motion.div>
                   ))}
@@ -397,8 +400,7 @@ export function Dashboard() {
     return { groupedDecks: grouped, ungroupedDecks: ungrouped };
   }, [activeDecks]);
 
-  const allFolders = folders ?? [];
-  const folderTree = useMemo(() => buildFolderTree(allFolders), [allFolders]);
+  const folderTree = useMemo(() => buildFolderTree(folders ?? []), [folders]);
 
   return (
     <div className="mx-auto max-w-6xl px-6 py-10 md:px-10">
@@ -725,7 +727,7 @@ export function Dashboard() {
                     >
                       <span className="text-sm">Top level (no folder)</span>
                     </button>
-                    {allFolders.map((folder) => (
+                    {(folders ?? []).map((folder) => (
                       <button
                         key={folder.id}
                         type="button"
@@ -837,7 +839,7 @@ export function Dashboard() {
                               selected={selected.has(deck.id)}
                               onToggleSelected={() => toggleSelected(deck.id)}
                               motionMultiplier={m}
-                              folders={allFolders}
+                              folders={folders ?? []}
                               onMoveToFolder={(deckId, folderId) => {
                                 void moveDecksToFolder([deckId], folderId);
                                 notify(folderId ? 'Deck moved to folder.' : 'Deck moved to top level.', 'positive');
@@ -885,7 +887,7 @@ export function Dashboard() {
                     selected={selected.has(deck.id)}
                     onToggleSelected={() => toggleSelected(deck.id)}
                     motionMultiplier={m}
-                    folders={allFolders}
+                    folders={folders ?? []}
                     onMoveToFolder={(deckId, folderId) => {
                       void moveDecksToFolder([deckId], folderId);
                       notify(folderId ? 'Deck moved to folder.' : 'Deck moved to top level.', 'positive');
@@ -1032,7 +1034,7 @@ function DeckCard({
     } else {
       dragX.set(0);
     }
-  }, [isTouchMode, dragX, deck, navigate, notify]);
+  }, [isTouchMode, dragX, deck, navigate, notify, gestureSettings]);
 
   const handlePointerCancel = useCallback(() => {
     swipeState.current.dragging = false;

@@ -206,7 +206,7 @@ export function DeckSettings() {
     if (!deck) return;
     const snapshot = await snapshotDecks([deck.id]);
     await deleteDecks([deck.id]);
-    notify(`"${deck.name}" deleted.`, 'neutral', {
+    notify(`'${deck.name}' deleted.`, 'neutral', {
       actionLabel: 'Undo',
       onAction: () => {
         void restoreDecks(snapshot);
@@ -498,7 +498,7 @@ export function DeckSettings() {
                     />
                     <span className="mt-1 block text-xs text-ink-faint">
                       Target number of cards to review per day. When reached, the session
-                      ends with a "Daily goal reached" message. Leave blank for no goal.
+                      ends with a &quot;Daily goal reached&quot; message. Leave blank for no goal.
                     </span>
                   </label>
                   <label className="block text-sm text-ink-soft">

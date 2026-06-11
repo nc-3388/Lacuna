@@ -1,7 +1,7 @@
 // Shared domain types for Lacuna's local data model.
 // All persistence is via IndexedDB (see schema.ts). British English throughout.
 
-export type CardType = 'front_back' | 'cloze';
+export type CardType = 'front_back' | 'cloze' | 'typing' | 'basic_reversed';
 
 /** FSRS grade: 1 = Again, 2 = Hard, 3 = Good, 4 = Easy. Matches ts-fsrs `Grade`. */
 export type Grade = 1 | 2 | 3 | 4;
@@ -188,6 +188,8 @@ export interface Card {
   flagged?: boolean;
   /** Epoch ms until which the card is buried (skipped). null/absent when not buried. */
   buriedUntil?: number | null;
+  /** Id of the reverse card in a basic_reversed pair. Only set when type is 'basic_reversed'. */
+  reverseCardId?: string | null;
   /** Epoch ms of the next scheduled review (= ts-fsrs `due`). Null until first review. */
   due: number | null;
   /** Days ts-fsrs last scheduled this card for (= ts-fsrs `scheduled_days`). */

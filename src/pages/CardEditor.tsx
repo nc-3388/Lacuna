@@ -6,7 +6,7 @@ import { Button } from '../components/ui/Button';
 import { MarkdownEditor } from '../components/markdown/MarkdownEditor';
 import { TagInput } from '../components/ui/TagInput';
 import { useToast } from '../components/ui/Toast';
-import { checkDuplicate, createCard, createCardWithReverse, updateCard } from '../db/repository';
+import { checkDuplicate, createCard, createCardWithReverse, createBasicReversedPair, updateCard } from '../db/repository';
 import { hasCloze } from '../components/markdown/cloze';
 import { ChevronLeftIcon, CheckIcon } from '../components/ui/icons';
 import { cn } from '../components/ui/cn';
@@ -208,6 +208,8 @@ export function CardEditor() {
   }
 
   const isCloze = type === 'cloze';
+  const isTyping = type === 'typing';
+  const isBasicReversed = type === 'basic_reversed';
   const clozeValid = !isCloze || hasCloze(front);
   const frontValid = front.trim().length > 0;
   const backValid = isCloze || back.trim().length > 0;
@@ -227,6 +229,10 @@ export function CardEditor() {
     const backValue = isCloze ? '' : back;
     if (editing && card) {
       await updateCard(card.id, { type, front, back: backValue, tags });
+      // If this is a basic_reversed card, update its reverse partner too.
+      if (card.type === 'basic_reversed' && card.reverseCardId) {
+        await updateCard(card.reverseCardId, { front: backValue, back: front });
+      }
       clearDraft(draftKeyRef.current);
       flashSaved();
       // Let the confirmation flourish play briefly before leaving the page.
@@ -237,8 +243,10 @@ export function CardEditor() {
       return;
     }
 
-    const reversed = !isCloze && alsoReverse;
-    if (reversed) {
+    const reversed = !isCloze && !isTyping && !isBasicReversed && alsoReverse;
+    if (isBasicReversed) {
+      await createBasicReversedPair(deckId, front, backValue, tags);
+    } else if (reversed) {
       await createCardWithReverse(deckId, front, backValue, tags);
     } else {
       await createCard(deckId, type, front, backValue, tags);
@@ -366,22 +374,27 @@ export function CardEditor() {
               Card type
             </div>
             <div className={cn('flex gap-2', isTouchMode && 'gap-3')}>
-              {(['front_back', 'cloze'] as const).map((t) => (
+              {([
+                { key: 'front_back' as const, label: 'Front / Back' },
+                { key: 'typing' as const, label: 'Typing answer' },
+                { key: 'cloze' as const, label: 'Cloze deletion' },
+                { key: 'basic_reversed' as const, label: 'Basic (reversed)' },
+              ]).map((t) => (
                 <motion.button
-                  key={t}
+                  key={t.key}
                   type="button"
-                  onClick={() => setType(t)}
+                  onClick={() => setType(t.key)}
                   whileTap={{ scale: 0.96 }}
                   className={cn(
                     'flex-1 rounded-lg border px-4 py-2.5 text-sm transition-colors',
-                    type === t
+                    type === t.key
                       ? 'border-accent bg-accent-soft text-accent'
                       : 'border-line text-ink-soft hover:border-line-strong active:bg-ink/10',
                     isTouchMode && 'min-h-14 text-base',
                     !isTouchMode && 'min-h-11',
                   )}
                 >
-                  {t === 'front_back' ? 'Front / Back' : 'Cloze deletion'}
+                  {t.label}
                 </motion.button>
               ))}
             </div>
@@ -486,7 +499,7 @@ export function CardEditor() {
         )}
       >
         <div className={cn('pointer-events-auto flex flex-wrap items-center gap-3', isTouchMode && 'max-w-3xl mx-auto')}>
-          {!editing && !isCloze && (
+          {!editing && !isCloze && !isTyping && !isBasicReversed && (
             <motion.button
               type="button"
               onClick={() => setAlsoReverse((v) => !v)}

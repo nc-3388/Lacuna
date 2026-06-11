@@ -85,6 +85,10 @@ export function CardEditOverlay({
     const changes = { type, front, back: isCloze ? '' : back, tags };
     try {
       await updateCard(card.id, changes);
+      // If this is a basic_reversed card, update its reverse partner too.
+      if (card.type === 'basic_reversed' && card.reverseCardId) {
+        await updateCard(card.reverseCardId, { front: back, back: front });
+      }
       clearDraft(draftKeyRef.current);
       onSaved({ ...card, ...changes });
     } catch (err) {
@@ -145,19 +149,24 @@ export function CardEditOverlay({
               Card type
             </div>
             <div className="flex gap-2">
-              {(['front_back', 'cloze'] as const).map((t) => (
+              {([
+                { key: 'front_back' as const, label: 'Front / Back' },
+                { key: 'typing' as const, label: 'Typing answer' },
+                { key: 'cloze' as const, label: 'Cloze deletion' },
+                { key: 'basic_reversed' as const, label: 'Basic (reversed)' },
+              ]).map((t) => (
                 <button
-                  key={t}
+                  key={t.key}
                   type="button"
-                  onClick={() => setType(t)}
+                  onClick={() => setType(t.key)}
                   className={cn(
                     'flex-1 rounded-lg border px-4 py-2.5 text-sm transition-colors',
-                    type === t
+                    type === t.key
                       ? 'border-accent bg-accent-soft text-accent'
                       : 'border-line text-ink-soft hover:border-line-strong',
                   )}
                 >
-                  {t === 'front_back' ? 'Front / Back' : 'Cloze deletion'}
+                  {t.label}
                 </button>
               ))}
             </div>

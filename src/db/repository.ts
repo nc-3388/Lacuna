@@ -413,6 +413,23 @@ export async function createCardWithReverse(
   return { card, reverse };
 }
 
+/**
+ * Create a basic/reversed pair: two linked cards that test each direction.
+ * The primary card has type 'basic_reversed' and stores the reverse card's id.
+ */
+export async function createBasicReversedPair(
+  deckId: string,
+  front: string,
+  back: string,
+  tags: string[] = [],
+): Promise<{ card: Card; reverse: Card }> {
+  const reverse = await createCard(deckId, 'front_back', back, front, tags);
+  const card = await createCard(deckId, 'basic_reversed', front, back, tags);
+  await db.cards.update(card.id, { reverseCardId: reverse.id });
+  await db.cards.update(reverse.id, { reverseCardId: card.id });
+  return { card: { ...card, reverseCardId: reverse.id }, reverse: { ...reverse, reverseCardId: card.id } };
+}
+
 /** Create a deck and immediately populate it with imported cards, in one go. */
 export async function createDeckWithCards(
   name: string,

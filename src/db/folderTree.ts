@@ -119,7 +119,7 @@ export function getDescendantIds(folderId: string, folders: Folder[]): string[] 
   }
 
   const result: string[] = [folderId];
-  let queue = [folderId];
+  const queue = [folderId];
   while (queue.length > 0) {
     const next = queue.shift()!;
     const children = byParent.get(next) ?? [];
