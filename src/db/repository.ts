@@ -506,6 +506,46 @@ export async function buryCard(id: string, until: number): Promise<void> {
   await db.cards.update(id, { buriedUntil: until });
 }
 
+/** Skip many cards until the given instant. */
+export async function buryCards(ids: string[], until: number): Promise<void> {
+  await db.transaction('rw', db.cards, async () => {
+    await db.cards.where('id').anyOf(ids).modify({ buriedUntil: until });
+  });
+}
+
+export interface RescheduleOptions {
+  /** Reset selected cards to the New state, clearing all scheduling data. */
+  reset?: boolean;
+  /** Set a specific due date (epoch ms). Takes precedence over reset. */
+  due?: number;
+}
+
+/**
+ * Bulk-reschedule cards: either reset them to New (clearing stability, difficulty,
+ * due, etc.) or set a custom due date. History is preserved in both cases.
+ */
+export async function rescheduleCards(ids: string[], options: RescheduleOptions): Promise<void> {
+  if (options.due === undefined && !options.reset) {
+    throw new Error('Reschedule requires either reset: true or a due date.');
+  }
+  await db.transaction('rw', db.cards, async () => {
+    if (options.due !== undefined) {
+      await db.cards.where('id').anyOf(ids).modify({ due: options.due, buriedUntil: null });
+    } else if (options.reset) {
+      await db.cards.where('id').anyOf(ids).modify((card) => {
+        card.state = 0;
+        card.stability = null;
+        card.difficulty = null;
+        card.due = null;
+        card.scheduledDays = 0;
+        card.learningSteps = 0;
+        card.lastReviewed = null;
+        card.buriedUntil = null;
+      });
+    }
+  });
+}
+
 /** Set or clear a card's flag (a user marker for quick filtering and follow-up). */
 export async function setCardFlag(id: string, flagged: boolean): Promise<void> {
   await db.cards.update(id, { flagged });

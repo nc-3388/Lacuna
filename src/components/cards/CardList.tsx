@@ -9,10 +9,12 @@ import { UnifiedImportPanel } from '../import/UnifiedImportPanel';
 import { CardAnalytics } from './CardAnalytics';
 import {
   addTagToCards,
+  buryCards,
   createCards,
   deleteCards,
   moveCards,
   removeTagFromCards,
+  rescheduleCards,
   restoreCards,
   setCardFlag,
   setCardsSuspended,
@@ -53,6 +55,8 @@ export function CardList({ cards, deck, allDecks, onNewCard, onEditCard }: CardL
   const [moveTarget, setMoveTarget] = useState<string>('');
   const [tagging, setTagging] = useState(false);
   const [tagValue, setTagValue] = useState('');
+  const [rescheduling, setRescheduling] = useState(false);
+  const [rescheduleMode, setRescheduleMode] = useState<'new' | 'dueNow'>('new');
   const [importing, setImporting] = useState(false);
   const [expandedCardId, setExpandedCardId] = useState<string | null>(null);
   const [motionSpeed] = useMotionSpeed();
@@ -100,6 +104,8 @@ export function CardList({ cards, deck, allDecks, onNewCard, onEditCard }: CardL
     setMoveTarget('');
     setTagging(false);
     setTagValue('');
+    setRescheduling(false);
+    setRescheduleMode('new');
   }
 
   /** Apply a reversible bulk change to the selected cards, with an Undo toast. */
@@ -165,13 +171,47 @@ export function CardList({ cards, deck, allDecks, onNewCard, onEditCard }: CardL
 
   function startMove() {
     setTagging(false);
+    setRescheduling(false);
     setMoveTarget(otherDecks[0]?.id ?? '');
     setMoving(true);
   }
 
   function startTag() {
     setMoving(false);
+    setRescheduling(false);
     setTagging(true);
+  }
+
+  function startReschedule() {
+    setMoving(false);
+    setTagging(false);
+    setRescheduling(true);
+  }
+
+  async function handleBury() {
+    const n = selected.size;
+    const until = new Date();
+    until.setDate(until.getDate() + 1);
+    until.setHours(0, 0, 0, 0);
+    await applyBulk(
+      (ids) => buryCards(ids, until.getTime()),
+      `${n} card${plural(n)} buried until tomorrow.`,
+    );
+  }
+
+  async function handleReschedule() {
+    const n = selected.size;
+    if (rescheduleMode === 'new') {
+      await applyBulk(
+        (ids) => rescheduleCards(ids, { reset: true }),
+        `${n} card${plural(n)} reset to new.`,
+      );
+    } else {
+      await applyBulk(
+        (ids) => rescheduleCards(ids, { due: Date.now() }),
+        `${n} card${plural(n)} made due now.`,
+      );
+    }
   }
 
   async function handleMove() {
@@ -350,6 +390,22 @@ export function CardList({ cards, deck, allDecks, onNewCard, onEditCard }: CardL
               </Button>
               <Button
                 size="sm"
+                variant="secondary"
+                disabled={selected.size === 0}
+                onClick={handleBury}
+              >
+                Bury
+              </Button>
+              <Button
+                size="sm"
+                variant={rescheduling ? 'primary' : 'secondary'}
+                disabled={selected.size === 0}
+                onClick={() => (rescheduling ? setRescheduling(false) : startReschedule())}
+              >
+                Reschedule…
+              </Button>
+              <Button
+                size="sm"
                 variant={moving ? 'primary' : 'secondary'}
                 disabled={selected.size === 0 || otherDecks.length === 0}
                 onClick={() => (moving ? setMoving(false) : startMove())}
@@ -418,6 +474,57 @@ export function CardList({ cards, deck, allDecks, onNewCard, onEditCard }: CardL
                       disabled={!tagValue.trim()}
                     >
                       Add
+                    </Button>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Inline reschedule chooser */}
+          <AnimatePresence>
+            {rescheduling && selected.size > 0 && (
+              <motion.div
+                initial={{ opacity: 0, height: 0, marginTop: 0 }}
+                animate={{ opacity: 1, height: 'auto', marginTop: 12 }}
+                exit={{ opacity: 0, height: 0, marginTop: 0 }}
+                transition={{ duration: 0.12 * m, ease: [0.16, 1, 0.3, 1] }}
+                className="overflow-hidden"
+              >
+                <div className="border-t border-line pt-3">
+                  <fieldset className="space-y-2">
+                    <legend className="mb-2 text-sm text-ink-soft">
+                      Reschedule {selected.size} card{plural(selected.size)}
+                    </legend>
+                    <label className="flex items-center gap-2 text-sm text-ink">
+                      <input
+                        type="radio"
+                        name="reschedule-mode"
+                        value="new"
+                        checked={rescheduleMode === 'new'}
+                        onChange={() => setRescheduleMode('new')}
+                        className="accent-accent"
+                      />
+                      Reset to new (clear scheduling)
+                    </label>
+                    <label className="flex items-center gap-2 text-sm text-ink">
+                      <input
+                        type="radio"
+                        name="reschedule-mode"
+                        value="dueNow"
+                        checked={rescheduleMode === 'dueNow'}
+                        onChange={() => setRescheduleMode('dueNow')}
+                        className="accent-accent"
+                      />
+                      Make due now
+                    </label>
+                  </fieldset>
+                  <div className="mt-4 flex justify-end gap-2">
+                    <Button size="sm" variant="ghost" onClick={() => setRescheduling(false)}>
+                      Cancel
+                    </Button>
+                    <Button size="sm" variant="primary" onClick={handleReschedule}>
+                      Reschedule
                     </Button>
                   </div>
                 </div>
