@@ -29,7 +29,7 @@ import {
   restoreBackup,
   takeAutoBackup,
 } from '../db/backups';
-import { MoonIcon, SunIcon, UploadIcon, DownloadIcon } from '../components/ui/icons';
+import { MoonIcon, SunIcon, UploadIcon, DownloadIcon, KeyboardIcon, MenuIcon, FlameIcon, ClockIcon, GridIcon, ArchiveIcon } from '../components/ui/icons';
 import type { BackupFile } from '../db/types';
 import { formatDate, formatDateTime } from '../utils/datetime';
 import { useGradingMode } from '../state/gradingMode';
@@ -192,19 +192,28 @@ export function Settings() {
   return (
     <div className="mx-auto flex max-w-6xl gap-8 px-6 pb-10 pt-12 md:px-10 md:py-10">
       <div className="min-w-0 flex-1 max-w-2xl">
-        <header className="mb-10">
-        <p className="mb-1 text-sm uppercase tracking-[0.18em] text-ink-faint">
-          Preferences
-        </p>
-        <h1 className="font-display text-4xl tracking-tight md:text-5xl">Settings</h1>
+        <header className="relative mb-10 overflow-hidden rounded-2xl border border-line bg-surface p-6 md:p-8">
+        <div className="absolute inset-0 bg-dot-grid opacity-30" aria-hidden="true" />
+        <div className="relative">
+          <p className="mb-1 text-sm uppercase tracking-[0.18em] text-ink-faint">
+            Preferences
+          </p>
+          <h1 className="font-display text-4xl tracking-tight md:text-5xl">Settings</h1>
+        </div>
       </header>
 
       {/* Appearance */}
-      <section
+      <motion.section
         id="settings-appearance"
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.24 * motionMult, delay: 0.05 * motionMult, ease: [0.16, 1, 0.3, 1] }}
         className="mb-8 rounded-2xl border border-line bg-surface p-6"
       >
-        <h2 className="mb-1 font-display text-xl">Appearance</h2>
+        <div className="mb-1 flex items-center gap-2 text-accent">
+          <MoonIcon width={18} height={18} />
+          <h2 className="font-display text-xl">Appearance</h2>
+        </div>
         <p className="mb-4 text-sm text-ink-soft">
           Lacuna defaults to a dark theme. Your choice is remembered on this device.
         </p>
@@ -333,14 +342,20 @@ export function Settings() {
             <span className="text-xs text-ink-faint">Fast</span>
           </div>
         </div>
-      </section>
+      </motion.section>
 
       {/* Input mode */}
-      <section
+      <motion.section
         id="settings-input"
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.24 * motionMult, delay: 0.1 * motionMult, ease: [0.16, 1, 0.3, 1] }}
         className="mb-8 rounded-2xl border border-line bg-surface p-6"
       >
-        <h2 className="mb-1 font-display text-xl">Input mode</h2>
+        <div className="mb-1 flex items-center gap-2 text-accent">
+          <KeyboardIcon width={18} height={18} />
+          <h2 className="font-display text-xl">Input mode</h2>
+        </div>
         <p className="mb-4 text-sm text-ink-soft">
           Choose how Lacuna presents its interface. Keyboard-first keeps the compact,
           shortcut-driven layout. Touch-first enlarges controls, reveals gesture hints,
@@ -394,14 +409,20 @@ export function Settings() {
             />
           </div>
         </div>
-      </section>
+      </motion.section>
 
       {/* Sidebar */}
-      <section
+      <motion.section
         id="settings-sidebar"
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.24 * motionMult, delay: 0.15 * motionMult, ease: [0.16, 1, 0.3, 1] }}
         className="mb-8 rounded-2xl border border-line bg-surface p-6"
       >
-        <h2 className="mb-1 font-display text-xl">Sidebar</h2>
+        <div className="mb-1 flex items-center gap-2 text-accent">
+          <MenuIcon width={18} height={18} />
+          <h2 className="font-display text-xl">Sidebar</h2>
+        </div>
         <p className="mb-5 text-sm text-ink-soft">
           Control what information appears in the sidebar navigation and how compact it is.
         </p>
@@ -523,14 +544,20 @@ export function Settings() {
             </Button>
           </div>
         </div>
-      </section>
+      </motion.section>
 
       {/* Dashboard */}
-      <section
+      <motion.section
         id="settings-dashboard"
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.24 * motionMult, delay: 0.2 * motionMult, ease: [0.16, 1, 0.3, 1] }}
         className="mb-8 rounded-2xl border border-line bg-surface p-6"
       >
-        <h2 className="mb-1 font-display text-xl">Dashboard</h2>
+        <div className="mb-1 flex items-center gap-2 text-accent">
+          <GridIcon width={18} height={18} />
+          <h2 className="font-display text-xl">Dashboard</h2>
+        </div>
         <p className="mb-5 text-sm text-ink-soft">
           Choose how decks are ordered on the dashboard. The top three active decks are shown.
         </p>
@@ -564,14 +591,20 @@ export function Settings() {
             );
           })}
         </div>
-      </section>
+      </motion.section>
 
       {/* Study and scheduling */}
-      <section
+      <motion.section
         id="settings-study"
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.24 * motionMult, delay: 0.25 * motionMult, ease: [0.16, 1, 0.3, 1] }}
         className="mb-8 rounded-2xl border border-line bg-surface p-6"
       >
-        <h2 className="mb-1 font-display text-xl">Study &amp; scheduling</h2>
+        <div className="mb-1 flex items-center gap-2 text-accent">
+          <FlameIcon width={18} height={18} />
+          <h2 className="font-display text-xl">Study &amp; scheduling</h2>
+        </div>
         <p className="mb-5 text-sm text-ink-soft">
           How grades are decided and how the FSRS schedule adapts to you.
         </p>
@@ -606,14 +639,20 @@ export function Settings() {
             onChange={setAutoOptimise}
           />
         </div>
-      </section>
+      </motion.section>
 
       {/* Keyboard shortcuts */}
-      <section
+      <motion.section
         id="settings-shortcuts"
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.24 * motionMult, delay: 0.3 * motionMult, ease: [0.16, 1, 0.3, 1] }}
         className="mb-8 rounded-2xl border border-line bg-surface p-6"
       >
-        <h2 className="mb-1 font-display text-xl">Keyboard shortcuts</h2>
+        <div className="mb-1 flex items-center gap-2 text-accent">
+          <KeyboardIcon width={18} height={18} />
+          <h2 className="font-display text-xl">Keyboard shortcuts</h2>
+        </div>
         <p className="mb-5 text-sm text-ink-soft">
           Customise the keys used while studying. Click any row then press the key you want
           to assign. Changes are remembered on this device.
@@ -666,14 +705,20 @@ export function Settings() {
             Reset to defaults
           </Button>
         </div>
-      </section>
+      </motion.section>
 
       {/* Pomodoro timer */}
-      <section
+      <motion.section
         id="settings-pomodoro"
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.24 * motionMult, delay: 0.35 * motionMult, ease: [0.16, 1, 0.3, 1] }}
         className="mb-8 rounded-2xl border border-line bg-surface p-6"
       >
-        <h2 className="mb-1 font-display text-xl">Pomodoro timer</h2>
+        <div className="mb-1 flex items-center gap-2 text-accent">
+          <ClockIcon width={18} height={18} />
+          <h2 className="font-display text-xl">Pomodoro timer</h2>
+        </div>
         <p className="mb-5 text-sm text-ink-soft">
           A built-in focus timer for your study sessions. Customise the durations to match
           your own rhythm.
@@ -723,26 +768,38 @@ export function Settings() {
             }}
           />
         </div>
-      </section>
+      </motion.section>
 
       {/* Install */}
-      <section
+      <motion.section
         id="settings-install"
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.24 * motionMult, delay: 0.4 * motionMult, ease: [0.16, 1, 0.3, 1] }}
         className="mb-8 rounded-2xl border border-line bg-surface p-6"
       >
-        <h2 className="mb-1 font-display text-xl">Install</h2>
+        <div className="mb-1 flex items-center gap-2 text-accent">
+          <DownloadIcon width={18} height={18} />
+          <h2 className="font-display text-xl">Install</h2>
+        </div>
         <p className="mb-5 text-sm text-ink-soft">
           Add Lacuna to your home screen for quick access and offline use.
         </p>
         <InstallPanel />
-      </section>
+      </motion.section>
 
       {/* Data portability */}
-      <section
+      <motion.section
         id="settings-export"
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.24 * motionMult, delay: 0.45 * motionMult, ease: [0.16, 1, 0.3, 1] }}
         className="rounded-2xl border border-line bg-surface p-6"
       >
-        <h2 className="mb-1 font-display text-xl">Import &amp; export</h2>
+        <div className="mb-1 flex items-center gap-2 text-accent">
+          <UploadIcon width={18} height={18} />
+          <h2 className="mb-1 font-display text-xl">Import &amp; export</h2>
+        </div>
         <p className="mb-5 text-sm text-ink-soft">
           All your data lives locally in this browser. Export it in multiple formats
           for backup or transfer, and import to restore or merge.
@@ -824,15 +881,21 @@ export function Settings() {
             </motion.div>
           )}
         </AnimatePresence>
-      </section>
+      </motion.section>
 
       {/* Automatic backups */}
-      <section
+      <motion.section
         id="settings-backups"
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.24 * motionMult, delay: 0.5 * motionMult, ease: [0.16, 1, 0.3, 1] }}
         className="mt-8 rounded-2xl border border-line bg-surface p-6"
       >
         <div className="mb-1 flex flex-wrap items-center justify-between gap-3">
-          <h2 className="font-display text-xl">Automatic backups</h2>
+          <div className="flex items-center gap-2 text-accent">
+            <ArchiveIcon width={18} height={18} />
+            <h2 className="font-display text-xl">Automatic backups</h2>
+          </div>
           <Button variant="secondary" size="sm" onClick={handleBackupNow}>
             Back up now
           </Button>
@@ -971,7 +1034,7 @@ export function Settings() {
             ))}
           </ul>
         )}
-      </section>
+      </motion.section>
       </div>
 
       {/* Right-side section nav */}

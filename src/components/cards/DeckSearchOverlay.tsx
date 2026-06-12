@@ -145,7 +145,7 @@ export function DeckSearchOverlay({ cards, onClose, onQueryChange }: DeckSearchO
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -8 }}
       transition={{ duration: 0.12 }}
-      className="mb-4 rounded-2xl border border-line-strong bg-surface p-4 shadow-sm"
+      className="relative mb-4 overflow-hidden rounded-2xl border border-line-strong bg-surface p-4 shadow-sm shadow-black/[0.03]"
     >
       <div className="flex items-start gap-3">
         <div className="flex-1 space-y-3">

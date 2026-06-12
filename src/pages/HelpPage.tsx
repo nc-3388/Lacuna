@@ -36,12 +36,12 @@ function SectionCard({
 }) {
   const borderClass =
     accent === 'positive'
-      ? 'border-positive/20'
+      ? 'border-l-positive/40'
       : accent === 'negative'
-        ? 'border-negative/20'
+        ? 'border-l-negative/40'
         : accent === 'amber'
-          ? 'border-amber-500/20'
-          : 'border-accent/20';
+          ? 'border-l-amber-500/40'
+          : 'border-l-accent/40';
   const iconBgClass =
     accent === 'positive'
       ? 'bg-positive/10 text-positive'
@@ -52,7 +52,7 @@ function SectionCard({
           : 'bg-accent/10 text-accent';
 
   return (
-    <div className={`rounded-2xl border ${borderClass} bg-surface p-6`}>
+    <div className={`rounded-2xl border border-line bg-surface p-6 shadow-sm ${borderClass} border-l-[3px]`}>
       <div className="mb-4 flex items-center gap-3">
         <span className={`grid h-10 w-10 place-items-center rounded-xl ${iconBgClass}`}>
           {icon}
@@ -78,7 +78,7 @@ function ModeCard({
   tip?: string;
 }) {
   return (
-    <div>
+    <div className="rounded-xl border border-line bg-surface-raised/60 p-4 transition-colors hover:border-line-strong">
       <h3 className="mb-1 font-medium text-ink">{title}</h3>
       <p className="mb-3 text-sm text-ink-soft">{description}</p>
       <div className="space-y-2 text-sm text-ink-soft">
@@ -89,8 +89,8 @@ function ModeCard({
           <strong className="text-ink">When to use:</strong> {whenToUse}
         </p>
         {tip && (
-          <p className="text-xs text-ink-faint">
-            <strong className="text-ink-soft">Tip:</strong> {tip}
+          <p className="rounded-lg bg-accent-soft/40 px-3 py-2 text-xs text-accent-ink">
+            <strong className="text-accent">Tip:</strong> {tip}
           </p>
         )}
       </div>
@@ -546,27 +546,33 @@ export function HelpPage() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.25 * m }}
       >
-        <header className="mb-10">
-          <p className="mb-1 text-sm uppercase tracking-[0.18em] text-ink-faint">
-            Documentation
-          </p>
-          <h1 className="font-display text-4xl tracking-tight md:text-5xl">Help</h1>
-          <p className="mt-3 text-sm text-ink-soft">
-            Everything you need to know about using Lacuna, from study modes to keyboard
-            shortcuts.
-          </p>
+        <header className="relative mb-10 overflow-hidden rounded-2xl border border-line bg-surface p-8 md:p-10">
+          <div className="absolute inset-0 bg-dot-grid opacity-40" aria-hidden="true" />
+          <div className="relative">
+            <p className="mb-2 text-sm uppercase tracking-[0.18em] text-ink-faint">
+              Documentation
+            </p>
+            <h1 className="font-display text-4xl tracking-tight md:text-6xl">Help</h1>
+            <p className="mt-3 max-w-lg text-sm text-ink-soft">
+              Everything you need to know about using Lacuna, from study modes to keyboard
+              shortcuts.
+            </p>
+          </div>
         </header>
 
         {/* Section nav */}
         <div className="mb-8 flex flex-wrap gap-2">
           {sections.map((s) => (
-            <a
+            <motion.a
               key={s.id}
               href={`#${s.id}`}
-              className="rounded-lg border border-line px-3 py-1.5 text-xs text-ink-soft transition-colors hover:border-line-strong hover:text-ink"
+              whileHover={{ y: -1 }}
+              whileTap={{ scale: 0.97 }}
+              className="flex items-center gap-1.5 rounded-lg border border-line bg-surface px-3 py-1.5 text-xs text-ink-soft shadow-sm transition-colors hover:border-line-strong hover:text-ink"
             >
+              <span className="text-ink-faint">{s.icon}</span>
               {s.label}
-            </a>
+            </motion.a>
           ))}
         </div>
 
@@ -592,7 +598,10 @@ export function HelpPage() {
         </div>
 
         {/* Footer */}
-        <div className="mt-10 rounded-2xl border border-line bg-surface p-6 text-center">
+        <div className="mt-10 rounded-2xl border border-line bg-surface p-6 text-center shadow-sm">
+          <div className="mb-3 inline-flex h-10 w-10 items-center justify-center rounded-xl bg-accent-soft text-accent">
+            <InfoIcon width={20} height={20} />
+          </div>
           <p className="mb-3 text-sm text-ink-soft">
             Still have questions? Check the settings pages for more granular controls, or
             explore the analytics page to understand your study patterns.

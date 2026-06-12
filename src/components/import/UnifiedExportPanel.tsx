@@ -274,7 +274,7 @@ export function UnifiedExportPanel({
             transition={{ duration: 0.2 * m, ease: [0.16, 1, 0.3, 1] }}
             className="overflow-hidden"
           >
-            <div className="rounded-2xl border border-line bg-surface p-5 shadow-sm shadow-black/5">
+            <div className="relative overflow-hidden rounded-2xl border border-line bg-surface p-5 shadow-sm shadow-black/[0.03]">
               <div className="mb-3 flex items-center justify-between">
                 <span className="text-xs font-medium uppercase tracking-[0.18em] text-ink-faint">
                   Share code · {shareCode.length.toLocaleString()} characters

@@ -49,6 +49,7 @@ import {
   CloseIcon,
   EditIcon,
   FlagIcon,
+  HelpIcon,
   KeyboardIcon,
   MenuIcon,
   MoreIcon,
@@ -1171,18 +1172,6 @@ function modeBorderClass(mode: LearnModeType, revealed: boolean): string {
   }
 }
 
-function modeLabelClass(mode: LearnModeType, revealed: boolean): string {
-  if (!revealed) return 'text-ink-faint';
-  switch (mode) {
-    case 'cram': return 'text-amber-600';
-    case 'simple': return 'text-positive';
-    case 'filtered-leech': return 'text-negative';
-    case 'filtered-flagged': return 'text-amber-600';
-    case 'filtered': return 'text-accent';
-    default: return 'text-accent';
-  }
-}
-
 function modeProgressVariant(mode: LearnModeType): ProgressVariant {
   switch (mode) {
     case 'cram': return 'amber';
@@ -1337,19 +1326,19 @@ function LearnHeader({
           </button>
 
           <div className="min-w-0 flex-1">
-            <div className="mb-1 flex flex-col items-start gap-0.5 text-xs sm:flex-row sm:items-center sm:justify-between sm:gap-0">
+            <div className="mb-2 flex flex-col items-start gap-1 text-xs sm:flex-row sm:items-center sm:justify-between sm:gap-0">
               <span className={cn('font-medium uppercase tracking-[0.14em] sm:truncate', mode === 'cram' && 'text-amber-600', mode === 'simple' && 'text-positive', mode === 'filtered-leech' && 'text-negative', mode === 'filtered-flagged' && 'text-amber-600', 'text-ink-faint')}>
                 {info.title}
               </span>
-              <span className="whitespace-nowrap tabular text-ink-faint">
+              <span className="whitespace-nowrap tabular text-sm font-medium text-ink">
                 {mode === 'simple'
-                  ? `${simpleMastered} / ${simpleMastered + simpleRemaining} mastered`
+                  ? `${Math.round((simpleMastered / Math.max(1, simpleMastered + simpleRemaining)) * 100)}%`
                   : `${Math.round(progress * 100)}% ${noun}`}
               </span>
             </div>
-            <ProgressBar value={progress} height={6} variant={progressVariant} />
+            <ProgressBar value={progress} height={8} variant={progressVariant} showLabel />
             {info.subtitle && (
-              <div className="mt-1 text-[10px] text-ink-faint">{info.subtitle}</div>
+              <div className="mt-1.5 text-[10px] text-ink-faint">{info.subtitle}</div>
             )}
           </div>
 
@@ -1404,15 +1393,14 @@ function LearnHeader({
         </div>
       </header>
 
-      {/* Simple mode: inline progress breakdown below the header */}
+      {/* Simple mode: visual progress chips below the header */}
       {isSimpleMode && phase !== 'finished' && (
-        <div className="mx-auto mt-3 flex w-full max-w-3xl items-center gap-4 px-6 text-xs text-ink-faint">
-          <span className="tabular">{simpleWrong} wrong</span>
-          <span className="text-line">·</span>
-          <span className="tabular">{simpleRemaining} remaining</span>
-          <span className="text-line">·</span>
-          <span className="tabular text-positive">{simpleMastered} correct</span>
-        </div>
+        <SimpleModeStats
+          wrong={simpleWrong}
+          remaining={simpleRemaining}
+          mastered={simpleMastered}
+          m={m}
+        />
       )}
     </>
   );
@@ -1669,6 +1657,117 @@ function TouchMenuButton({
       <span className="shrink-0 text-ink-faint">{icon}</span>
       {label}
     </button>
+  );
+}
+
+/** Beautiful visual stat chips for simple mode — replaces the plain text stats. */
+function SimpleModeStats({
+  wrong,
+  remaining,
+  mastered,
+  m,
+}: {
+  wrong: number;
+  remaining: number;
+  mastered: number;
+  m: number;
+}) {
+  const total = mastered + remaining;
+  const pct = total > 0 ? mastered / total : 0;
+  const r = 18;
+  const c = 2 * Math.PI * r;
+  const dashOffset = c * (1 - pct);
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.24 * m, ease: [0.16, 1, 0.3, 1] }}
+      className="mx-auto mt-3 flex w-full max-w-3xl items-center gap-3 px-6"
+    >
+      {/* Circular progress ring */}
+      <div className="relative flex h-11 w-11 shrink-0 items-center justify-center">
+        <svg width="44" height="44" viewBox="0 0 44 44" className="absolute inset-0">
+          <circle
+            cx="22"
+            cy="22"
+            r={r}
+            fill="none"
+            className="stroke-ink/10"
+            strokeWidth="3"
+          />
+          <motion.circle
+            cx="22"
+            cy="22"
+            r={r}
+            fill="none"
+            className="stroke-positive"
+            strokeWidth="3"
+            strokeLinecap="round"
+            strokeDasharray={c}
+            initial={{ strokeDashoffset: c }}
+            animate={{ strokeDashoffset: dashOffset }}
+            transition={{ duration: 0.6 * m, ease: [0.16, 1, 0.3, 1] }}
+            transform="rotate(-90 22 22)"
+          />
+        </svg>
+        <span className="text-[10px] font-medium tabular text-positive">
+          {Math.round(pct * 100)}%
+        </span>
+      </div>
+
+      {/* Stat chips */}
+      <div className="flex flex-1 items-center gap-2">
+        <StatChip
+          icon={<CloseIcon width={14} height={14} />}
+          value={wrong}
+          label="wrong"
+          colour="negative"
+        />
+        <StatChip
+          icon={<ClockIcon width={14} height={14} />}
+          value={remaining}
+          label="remaining"
+          colour="amber"
+        />
+        <StatChip
+          icon={<CheckIcon width={14} height={14} />}
+          value={mastered}
+          label="correct"
+          colour="positive"
+        />
+      </div>
+    </motion.div>
+  );
+}
+
+function StatChip({
+  icon,
+  value,
+  label,
+  colour,
+}: {
+  icon: React.ReactNode;
+  value: number;
+  label: string;
+  colour: 'negative' | 'amber' | 'positive';
+}) {
+  const colourMap = {
+    negative: 'bg-negative/10 text-negative border-negative/20',
+    amber: 'bg-amber-500/10 text-amber-600 border-amber-500/20',
+    positive: 'bg-positive/10 text-positive border-positive/20',
+  };
+  return (
+    <div
+      className={cn(
+        'flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs',
+        colourMap[colour],
+      )}
+    >
+      <span className="shrink-0 opacity-80">{icon}</span>
+      <span className="tabular font-semibold">{value}</span>
+      <span className="opacity-70">{label}</span>
+    </div>
   );
 }
 
@@ -2009,34 +2108,66 @@ function FlipCard({
             }}
             style={{ transformOrigin: 'center center', x: swipeXSpring }}
             className={cn(
-              'relative z-10 rounded-3xl border bg-surface px-8 py-12',
+              'relative z-10 rounded-3xl border bg-surface px-8 py-14 md:px-12 md:py-16',
               modeBorderClass(mode, revealed),
             )}
           >
+            {/* Mode-aware label pill */}
             <motion.div
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.2 * m, delay: 0.1 * m, ease: [0.16, 1, 0.3, 1] }}
-              className={cn(
-                'mb-4 text-center text-[11px] uppercase tracking-[0.2em]',
-                modeLabelClass(mode, revealed),
-              )}
+              className="mb-6 flex justify-center"
             >
-              {revealed
-                ? isTyping
-                  ? 'Your answer'
-                  : 'Answer'
-                : isCloze
-                  ? 'Fill the gap'
-                  : isTyping
-                    ? 'Type the answer'
-                    : 'Question'}
+              <span
+                className={cn(
+                  'inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em]',
+                  revealed
+                    ? isTyping
+                      ? 'bg-accent/10 text-accent'
+                      : 'bg-positive/10 text-positive'
+                    : isCloze
+                      ? 'bg-accent/10 text-accent'
+                      : isTyping
+                        ? 'bg-accent/10 text-accent'
+                        : 'bg-ink/5 text-ink-soft',
+                )}
+              >
+                {revealed ? (
+                  isTyping ? (
+                    <>
+                      <CheckIcon width={12} height={12} />
+                      Your answer
+                    </>
+                  ) : (
+                    <>
+                      <CheckIcon width={12} height={12} />
+                      Answer
+                    </>
+                  )
+                ) : isCloze ? (
+                  <>
+                    <EditIcon width={12} height={12} />
+                    Fill the gap
+                  </>
+                ) : isTyping ? (
+                  <>
+                    <KeyboardIcon width={12} height={12} />
+                    Type the answer
+                  </>
+                ) : (
+                  <>
+                    <HelpIcon width={12} height={12} />
+                    Question
+                  </>
+                )}
+              </span>
             </motion.div>
             <motion.div
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.24 * m, delay: 0.14 * m, ease: [0.16, 1, 0.3, 1] }}
-              className="mx-auto max-w-prose text-center text-lg"
+              className="mx-auto max-w-prose text-center text-xl leading-relaxed md:text-2xl"
             >
               <CardContent card={card} side={revealed ? 'back' : 'front'} />
             </motion.div>

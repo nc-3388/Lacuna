@@ -119,11 +119,15 @@ export function Analytics() {
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.28 * motionMult, ease: [0.25, 0.1, 0.25, 1] }}
+        className="relative overflow-hidden rounded-2xl border border-line bg-surface p-6 md:p-8"
       >
-        <h1 className="font-display text-3xl tracking-tight">Analytics</h1>
-        <p className="mt-1 text-sm text-ink-soft">
-          Insights across every deck.
-        </p>
+        <div className="absolute inset-0 bg-dot-grid opacity-30" aria-hidden="true" />
+        <div className="relative">
+          <h1 className="font-display text-3xl tracking-tight">Analytics</h1>
+          <p className="mt-1 text-sm text-ink-soft">
+            Insights across every deck.
+          </p>
+        </div>
       </m.header>
 
       <div className="grid gap-4 lg:grid-cols-2">

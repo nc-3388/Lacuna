@@ -766,7 +766,7 @@ function ShareCodeImport({
 }) {
   return (
     <>
-      <div className="rounded-2xl border border-line bg-surface p-5 transition-all focus-within:border-accent/60 focus-within:shadow-sm focus-within:shadow-accent/5">
+      <div className="relative overflow-hidden rounded-2xl border border-line bg-surface p-5 transition-all focus-within:border-accent/60 focus-within:shadow-sm focus-within:shadow-accent/5">
         <label className="mb-2.5 block text-xs font-medium uppercase tracking-[0.18em] text-ink-faint">
           Share code
         </label>

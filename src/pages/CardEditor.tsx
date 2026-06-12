@@ -298,17 +298,20 @@ export function CardEditor() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.16 * m, ease: [0.16, 1, 0.3, 1] }}
       >
-        <header className="mb-8">
-          <Link
-            to={deckPath}
-            className="mb-3 inline-flex items-center gap-1.5 text-sm text-ink-faint transition-colors hover:text-ink"
-          >
-            <ChevronLeftIcon width={16} height={16} />
-            Back
-          </Link>
-          <h1 className="font-display text-4xl tracking-tight md:text-5xl">
-            {editing ? 'Edit card' : 'New card'}
-          </h1>
+        <header className="relative mb-8 overflow-hidden rounded-2xl border border-line bg-surface p-6 md:p-8">
+          <div className="absolute inset-0 bg-dot-grid opacity-30" aria-hidden="true" />
+          <div className="relative">
+            <Link
+              to={deckPath}
+              className="mb-3 inline-flex items-center gap-1.5 text-sm text-ink-faint transition-colors hover:text-ink"
+            >
+              <ChevronLeftIcon width={16} height={16} />
+              Back
+            </Link>
+            <h1 className="font-display text-4xl tracking-tight md:text-5xl">
+              {editing ? 'Edit card' : 'New card'}
+            </h1>
+          </div>
         </header>
 
         <AnimatePresence>
@@ -598,8 +601,8 @@ function CardEditorSkeleton() {
   return (
     <div className="mx-auto max-w-4xl px-6 pb-10 pt-8 md:px-10">
       <div className="mb-6 h-4 w-24 animate-pulse rounded bg-ink/10" />
-      <div className="mb-8">
-        <div className="mb-3 h-4 w-16 animate-pulse rounded bg-ink/10" />
+      <div className="mb-8 rounded-2xl border border-line bg-surface p-6">
+        <div className="mb-1 h-3 w-20 animate-pulse rounded bg-ink/10" />
         <div className="h-10 w-48 animate-pulse rounded bg-ink/10" />
       </div>
       <div className="flex flex-col gap-5">

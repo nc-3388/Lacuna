@@ -317,18 +317,26 @@ export function SharePage() {
 
   return (
     <div className="mx-auto max-w-3xl px-6 py-10 md:px-10">
-      <header className="mb-10">
-        <p className="mb-1 text-sm uppercase tracking-[0.18em] text-ink-faint">Collaborate</p>
-        <h1 className="font-display text-4xl tracking-tight md:text-5xl">Share</h1>
-        <p className="mt-3 max-w-prose text-sm text-ink-soft">
-          Turn your decks into a single code to send to anyone, and rebuild decks from a
-          code you have been given. Codes carry text material only; scheduling and review
-          history stay private to each person.
-        </p>
-      </header>
+      <motion.header
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.24 * m, ease: [0.16, 1, 0.3, 1] }}
+        className="relative mb-10 overflow-hidden rounded-2xl border border-line bg-surface p-6 md:p-8"
+      >
+        <div className="absolute inset-0 bg-dot-grid opacity-40" aria-hidden="true" />
+        <div className="relative">
+          <p className="mb-1 text-sm uppercase tracking-[0.18em] text-ink-faint">Collaborate</p>
+          <h1 className="font-display text-4xl tracking-tight md:text-5xl">Share</h1>
+          <p className="mt-3 max-w-prose text-sm text-ink-soft">
+            Turn your decks into a single code to send to anyone, and rebuild decks from a
+            code you have been given. Codes carry text material only; scheduling and review
+            history stay private to each person.
+          </p>
+        </div>
+      </motion.header>
 
       {/* Export */}
-      <section className="mb-8 rounded-2xl border border-line bg-surface p-6">
+      <section className="mb-8 rounded-2xl border border-line bg-surface p-6 shadow-sm">
         <div className="mb-1 flex items-center gap-2">
           <DownloadIcon width={18} height={18} className="text-accent" />
           <h2 className="font-display text-xl">Export decks</h2>
@@ -381,9 +389,7 @@ export function SharePage() {
                 {selectedCount} deck{selectedCount === 1 ? '' : 's'} · {selectedCards} card
                 {selectedCards === 1 ? '' : 's'}
               </span>
-            </div>
-
-            <div className="flex flex-col gap-2">
+            </div>                    <div className="flex flex-col gap-2">
               {decks.map((deck, index) => {
                 const on = selected.has(deck.id);
                 return (
@@ -395,11 +401,12 @@ export function SharePage() {
                     initial={{ opacity: 0, y: 6 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.16 * m, delay: Math.min(index * 0.03, 0.15) * m }}
+                    whileHover={{ y: -2, transition: { duration: 0.1 * m } }}
                     className={cn(
-                      'flex items-center gap-3 rounded-xl border px-4 py-3 text-left transition-colors',
+                      'flex items-center gap-3 rounded-xl border px-4 py-3 text-left shadow-sm transition-all duration-200',
                       on
-                        ? 'border-accent bg-accent-soft/50'
-                        : 'border-line hover:border-line-strong',
+                        ? 'border-accent bg-accent-soft/50 shadow-paper'
+                        : 'border-line bg-surface hover:border-line-strong hover:shadow-md',
                     )}
                   >
                     <span
@@ -477,7 +484,7 @@ export function SharePage() {
                   transition={{ duration: 0.16 * m, ease: [0.16, 1, 0.3, 1] }}
                   className="overflow-hidden"
                 >
-                  <div className="rounded-xl border border-line-strong bg-surface-raised p-4">
+                  <div className="rounded-xl border border-line-strong bg-surface-raised p-4 shadow-sm">
                     <div className="mb-2 flex items-center justify-between">
                       <span className="text-xs uppercase tracking-[0.14em] text-ink-faint">
                         Your share code · {code.length.toLocaleString()} characters
@@ -590,7 +597,7 @@ export function SharePage() {
       </section>
 
       {/* Import */}
-      <section className="rounded-2xl border border-line bg-surface p-6">
+      <section className="rounded-2xl border border-line bg-surface p-6 shadow-sm">
         <div className="mb-1 flex items-center gap-2">
           <UploadIcon width={18} height={18} className="text-accent" />
           <h2 className="font-display text-xl">Import a shared deck</h2>

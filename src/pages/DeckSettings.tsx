@@ -230,19 +230,27 @@ export function DeckSettings() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.25 * m }}
       >
-        <header className="mb-8">
-          <p className="mb-1 text-sm uppercase tracking-[0.18em] text-ink-faint">
-            Deck
-          </p>
-          <h1 className="font-display text-4xl tracking-tight md:text-5xl">Settings</h1>
-        </header>
+        <motion.header
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.24 * m, ease: [0.16, 1, 0.3, 1] }}
+          className="relative mb-8 overflow-hidden rounded-2xl border border-line bg-surface p-6 md:p-8"
+        >
+          <div className="absolute inset-0 bg-dot-grid opacity-30" aria-hidden="true" />
+          <div className="relative">
+            <p className="mb-1 text-sm uppercase tracking-[0.18em] text-ink-faint">
+              Deck
+            </p>
+            <h1 className="font-display text-4xl tracking-tight md:text-5xl">Settings</h1>
+          </div>
+        </motion.header>
 
         <div className="flex flex-col gap-6">
           <motion.section
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.24 * m, delay: 0.05 * m, ease: [0.16, 1, 0.3, 1] }}
-            className="rounded-2xl border border-line bg-surface p-6"
+            className="rounded-2xl border border-line bg-surface p-6 shadow-sm shadow-black/[0.02]"
           >
             <div className="flex flex-col gap-4">
               <label className="block text-sm text-ink-soft">
@@ -572,13 +580,13 @@ export function DeckSettings() {
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.24 * m, delay: 0.15 * m, ease: [0.16, 1, 0.3, 1] }}
-            className="rounded-2xl border border-negative/30 bg-negative/5 p-6"
+            className="rounded-2xl border border-negative/30 bg-negative/5 p-6 shadow-sm shadow-negative/10"
           >
             <div className="mb-1 text-sm font-medium text-negative">Danger zone</div>
-      <p className="mb-4 text-sm text-ink-soft">
-        Deleting this deck removes all of its cards and history. You will have a
-        moment to undo.
-      </p>
+            <p className="mb-4 text-sm text-ink-soft">
+              Deleting this deck removes all of its cards and history. You will have a
+              moment to undo.
+            </p>
             <Button variant="danger" size="sm" onClick={handleDelete}>
               Delete deck
             </Button>

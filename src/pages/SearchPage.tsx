@@ -51,12 +51,15 @@ export function SearchPage() {
 
   return (
     <div className="mx-auto max-w-3xl px-6 py-10 md:px-10">
-      <header className="mb-8">
-        <p className="mb-1 text-sm uppercase tracking-[0.18em] text-ink-faint">Find</p>
-        <h1 className="font-display text-4xl tracking-tight md:text-5xl">Search</h1>
+      <header className="relative mb-8 overflow-hidden rounded-2xl border border-line bg-surface p-6 md:p-8">
+        <div className="absolute inset-0 bg-dot-grid opacity-40" aria-hidden="true" />
+        <div className="relative">
+          <p className="mb-1 text-sm uppercase tracking-[0.18em] text-ink-faint">Find</p>
+          <h1 className="font-display text-4xl tracking-tight md:text-5xl">Search</h1>
+        </div>
       </header>
 
-      <div className="mb-6 flex items-center gap-3 rounded-xl border border-line-strong bg-surface px-4 py-3 focus-within:border-accent">
+      <div className="mb-6 flex items-center gap-3 rounded-xl border border-line-strong bg-surface px-4 py-3 shadow-sm transition-shadow focus-within:border-accent focus-within:shadow-md">
         <SearchIcon width={18} height={18} className="text-ink-faint" />
         <input
           autoFocus
@@ -119,10 +122,10 @@ export function SearchPage() {
           transition={{ duration: 0.24 * m }}
           className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-line-strong bg-surface/50 py-16 text-center"
         >
-          <div className="mb-4 grid h-12 w-12 place-items-center rounded-xl bg-accent-soft text-accent">
-            <SearchIcon width={22} height={22} />
+          <div className="mb-4 grid h-14 w-14 place-items-center rounded-2xl bg-accent-soft text-accent shadow-sm">
+            <SearchIcon width={24} height={24} />
           </div>
-          <h3 className="mb-1 font-display text-xl">Search across all cards</h3>
+          <h3 className="mb-2 font-display text-xl">Search across all cards</h3>
           <p className="max-w-sm text-sm text-ink-soft">
             Start typing to search the front, back, deck name and tags of every card, or pick a
             filter above to browse due, new, flagged, suspended or leech cards.
@@ -135,10 +138,10 @@ export function SearchPage() {
           transition={{ duration: 0.24 * m }}
           className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-line-strong bg-surface/50 py-16 text-center"
         >
-          <div className="mb-4 grid h-12 w-12 place-items-center rounded-xl bg-accent-soft text-accent">
-            <CardsIcon width={22} height={22} />
+          <div className="mb-4 grid h-14 w-14 place-items-center rounded-2xl bg-accent-soft text-accent shadow-sm">
+            <CardsIcon width={24} height={24} />
           </div>
-          <h3 className="mb-1 font-display text-xl">No cards match</h3>
+          <h3 className="mb-2 font-display text-xl">No cards match</h3>
           <p className="max-w-sm text-sm text-ink-soft">
             No cards match{trimmed ? ` "${trimmed}"` : ' those filters'}.
             Try clearing your search or filters.
@@ -160,8 +163,8 @@ export function SearchPage() {
                 onClick={() =>
                   navigate(`/deck/${hit.card.deckId}/cards/${hit.card.id}/edit`)
                 }
-                whileHover={{ y: -2, transition: { duration: 0.12 * m } }}
-                className="flex flex-col gap-1 rounded-xl border border-line bg-surface p-4 text-left transition-colors duration-200 hover:border-line-strong hover:shadow-md hover:shadow-black/[0.03]"
+                whileHover={{ y: -3, transition: { duration: 0.12 * m } }}
+                className="flex flex-col gap-1 rounded-xl border border-line bg-surface p-4 text-left shadow-sm transition-all duration-200 hover:border-line-strong hover:shadow-md hover:shadow-black/[0.04]"
               >
                 <span className="text-sm text-ink">
                   {plainPreview(hit.card.front, 140) || '(empty front)'}

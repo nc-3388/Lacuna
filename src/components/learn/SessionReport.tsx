@@ -12,8 +12,16 @@ import { m as motion, AnimatePresence } from 'motion/react';
 import { Button } from '../ui/Button';
 import { ProgressBar } from '../ui/ProgressBar';
 import { useChartColours } from '../analytics/useChartColours';
-import { CheckIcon } from '../ui/icons';
+import {
+  CheckIcon,
+  CardsIcon,
+  CloseIcon,
+  ClockIcon,
+  FlagIcon,
+  InfoIcon,
+} from '../ui/icons';
 import { useMotionSpeed, speedMultiplier } from '../../state/motionSpeed';
+import { cn } from '../ui/cn';
 import type { SessionSummary } from './types';
 
 const GRADE_LABELS: Record<number, string> = {
@@ -213,8 +221,11 @@ export function SessionReport({
 
         {/* Progress before/after with animated fill */}
         <div className="mb-6 rounded-2xl border border-line bg-surface p-6">
-          <div className="mb-2 flex items-center justify-between text-sm text-ink-soft">
-            <span>{summary.objectiveLabel}</span>
+          <div className="mb-3 flex items-center justify-between text-sm text-ink-soft">
+            <span className="flex items-center gap-2">
+              <FlagIcon width={16} height={16} />
+              {summary.objectiveLabel}
+            </span>
             <span className="tabular text-ink">
               {Math.round(summary.masteryBefore * 100)}% →{' '}
               <motion.span
@@ -232,16 +243,73 @@ export function SessionReport({
             animate={{ opacity: 1 }}
             transition={{ delay: 0.2 * m, duration: 0.24 * m }}
           >
-            <ProgressBar value={animatedProgress} />
+            <ProgressBar value={animatedProgress} height={12} />
+          </motion.div>
+          {/* Delta badge */}
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ delay: 1.4 * m, duration: 0.24 * m }}
+            className="mt-3 flex items-center gap-2"
+          >
+            <span
+              className={cn(
+                'inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium',
+                summary.masteryAfter >= summary.masteryBefore
+                  ? 'bg-positive/10 text-positive'
+                  : 'bg-negative/10 text-negative',
+              )}
+            >
+              {summary.masteryAfter >= summary.masteryBefore ? (
+                <>
+                  <CheckIcon width={12} height={12} />
+                  +{Math.round((summary.masteryAfter - summary.masteryBefore) * 100)}%
+                </>
+              ) : (
+                <>
+                  <CloseIcon width={12} height={12} />
+                  {Math.round((summary.masteryAfter - summary.masteryBefore) * 100)}%
+                </>
+              )}
+            </span>
+            <span className="text-xs text-ink-faint">change this session</span>
           </motion.div>
         </div>
 
-        {/* Stat tiles — revealed one after another with count-up numbers. */}
+        {/* Stat tiles — revealed one after another with count-up numbers and icons. */}
         <div className="mb-6 grid grid-cols-2 gap-4 sm:grid-cols-4">
-          <Stat index={0} label="Cards reviewed" value={String(countTotal)} motionMultiplier={m} />
-          <Stat index={1} label="Accuracy" value={`${countAccuracy}%`} motionMultiplier={m} />
-          <Stat index={2} label="Mean time" value={`${(countMean / 10).toFixed(1)}s`} motionMultiplier={m} />
-          <Stat index={3} label="Focus" value={`${countFocus}%`} motionMultiplier={m} />
+          <Stat
+            index={0}
+            label="Cards reviewed"
+            value={String(countTotal)}
+            icon={<CardsIcon width={16} height={16} />}
+            colour="accent"
+            motionMultiplier={m}
+          />
+          <Stat
+            index={1}
+            label="Accuracy"
+            value={`${countAccuracy}%`}
+            icon={<CheckIcon width={16} height={16} />}
+            colour="positive"
+            motionMultiplier={m}
+          />
+          <Stat
+            index={2}
+            label="Mean time"
+            value={`${(countMean / 10).toFixed(1)}s`}
+            icon={<ClockIcon width={16} height={16} />}
+            colour="ink"
+            motionMultiplier={m}
+          />
+          <Stat
+            index={3}
+            label="Focus"
+            value={`${countFocus}%`}
+            icon={<InfoIcon width={16} height={16} />}
+            colour="ink"
+            motionMultiplier={m}
+          />
         </div>
 
         {/* Grade distribution — hidden in simple mode (no meaningful grades). */}
@@ -313,14 +381,23 @@ function Stat({
   label,
   value,
   index,
+  icon,
+  colour,
   motionMultiplier,
 }: {
   label: string;
   value: string;
   index: number;
+  icon: React.ReactNode;
+  colour: 'accent' | 'positive' | 'ink';
   motionMultiplier?: number;
 }) {
   const m = motionMultiplier ?? 1;
+  const colourMap = {
+    accent: 'text-accent bg-accent/8',
+    positive: 'text-positive bg-positive/8',
+    ink: 'text-ink-soft bg-ink/5',
+  };
   return (
     <motion.div
       initial={{ opacity: 0, y: 12 }}
@@ -328,6 +405,9 @@ function Stat({
       transition={{ duration: 0.24 * m, delay: (0.2 + index * 0.07) * m, ease: [0.16, 1, 0.3, 1] }}
       className="rounded-xl border border-line bg-surface p-4"
     >
+      <div className={cn('mb-2 inline-flex rounded-lg p-1.5', colourMap[colour])}>
+        {icon}
+      </div>
       <motion.div
         className="font-display text-3xl tabular tracking-tight"
         initial={{ opacity: 0, scale: 0.95 }}

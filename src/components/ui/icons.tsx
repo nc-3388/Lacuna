@@ -308,3 +308,18 @@ export const CameraIcon = (p: IconProps) => (
   </Icon>
 );
 
+export const GridIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <rect x="3" y="3" width="7" height="7" rx="1.5" />
+    <rect x="14" y="3" width="7" height="7" rx="1.5" />
+    <rect x="3" y="14" width="7" height="7" rx="1.5" />
+    <rect x="14" y="14" width="7" height="7" rx="1.5" />
+  </Icon>
+);
+
+export const ArchiveIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="M21 8v13H3V8M23 3H1v5h22zM10 12h4" />
+  </Icon>
+);
+

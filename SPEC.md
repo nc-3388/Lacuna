@@ -139,8 +139,7 @@ Specific motion (current state of the app):
   bottom sheet that springs in and out, with a drag handle that closes the sheet when
   dragged down past a threshold or flicked quickly. The card-actions menu is a similar
   bottom sheet rather than a dropdown.
-- **Session report:** the whole panel rises in; reaching the goal springs in a tick badge;
-  the four stat tiles reveal in sequence.
+- **Session report:** the whole panel rises in; reaching the goal springs in a tick badge and fires a confetti burst; the four stat tiles reveal in sequence with count-up numbers; the progress bar animates from before to after with a delta badge; a grade-distribution bar chart shows the rating breakdown.
 - **Tabs / chips:** the active deck-view tab underline is a shared-layout element
   (`layoutId="deck-tab"`).
 - **Toasts:** slide in from the right with a slight scale.
@@ -708,6 +707,13 @@ Two modes, chosen per session via the DeckView study dropdown (default **FSRS**)
 - The **flip card accepts swipes**: a left swipe (past 60px) commits "No"; a right
   swipe commits "Yes". The first successful swipe hides the persistent swipe hints
   via a `localStorage` flag (`lacuna.learnHints`).
+- **Mode-aware card accents:** each card's border and shadow shift to match the study
+  mode (amber for cram, green for simple, red for leech filter, etc.), and a label
+  pill (Question / Answer / Fill the gap / Type the answer) animates in with the card
+  face to orient the user.
+- **Simple mode stat chips:** a circular progress ring and three colour-coded stat
+  pills (Wrong / Remaining / Correct) replace the plain text counters, with a springy
+  entrance and an animated SVG ring that tracks the mastery percentage.
 
 ### Pomodoro timer (v0.0.2, `src/hooks/usePomodoro.ts`,
 `src/components/learn/PomodoroTimer.tsx`)
@@ -1251,6 +1257,42 @@ configuration is at `electron/electron-builder.yml`.
    confirmation dialog that shows affected deck counts.
 5. **Gesture settings** — swipe actions on dashboard deck cards are configurable in
    Settings (study / archive).
+
+### Visual polish
+1. **Learn mode redesign** — mode-aware header borders, progress bar, and card accents
+   (amber for cram, green for simple, red for leech filter, etc.). A label pill animates
+   in with each card face to orient the user (Question / Answer / Fill the gap /
+   Type the answer). Swipe hints are styled as directional badges.
+2. **Simple mode stats** — a circular progress ring with an animated SVG stroke and
+   three colour-coded stat chips (Wrong / Remaining / Correct) replace the plain text
+   counters.
+3. **Session report redesign** — confetti burst on goal reached, animated count-up
+   stat tiles with icons, a progress bar that animates from before to after with a delta
+   badge, and a staggered entrance for all elements.
+4. **Flip card label pills** — each card face shows a mode-aware label pill with an
+   icon (e.g. "Question" with a help icon, "Answer" with a check icon, "Fill the gap"
+   with an edit icon, "Type the answer" with a keyboard icon) that fades in with a spring
+   animation.
+5. **Global atmosphere** — a subtle dot-grid background pattern (`bg-dot-grid`) added to
+   key page headers (Dashboard, DeckView, Settings, DeckSettings, CardEditor, Analytics,
+   HelpPage, SearchPage, SharePage) and empty states, creating a cohesive "drafting table"
+   feel across the app without gratuitous gradients.
+6. **Page headers** — all major pages now use a consistent `rounded-2xl border border-line
+   bg-surface` header with a dot-grid background, a large display-type title, and an
+   eyebrow label in small uppercase with wide tracking.
+7. **Cards and surfaces** — elevated cards with `shadow-sm shadow-black/[0.02]` and a
+   `hover:shadow-lg hover:shadow-black/[0.04]` transition, plus a `hover:-translate-y-1`
+   lift on deck cards and interactive tiles for tactile feedback.
+8. **Section icons** — Settings and DeckSettings sections now each have a matching icon
+   (Keyboard, Moon, Menu, Clock, Flame, etc.) in accent colour next to the section title
+   for quicker visual scanning.
+9. **Import/export panels** — rounded-2xl containers with overflow-hidden and subtle
+   shadow for a cleaner, more contained appearance.
+10. **Overlays** — `CardEditOverlay` and `DeckSearchOverlay` both use the dot-grid
+    background and rounded-2xl styling for consistency with the rest of the app.
+11. **Empty states** — all empty states (Dashboard, DeckView card list, SearchPage)
+    use the dot-grid background, a centred icon in an accent-soft badge, and a clear
+    call-to-action button for a more polished first-run experience.
 
 ### Bug fixes
 1. **Text selection focus ring** — removed the internal `box-shadow` ring on
