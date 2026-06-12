@@ -373,60 +373,65 @@ export function Dashboard() {
 
   return (
     <div className="mx-auto max-w-6xl px-6 py-10 md:px-10">
-      <header className="mb-10 flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <p className="mb-1 text-sm uppercase tracking-[0.18em] text-ink-faint">
-            Your revision
-          </p>
-          <h1 className="font-display text-4xl tracking-tight md:text-5xl">Decks</h1>
-        </div>
-        <div className="flex items-center gap-2">
-          {decks && decks.length > 0 && (
+      <header className="relative mb-10 overflow-hidden rounded-2xl border border-line bg-surface p-6 md:p-8">
+        <div className="absolute inset-0 bg-dot-grid opacity-40" aria-hidden="true" />
+        <div className="relative flex flex-wrap items-end justify-between gap-4">
+          <div>
+            <p className="mb-1 text-sm uppercase tracking-[0.18em] text-ink-faint">
+              Your revision
+            </p>
+            <h1 className="font-display text-4xl tracking-tight md:text-6xl">Decks</h1>
+          </div>
+          <div className="flex items-center gap-2">
+            {decks && decks.length > 0 && (
+              <Button
+                variant={selectMode ? 'primary' : 'secondary'}
+                onClick={() => (selectMode ? exitSelectMode() : setSelectMode(true))}
+              >
+                {selectMode ? 'Done' : 'Select'}
+              </Button>
+            )}
             <Button
-              variant={selectMode ? 'primary' : 'secondary'}
-              onClick={() => (selectMode ? exitSelectMode() : setSelectMode(true))}
+              variant="secondary"
+              onClick={() => {
+                setCreatingFolder(true);
+                setNewFolderName('');
+              }}
             >
-              {selectMode ? 'Done' : 'Select'}
+              <FolderIcon width={18} height={18} />
+              New folder
             </Button>
-          )}
-          <Button
-            variant="secondary"
-            onClick={() => {
-              setCreatingFolder(true);
-              setNewFolderName('');
-            }}
-          >
-            <FolderIcon width={18} height={18} />
-            New folder
-          </Button>
-          <Button variant="primary" onClick={startCreating}>
-            <PlusIcon width={18} height={18} />
-            New deck
-          </Button>
+            <Button variant="primary" onClick={startCreating}>
+              <PlusIcon width={18} height={18} />
+              New deck
+            </Button>
+          </div>
         </div>
       </header>
 
       {/* Motivation strip: streak, reviews today, seven-day time forecast */}
       {!selectMode && stats && decks && decks.length > 0 && <StudySignals stats={stats} decks={decks} />}
 
-      {/* Global "study everything" entry point */}
+      {/* Global "study everything" entry point — compact inline strip so it does not dominate the page. */}
       {!selectMode && decks && decks.length > 0 && totalEligible > 0 && (
         <motion.div
           initial={{ opacity: 0, y: -8 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.18 * m, ease: [0.16, 1, 0.3, 1] }}
-          className="mb-6 flex flex-wrap items-center gap-4 rounded-2xl border border-accent/40 bg-accent-soft/40 p-5"
+          className="mb-6 flex flex-wrap items-center gap-3 rounded-xl border border-line bg-surface px-4 py-3 shadow-sm shadow-black/[0.02]"
         >
-          <div className="min-w-0 w-full flex-1 sm:w-auto">
-            <h2 className="font-display text-xl">Study today</h2>
-            <p className="text-sm leading-relaxed text-balance text-ink-soft">
-              {totalEligible} card{totalEligible === 1 ? '' : 's'} ready across all your
-              decks, ordered by what moves you furthest before each exam.
-            </p>
+          <div className="flex items-center gap-2">
+            <span className="inline-flex items-center gap-1.5 rounded-md bg-accent/10 px-2 py-1 text-xs font-medium text-accent">
+              <PlayIcon width={14} height={14} />
+              {totalEligible} due
+            </span>
+            <span className="text-xs text-ink-soft">
+              across all decks
+            </span>
           </div>
-          <Button variant="primary" size="lg" className="w-full sm:w-auto" onClick={() => navigate('/learn')}>
-            <PlayIcon width={18} height={18} />
-            Study all decks
+          <Button variant="primary" size="sm" className="ml-auto" onClick={() => navigate('/learn')}>
+            <PlayIcon width={16} height={16} />
+            Study all
           </Button>
         </motion.div>
       )}
@@ -1009,11 +1014,11 @@ function DeckCard({
       whileHover={!isTouchMode ? { y: -4, transition: { duration: 0.12 * m } } : undefined}
       whileTap={!isTouchMode ? { scale: 0.98, transition: { duration: 0.08 * m } } : undefined}
       className={cn(
-        'group relative flex h-full flex-col rounded-2xl border bg-surface p-5 transition-colors duration-200',
+        'relative flex h-full flex-col rounded-2xl border bg-surface p-5 transition-all duration-200',
         folderMenuOpen ? 'overflow-visible' : 'overflow-hidden',
         selected
           ? 'border-accent ring-2 ring-accent/30'
-          : 'border-line hover:border-line-strong hover:shadow-xl hover:shadow-black/[0.04]',
+          : 'border-line shadow-sm shadow-black/[0.02] hover:border-line-strong hover:shadow-lg hover:shadow-black/[0.04]',
       )}
     >
       {colourBar}
@@ -1167,7 +1172,7 @@ function DeckCard({
       to={`/deck/${deck.id}`}
       onClick={handleLinkClick}
       aria-pressed={selectMode ? selected : undefined}
-      className="block h-full text-left"
+      className="group block h-full text-left"
     >
       {body}
     </Link>
@@ -1237,19 +1242,27 @@ function EmptyState({ onCreate, motionMultiplier }: { onCreate: () => void; moti
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.32 * m, ease: [0.16, 1, 0.3, 1] }}
-      className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-line-strong bg-surface/50 py-20 text-center"
+      className="relative flex flex-col items-center justify-center overflow-hidden rounded-2xl border border-dashed border-line-strong bg-surface/50 py-20 text-center"
     >
-      <div className="mb-4 grid h-14 w-14 place-items-center rounded-2xl bg-accent-soft text-accent">
-        <FlaskIcon width={28} height={28} />
+      <div className="absolute inset-0 bg-dot-grid opacity-30" aria-hidden="true" />
+      <div className="relative">
+        <motion.div
+          initial={{ scale: 0.8, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={{ duration: 0.4 * m, ease: [0.16, 1, 0.3, 1], delay: 0.1 * m }}
+          className="mb-4 grid h-14 w-14 place-items-center rounded-2xl bg-accent-soft text-accent shadow-sm shadow-accent/20"
+        >
+          <FlaskIcon width={28} height={28} />
+        </motion.div>
+        <h2 className="mb-2 font-display text-2xl">No decks yet</h2>
+        <p className="mb-6 max-w-sm text-ink-soft">
+          Create your first deck to begin building a revision schedule tuned to your exam.
+        </p>
+        <Button variant="primary" onClick={onCreate}>
+          <PlusIcon width={18} height={18} />
+          Create a deck
+        </Button>
       </div>
-      <h2 className="mb-2 font-display text-2xl">No decks yet</h2>
-      <p className="mb-6 max-w-sm text-ink-soft">
-        Create your first deck to begin building a revision schedule tuned to your exam.
-      </p>
-      <Button variant="primary" onClick={onCreate}>
-        <PlusIcon width={18} height={18} />
-        Create a deck
-      </Button>
     </motion.div>
   );
 }

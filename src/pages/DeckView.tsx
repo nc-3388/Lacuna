@@ -64,6 +64,7 @@ export function DeckView() {
   const allDecks = useDecks();
   const history = useSessionHistory(deckId);
   const { notify } = useToast();
+  const cramToastShown = useRef(false);
 
   const [tab, setTab] = useState<Tab>('cards');
   const [examBannerOpen, setExamBannerOpen] = useState(false);
@@ -156,6 +157,27 @@ export function DeckView() {
 
   // The active tag filter narrows both the visible list and the study session.
   const visibleTag = activeTag && allTags.includes(activeTag) ? activeTag : null;
+
+  // Show a persistent exam-eve cram toast once when the deck enters the window.
+  useEffect(() => {
+    if (!deck || !cards || deck.archived || cramToastShown.current) return;
+    if (examEveAvailable(deck) && cards.length > 0) {
+      cramToastShown.current = true;
+      notify(
+        `Exam-eve cram available for ${deck.name}. Weakest cards first — use only for the final push.`,
+        'neutral',
+        {
+          persistent: true,
+          actionLabel: 'Start cram',
+          onAction: () => {
+            navigate(
+              `/deck/${deck.id}/learn${visibleTag ? `?tag=${encodeURIComponent(visibleTag)}&` : '?'}mode=cram`,
+            );
+          },
+        },
+      );
+    }
+  }, [deck, cards, navigate, notify, visibleTag]);
 
   // Deck-scoped search: text + structured filters + sort.
   const searchedCards = useMemo(() => {
@@ -321,12 +343,15 @@ export function DeckView() {
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.16 * m, ease: [0.16, 1, 0.3, 1] }}
-        className="p-10"
+        className="relative overflow-hidden rounded-2xl border border-line bg-surface p-10"
       >
-        <p className="mb-4 text-ink-soft">This deck could not be found.</p>
-        <Link to="/" className="text-accent underline">
-          Back to dashboard
-        </Link>
+        <div className="absolute inset-0 bg-dot-grid opacity-30" aria-hidden="true" />
+        <div className="relative">
+          <p className="mb-4 text-ink-soft">This deck could not be found.</p>
+          <Link to="/" className="text-accent underline">
+            Back to dashboard
+          </Link>
+        </div>
       </motion.div>
     );
   }
@@ -421,13 +446,14 @@ export function DeckView() {
       </Link>
 
       {/* Header */}
-      <header className="mb-8">
-        <div className="flex flex-wrap items-start justify-between gap-4">
+      <header className="relative mb-8 overflow-hidden rounded-2xl border border-line bg-surface p-6 md:p-8">
+        <div className="absolute inset-0 bg-dot-grid opacity-30" aria-hidden="true" />
+        <div className="relative flex flex-wrap items-start justify-between gap-4">
           <div className="min-w-0">
             <div className="mb-1 text-sm uppercase tracking-[0.16em] text-ink-faint">
               Exam {relativeExam(deck.examDate, Date.now(), deck.timeZone)} · {formatDateTime(deck.examDate, deck.timeZone)}
             </div>
-            <h1 className="font-display text-4xl tracking-tight md:text-5xl">
+            <h1 className="font-display text-4xl tracking-tight md:text-6xl">
               {deck.name}
             </h1>
           </div>
@@ -533,7 +559,7 @@ export function DeckView() {
         {/* Mastery summary */}
         <div
           ref={masteryRef}
-          className="relative mt-6 rounded-2xl border border-line bg-surface p-5"
+          className="relative mt-6 rounded-2xl border border-line bg-surface p-5 shadow-sm shadow-black/[0.03]"
           style={{ touchAction: isTouchMode ? 'none' : 'pan-y' }}
           onPointerDown={handleMasteryPointerDown}
           onPointerMove={handleMasteryPointerMove}
@@ -639,30 +665,33 @@ export function DeckView() {
         )}
       </AnimatePresence>
 
-      {/* Exam-eve cram: an explicit mode offered only inside the final window */}
+      {/* Exam-eve cram inline chip — shown only inside the final window, compact and dismissible. */}
       {!deck.archived && examEveAvailable(deck) && cards.length > 0 && (
-        <div className="mb-6 flex flex-wrap items-center gap-4 rounded-2xl border border-amber-500/40 bg-amber-500/5 p-5">
-          <div className="min-w-0 flex-1">
-            <h2 className="font-display text-xl">Exam-eve cram</h2>
-            <p className="text-sm text-ink-soft">
-              Your exam is within {EXAM_EVE_WINDOW_HOURS} hours. Cram mode puts your weakest
-              cards first to get as many over the line as possible. It trades long-term
-              retention for exam-day coverage, so use it only for the final push.
-            </p>
-          </div>
-          <Button
-            variant="primary"
-            size="lg"
+        <motion.div
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.2 * m, ease: [0.16, 1, 0.3, 1] }}
+          className="mb-6 flex flex-wrap items-center gap-3 rounded-xl border border-amber-500/25 bg-amber-500/[0.03] px-4 py-3"
+        >
+          <span className="inline-flex items-center gap-1.5 rounded-md bg-amber-500/10 px-2 py-1 text-xs font-medium text-amber-700">
+            <FlameIcon width={14} height={14} />
+            Exam-eve cram
+          </span>
+          <span className="text-xs text-ink-soft">
+            Within {EXAM_EVE_WINDOW_HOURS} hours of your exam. Weakest cards first.
+          </span>
+          <button
+            type="button"
             onClick={() => navigate(`${studyPath}${visibleTag ? '&' : '?'}mode=cram`)}
+            className="ml-auto text-xs font-medium text-accent underline underline-offset-2 transition-opacity hover:opacity-80"
           >
-            <PlayIcon width={18} height={18} />
             Start cram
-          </Button>
-        </div>
+          </button>
+        </motion.div>
       )}
 
       {/* Tabs */}
-      <motion.div layout transition={{ layout: { duration: 0.18 * m, ease: [0.16, 1, 0.3, 1] } }} className="mb-6 flex gap-1 border-b border-line">
+      <motion.div layout transition={{ layout: { duration: 0.18 * m, ease: [0.16, 1, 0.3, 1] } }} className="mb-6 flex gap-1 border-b border-line bg-surface/50 rounded-t-xl px-2 pt-2">
         <TabButton active={tab === 'cards'} onClick={() => setTab('cards')} icon={<CardsIcon width={16} height={16} />} motionMultiplier={m}>
           Cards
         </TabButton>
@@ -793,7 +822,7 @@ export function DeckView() {
                   </button>
                 ))}
               </div>
-            )}
+      )}
             {searchedCards.length === 0 ? (
               <EmptyCardState
                 hasQuery={searchQuery.trim().length > 0 || filters.size > 0}
