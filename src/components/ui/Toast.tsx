@@ -23,6 +23,8 @@ interface ToastOptions {
   onAction?: () => void;
   /** Lifetime in milliseconds. Defaults to 3500ms, or 6000ms when an action is shown. */
   duration?: number;
+  /** If true, the toast stays on screen until the user clicks it away. */
+  persistent?: boolean;
 }
 
 interface ToastContextValue {
@@ -54,7 +56,9 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   const notify = useCallback(
     (message: string, tone: ToastTone = 'neutral', options?: ToastOptions) => {
       const id = ++toastIdCounter;
-      const duration = options?.duration ?? (options?.actionLabel ? 6000 : 3500);
+      const duration = options?.persistent
+        ? Infinity
+        : (options?.duration ?? (options?.actionLabel ? 6000 : 3500));
       setToasts((prev) => {
         const next = [
           ...prev,
@@ -107,8 +111,9 @@ function ToastBar({ toast, onDismiss, motionMultiplier }: { toast: ToastItem; on
   const [progress, setProgress] = useState(1);
   const rafRef = useRef<number>(0);
   const startRef = useRef<number>(0);
-  const remainingRef = useRef<number>(toast.duration);
+  const remainingRef = useRef<number>(toast.duration === Infinity ? 1 : toast.duration);
   const onDismissRef = useRef(onDismiss);
+  const isPersistent = toast.duration === Infinity;
 
   // Keep the latest onDismiss without causing re-runs.
   useEffect(() => {
@@ -116,6 +121,7 @@ function ToastBar({ toast, onDismiss, motionMultiplier }: { toast: ToastItem; on
   }, [onDismiss]);
 
   const resume = useCallback(() => {
+    if (isPersistent) return;
     startRef.current = performance.now();
     const duration = toast.duration;
 
@@ -132,7 +138,7 @@ function ToastBar({ toast, onDismiss, motionMultiplier }: { toast: ToastItem; on
     }
 
     rafRef.current = requestAnimationFrame(tick);
-  }, [toast.duration]);
+  }, [toast.duration, isPersistent]);
 
   const pause = useCallback(() => {
     cancelAnimationFrame(rafRef.current);
@@ -141,9 +147,13 @@ function ToastBar({ toast, onDismiss, motionMultiplier }: { toast: ToastItem; on
   }, []);
 
   useEffect(() => {
+    if (isPersistent) {
+      setProgress(1);
+      return;
+    }
     resume();
     return () => cancelAnimationFrame(rafRef.current);
-  }, [resume]);
+  }, [resume, isPersistent]);
 
   const toneClasses = {
     positive: 'border-positive/40 text-positive',
@@ -171,11 +181,13 @@ function ToastBar({ toast, onDismiss, motionMultiplier }: { toast: ToastItem; on
       onMouseEnter={pause}
       onMouseLeave={resume}
     >
-      {/* Dismiss timer progress bar */}
-      <motion.div
-        className={cn('absolute bottom-0 left-0 h-[2px] origin-left', progressColour[toast.tone])}
-        style={{ width: `${progress * 100}%`, opacity: 0.6 }}
-      />
+      {/* Dismiss timer progress bar — hidden for persistent toasts */}
+      {!isPersistent && (
+        <motion.div
+          className={cn('absolute bottom-0 left-0 h-[2px] origin-left', progressColour[toast.tone])}
+          style={{ width: `${progress * 100}%`, opacity: 0.6 }}
+        />
+      )}
 
       <span className="shrink-0">
         {toast.tone === 'positive' && <CheckIcon width={16} height={16} />}
@@ -183,6 +195,16 @@ function ToastBar({ toast, onDismiss, motionMultiplier }: { toast: ToastItem; on
         {toast.tone === 'neutral' && <InfoIcon width={16} height={16} />}
       </span>
       <span className="min-w-0 flex-1">{toast.message}</span>
+      {isPersistent && (
+        <button
+          type="button"
+          onClick={onDismiss}
+          className="shrink-0 rounded-lg p-1 text-ink-faint transition-colors hover:bg-ink/5 hover:text-ink"
+          aria-label="Dismiss"
+        >
+          <CloseIcon width={14} height={14} />
+        </button>
+      )}
       {toast.actionLabel && (
         <button
           type="button"
