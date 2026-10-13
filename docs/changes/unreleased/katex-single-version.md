@@ -1,0 +1,1 @@
+- Maths in notes and cards renders with its fraction lines and sizing again: Mermaid and the Markdown maths plugin pinned an older KaTeX whose markup the bundled KaTeX 0.19 stylesheet no longer styles, so every consumer now resolves to KaTeX 0.19.0, which also clears a low-severity KaTeX advisory

@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
 import { describe, expect, it, vi } from 'vitest';
 import { render, waitFor } from '@testing-library/react';
 import { MarkdownView } from './MarkdownView';
@@ -181,5 +183,23 @@ describe('MarkdownView — diagrams and note links', () => {
     expect(container.querySelector('.lacuna-table-wrap table')).not.toBeNull();
     expect(container.querySelector('.lacuna-wikilink')).not.toBeNull();
     expect(container.innerHTML).not.toContain('```mermaid');
+  });
+});
+
+describe('MarkdownView \u2014 maths', () => {
+  it('emits KaTeX markup that the imported KaTeX stylesheet styles', () => {
+    // KaTeX 0.18 prefixed its layout classes (base -> katex-base). Markup from one
+    // KaTeX version under another version's stylesheet loses fraction lines and sizing.
+    const require = createRequire(import.meta.url);
+    const css = readFileSync(require.resolve('katex/dist/katex.min.css'), 'utf8');
+    const { container } = render(<MarkdownView source={'$\\frac{a}{b}$'} />);
+    const classes = new Set(
+      [...container.querySelectorAll('.katex-html *')].flatMap((el) => [...el.classList]),
+    );
+    expect(classes.size).toBeGreaterThan(0);
+    const unstyled = [...classes].filter(
+      (name) => !css.includes(`.${name}`) && css.includes(`.katex-${name}`),
+    );
+    expect(unstyled).toEqual([]);
   });
 });
