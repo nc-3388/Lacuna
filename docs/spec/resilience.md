@@ -26,9 +26,11 @@
   the eager application assets and the named shared modules needed by the Cards spine; visited
   content-hashed scripts, workers and styles use bounded Cache First stores. Stale-chunk recovery
   probes the origin before clearing worker/cache state and reloading, and never performs that
-  recovery after an offline preload failure. The packaged Electron app uses `app://` and does not
-  register a browser service worker. These are current implementation contracts, not v0.0.2
-  release-history claims.
+  recovery after an offline preload failure. Lazy-route imports join the same recovery: a failed
+  import reloads once, and a recurring failure for that route replays the probe to clear
+  worker/cache state, so a stale deployment's chunk names cannot strand a route. The packaged
+  Electron app uses `app://` and does not register a browser service worker. These are current
+  implementation contracts, not v0.0.2 release-history claims.
 - Migrations live in `src/db/migrations.ts`; the schema is versioned in
   `src/db/schema.ts`, and every upgrade is fronted by a pre-migration restore
   point (§13).

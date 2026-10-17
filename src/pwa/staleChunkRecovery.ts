@@ -11,35 +11,44 @@ export interface StaleChunkRecoveryEnvironment {
   confirmOnline(): Promise<boolean>;
 }
 
+let recoveryPending = false;
+
+/**
+ * Clear every service worker and cache still serving the route stale bytes,
+ * then reload the document so the current deployment's shell is fetched.
+ * Proving network access is asynchronous, so callers that keep a UI alive
+ * should treat `false` as "keep what is shown until now" instead of retrying:
+ * an offline start would clear the shell keeping the application usable, and a
+ * claimed cooldown would reload repeatedly inside the failing minute.
+ */
+export async function recoverFromChunkFailure(
+  environment: StaleChunkRecoveryEnvironment = browserEnvironment(),
+): Promise<boolean> {
+  if (!environment.online() || recoveryPending) return false;
+  recoveryPending = true;
+  try {
+    const confirmed = await environment.confirmOnline();
+    if (!confirmed) return false;
+    if (!claimRecoveryAttempt(environment.storage, environment.now())) return false;
+    await environment.clearPwaState().finally(() => environment.reload());
+    return true;
+  } catch {
+    return false;
+  } finally {
+    recoveryPending = false;
+  }
+}
+
 /**
  * Vite reports a missing deployment chunk before React sees the rejected import.
- * Recover at most once by dropping the stale service worker/cache state. Import
- * errors continue to their callers because proving network access is asynchronous.
+ * Recover at most once per cooldown; the claim is shared with lazy-route
+ * recovery so both reporting paths run one replacement document, not two.
  */
 export function installStaleChunkRecovery(
   environment: StaleChunkRecoveryEnvironment = browserEnvironment(),
 ): () => void {
-  let recoveryPending = false;
   const onPreloadError = () => {
-    // An uncached optional chunk can fail during a legitimate offline start.
-    // Clearing the worker and its caches there would destroy the shell that is
-    // keeping the application usable, then reload into the same absent network.
-    if (!environment.online() || recoveryPending) return;
-    recoveryPending = true;
-    // Confirming connectivity is asynchronous, so the import error must continue
-    // to its caller. Preventing it here would make Vite resolve the module as
-    // undefined when Chromium briefly reports an offline document as online.
-    void environment
-      .confirmOnline()
-      .then(async (confirmed) => {
-        if (!confirmed) return;
-        if (!claimRecoveryAttempt(environment.storage, environment.now())) return;
-        await environment.clearPwaState().finally(() => environment.reload());
-      })
-      .catch(() => {})
-      .finally(() => {
-        recoveryPending = false;
-      });
+    void recoverFromChunkFailure(environment);
   };
 
   environment.events.addEventListener('vite:preloadError', onPreloadError);

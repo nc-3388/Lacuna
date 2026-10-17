@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { installStaleChunkRecovery } from './staleChunkRecovery';
+import { installStaleChunkRecovery, recoverFromChunkFailure } from './staleChunkRecovery';
 
 function memoryStorage(): Storage {
   const values = new Map<string, string>();
@@ -121,5 +121,59 @@ describe('stale chunk recovery', () => {
 
     expect(event.defaultPrevented).toBe(false);
     expect(reload).not.toHaveBeenCalled();
+  });
+});
+
+describe('awaited stale chunk recovery', () => {
+  it('clears cached state and reloads once for callers that await recovery', async () => {
+    const clearPwaState = vi.fn().mockResolvedValue(undefined);
+    const reload = vi.fn();
+    const confirmOnline = vi.fn().mockResolvedValue(true);
+    const environment = {
+      events: new EventTarget(),
+      storage: memoryStorage(),
+      clearPwaState,
+      reload,
+      now: () => 1_000,
+      online: () => true,
+      confirmOnline,
+    };
+
+    await expect(recoverFromChunkFailure(environment)).resolves.toBe(true);
+    expect(confirmOnline).toHaveBeenCalledOnce();
+    expect(clearPwaState).toHaveBeenCalledOnce();
+    expect(reload).toHaveBeenCalledOnce();
+
+    // The claim inside the same storage throttles a repeat into a denial with
+    // no second clear.
+    await expect(recoverFromChunkFailure(environment)).resolves.toBe(false);
+    expect(confirmOnline).toHaveBeenCalledTimes(2);
+    expect(clearPwaState).toHaveBeenCalledOnce();
+    expect(reload).toHaveBeenCalledOnce();
+  });
+
+  it('collapses a second caller while one recovery is already running', async () => {
+    let resolveProbe!: (confirmed: boolean) => void;
+    const clearPwaState = vi.fn().mockResolvedValue(undefined);
+    const reload = vi.fn();
+    const environment = {
+      events: new EventTarget(),
+      storage: memoryStorage(),
+      clearPwaState,
+      reload,
+      now: () => 1_000,
+      online: () => true,
+      confirmOnline: () =>
+        new Promise<boolean>((resolve) => {
+          resolveProbe = resolve;
+        }),
+    };
+
+    const first = recoverFromChunkFailure(environment);
+    await expect(recoverFromChunkFailure(environment)).resolves.toBe(false);
+    resolveProbe(true);
+    await expect(first).resolves.toBe(true);
+    expect(environment.clearPwaState).toHaveBeenCalledOnce();
+    expect(environment.reload).toHaveBeenCalledOnce();
   });
 });

@@ -1,0 +1,1 @@
+- Recover a sticky failed lazy-route import by reusing the shared stale-chunk recovery: after the first guarded reload the failing route re-runs the origin probe and clears service-worker and cache state before reloading again, so settings and other routes open on redelivered preview deployments (#560).

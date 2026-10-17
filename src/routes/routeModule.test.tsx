@@ -4,6 +4,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ErrorBoundary } from '../components/layout/ErrorBoundary';
 import { lazyRouteModule, loadRouteModule } from './routeModule';
 
+const recoverFromChunkFailure = vi.hoisted(() => vi.fn());
+vi.mock('../pwa/staleChunkRecovery', () => ({ recoverFromChunkFailure }));
+
 describe('route module prefetch', () => {
   it('renders a completed prefetch immediately without a suspense fallback', async () => {
     const loader = vi.fn(async () => ({ default: () => <h1>Prefetched route</h1> }));
@@ -82,7 +85,13 @@ describe('lazy route import recovery', () => {
   }
 
   beforeEach(() => {
+    // Spies survive afterEach restores for prototype-backed storage methods in
+    // this environment, so scrub them before each test instead of relying on
+    // ordering.
+    vi.restoreAllMocks();
     sessionStorage.clear();
+    recoverFromChunkFailure.mockReset();
+    recoverFromChunkFailure.mockResolvedValue(false);
     vi.resetModules();
     vi.spyOn(window.location, 'reload').mockImplementation(() => undefined);
     vi.spyOn(console, 'error').mockImplementation(() => undefined);
@@ -136,10 +145,40 @@ describe('lazy route import recovery', () => {
   });
 
   it('falls through safely when session storage is unavailable', async () => {
-    vi.spyOn(window.sessionStorage, 'setItem').mockImplementation(() => {
-      throw new Error('Storage denied');
-    });
+    const deniedStorage = vi
+      .spyOn(window.sessionStorage, 'setItem')
+      .mockImplementation(() => {
+        throw new Error('Storage denied');
+      });
+    try {
+      await failedRoute();
+      expect(await screen.findByText('Something went wrong')).toBeInTheDocument();
+      expect(window.location.reload).not.toHaveBeenCalled();
+    } finally {
+      // Prototype-backed storage spies survive the suite-level restores in this
+      // environment; release it here or later tests inherit the denial.
+      deniedStorage.mockRestore();
+    }
+  });
+
+  it('escalates to shared recovery once the guarded reload is exhausted', async () => {
+    sessionStorage.setItem('lacuna:route-import-reload', window.location.href);
+    recoverFromChunkFailure.mockResolvedValue(true);
     await failedRoute();
+
+    await waitFor(() => expect(recoverFromChunkFailure).toHaveBeenCalledOnce());
+    // Recovery taking over replaces the document itself, so the boundary must
+    // not take the route back while the claimed recovery runs, and the route
+    // path itself may not piggyback a second bare reload.
+    expect(screen.queryByText('Something went wrong')).not.toBeInTheDocument();
+    expect(window.location.reload).not.toHaveBeenCalled();
+  });
+
+  it('keeps the error boundary when shared recovery is unavailable instead of looping', async () => {
+    sessionStorage.setItem('lacuna:route-import-reload', window.location.href);
+    await failedRoute();
+
+    await waitFor(() => expect(recoverFromChunkFailure).toHaveBeenCalledOnce());
     expect(await screen.findByText('Something went wrong')).toBeInTheDocument();
     expect(window.location.reload).not.toHaveBeenCalled();
   });

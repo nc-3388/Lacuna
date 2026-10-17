@@ -1,4 +1,5 @@
 import { lazy, useState, type ComponentType } from 'react';
+import { recoverFromChunkFailure } from '../pwa/staleChunkRecovery';
 
 type RouteModule = { default: ComponentType };
 export type RouteLoader = () => Promise<RouteModule>;
@@ -55,7 +56,17 @@ function recoverRouteImport(error: unknown): Promise<never> {
   try {
     // Persist before reloading. If storage is unavailable, keep the boundary rather
     // than risk a reload loop. Only a successful load of this URL clears the guard.
-    if (sessionStorage.getItem(RELOAD_KEY)) throw error;
+    if (sessionStorage.getItem(RELOAD_KEY)) {
+      // A reload already ran for this URL and the chunk still failed to fetch:
+      // plain reloads keep receiving whatever the service worker and its caches
+      // hold, so the guard is the signal to clear that state for the current
+      // deployment instead. The shared claim throttles repeats; a denial keeps
+      // the boundary from turning the failure into a reload loop.
+      return recoverFromChunkFailure().then((recovered) => {
+        if (recovered) return new Promise<never>(() => {});
+        throw error;
+      });
+    }
     sessionStorage.setItem(RELOAD_KEY, window.location.href);
   } catch {
     throw error;
