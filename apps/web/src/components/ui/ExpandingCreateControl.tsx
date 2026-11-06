@@ -54,6 +54,10 @@ export function ExpandingCreateControl({
   const body = useRef<HTMLDivElement>(null);
   const surface = useRef<HTMLDivElement>(null);
   const [formHeight, setFormHeight] = useState<number>();
+  // Hide the inner scroller's own scrollbar while the surface settles on its new
+  // height: the growing form transiently overflows the scroller, and the flash
+  // of chrome is the defect even though the overflow itself resolves.
+  const [settling, setSettling] = useState(false);
   useLayoutEffect(() => {
     const element = body.current;
     if (!element || !open) return;
@@ -131,9 +135,14 @@ export function ExpandingCreateControl({
           borderRadius: open ? 36 : triggerHeight / 2,
         }}
         transition={transition}
-        // Keep drafts and selection alive until the shape has actually closed.
+        onAnimationStart={() => {
+          if (multiplier > 0) setSettling(true);
+        }}
+        // Keep drafts and selection alive until the shape has actually closed,
+        // and restore the inner scroller's scrollbar once it has settled.
         onAnimationComplete={() => {
           if (!open) setRetainForm(false);
+          setSettling(false);
         }}
         // The closed button uses an inset ring; the open form is a flat card.
         // Only the inner form scrolls: autofocus must not scroll the growing shell and its label.
@@ -172,7 +181,7 @@ export function ExpandingCreateControl({
         </motion.button>
         <div
           data-flow-expansion-content
-          className="pointer-events-none absolute inset-0"
+          className="pointer-events-none absolute inset-0 overflow-clip"
           inert={!open}
           aria-hidden={!open || undefined}
           onKeyDown={(event) => {
@@ -195,7 +204,7 @@ export function ExpandingCreateControl({
               transition={{ duration: 0.12 * multiplier }}
             >
               <div
-                className="scroll-edge-fade overflow-y-auto overscroll-contain text-left"
+                className={`scroll-edge-fade overflow-y-auto overscroll-contain text-left ${settling ? '[scrollbar-width:none] [&::-webkit-scrollbar]:hidden' : ''}`}
                 style={{
                   maxHeight:
                     availableHeight === undefined ? undefined : availableHeight - triggerHeight,
