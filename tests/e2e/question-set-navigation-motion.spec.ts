@@ -1,5 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 import type { QuestionSet } from '@lacuna/core/questions/questionSets';
+import sharp from 'sharp';
 import { createCourse, enterFreshLacuna } from './fixtures/lacunaApp';
 
 async function openSet(page: Page) {
@@ -90,6 +91,50 @@ async function openSet(page: Page) {
   await page.goto(`/#/course/${courseId}/question-sets/${content.id}`);
   await expect(page.getByRole('heading', { name: 'Cells', exact: true })).toBeVisible();
 }
+
+test('the focused answer outline is visible on all sides after navigating', async ({
+  page,
+}, testInfo) => {
+  await openSet(page);
+  // With reduced motion, the height wrapper keeps clipping even after navigation settles.
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.getByRole('button', { name: 'Start', exact: true }).click();
+  await page.getByRole('button', { name: 'Next', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Q1 (b)', exact: true })).toBeVisible();
+  const answer = page.getByRole('textbox', { name: 'Your answer', exact: true });
+  await expect(answer).toBeFocused();
+  const { left, right, top, bottom, outset } = await answer.evaluate((field) => {
+    const { left, right, top, bottom } = field.getBoundingClientRect();
+    const { outlineOffset, outlineWidth } = getComputedStyle(field);
+    return {
+      left,
+      right,
+      top,
+      bottom,
+      outset: parseFloat(outlineOffset) + parseFloat(outlineWidth) / 2,
+    };
+  });
+  const screenshot = await page.screenshot({ scale: 'css' });
+  await testInfo.attach('Focused answer after navigation', {
+    body: screenshot,
+    contentType: 'image/png',
+  });
+  const { data, info } = await sharp(screenshot)
+    .removeAlpha()
+    .raw()
+    .toBuffer({ resolveWithObject: true });
+  const pixel = (x: number, y: number) => {
+    const index = (Math.floor(y) * info.width + Math.floor(x)) * info.channels;
+    return [...data.subarray(index, index + info.channels)];
+  };
+  const centreX = (left + right) / 2;
+  const centreY = (top + bottom) / 2;
+  const ring = pixel(centreX, top - outset);
+  expect(ring).not.toEqual(pixel(centreX, top - outset - 4));
+  expect(pixel(left - outset, centreY), 'left edge').toEqual(ring);
+  expect(pixel(right + outset, centreY), 'right edge').toEqual(ring);
+  expect(pixel(centreX, bottom + outset), 'bottom edge').toEqual(ring);
+});
 
 for (const width of [1280, 390]) {
   test(`navigation retains draft answers in both directions at ${width}px`, async ({ page }) => {
