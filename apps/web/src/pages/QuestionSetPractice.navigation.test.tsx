@@ -156,6 +156,7 @@ describe('QuestionSetPractice navigation and focus', () => {
     expect(screen.getByRole('heading', { name: 'Q1 (a)' })).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Submit paper' }));
     const confirm = await screen.findByRole('button', { name: 'Submit unanswered' });
+    expect(confirm.closest('.qs-blank-confirm')).not.toBeNull();
     fireEvent.keyDown(confirm, { key: 'Enter', ctrlKey: true });
     expect(confirm).toBeInTheDocument();
     expect((await getQuestionSetAttempt(attempt.id))?.status).toBe('answering');

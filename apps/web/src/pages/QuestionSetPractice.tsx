@@ -508,7 +508,7 @@ function PracticeWorkspace({
           {!marking ? (
             <>
               {blankConfirmation.open ? (
-                <div ref={blankConfirmation.ref}>
+                <div ref={blankConfirmation.ref} className="qs-blank-confirm">
                   <ConfirmInline
                     message="Some parts are unanswered."
                     confirmLabel="Submit unanswered"

@@ -246,6 +246,13 @@
   gap: 8px;
   margin-left: auto;
 }
+/* The unanswered confirmation replaces the primary actions in the footer, so it
+   needs the same share of the footer row. Otherwise the footer leaves it
+   shrink-wrapped and the message wraps one letter per line. */
+.qs-blank-confirm {
+  min-width: min(22rem, 100%);
+  flex: 1 1 22rem;
+}
 .qs-shortcut {
   font-family: var(--font-body);
   font-size: 11px;
